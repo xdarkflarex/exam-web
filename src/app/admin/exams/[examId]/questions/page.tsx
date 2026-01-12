@@ -62,12 +62,14 @@ export default function ExamQuestionsPage() {
 
       setExamInfo(exam)
 
-      // Fetch exam questions with question details and answers
+      // PHASE B: Fetch exam questions via exam_questions with proper JOIN
+      // This query follows the specified structure for preview without creating attempts
       const { data: examQuestions, error: eqError } = await supabase
         .from('exam_questions')
         .select(`
           order_in_part,
-          questions (
+          question_id,
+          questions!inner (
             id,
             content,
             question_type,
@@ -75,10 +77,10 @@ export default function ExamQuestionsPage() {
           )
         `)
         .eq('exam_id', examId)
-        .order('part_number', { ascending: true })
         .order('order_in_part', { ascending: true })
 
       if (eqError) {
+        console.error('Exam questions fetch error:', eqError)
         setError('Không thể tải câu hỏi')
         setLoading(false)
         return
@@ -89,15 +91,23 @@ export default function ExamQuestionsPage() {
         .map((eq: any) => eq.questions?.id)
         .filter(Boolean)
 
-      // Fetch all answers
+      if (questionIds.length === 0) {
+        setQuestions([])
+        setLoading(false)
+        return
+      }
+
+      // Fetch all answers for the questions
       const { data: allAnswers, error: answersError } = await supabase
         .from('answers')
         .select('id, question_id, content, is_correct, order_index')
         .in('question_id', questionIds)
+        .order('question_id')
         .order('order_index', { ascending: true })
 
       if (answersError) {
         console.error('Answers fetch error:', answersError)
+        // Continue without answers if fetch fails
       }
 
       // Build answers map
@@ -109,7 +119,7 @@ export default function ExamQuestionsPage() {
         answersByQuestion[answer.question_id].push(answer)
       }
 
-      // Build questions array
+      // Build questions array - PHASE B: Read-only preview data
       const formattedQuestions: Question[] = examQuestions.map((eq: any) => {
         const q = eq.questions
         return {

@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
-import { Question, ExamData, ExamMeta } from '@/types'
+import { ExamData } from '@/types'
 import ExamRunner from '@/components/ExamRunner'
+import { getExamQuestionsForStudent } from '@/lib/exam/questions'
 
 interface ExamAttempt {
   id: string
@@ -33,7 +34,10 @@ export default function ExamEntryPage() {
 
   const fetchExamData = async () => {
     try {
-      // Step 1: Fetch exam attempt
+      // Debug: Log attemptId from URL
+      console.log('🔍 Student Exam Flow - attemptId from URL:', attemptId)
+
+      // Step 1: Fetch exam attempt - ONLY valid source of examId
       const { data: attemptData, error: attemptError } = await supabase
         .from('exam_attempts')
         .select('id, exam_id, student_id, start_time, status')
@@ -41,122 +45,55 @@ export default function ExamEntryPage() {
         .single()
 
       if (attemptError) {
-        console.error('Attempt fetch error:', attemptError)
+        console.error('❌ Attempt fetch error:', attemptError)
+        console.error('❌ Failed to get exam_id from exam_attempts for attemptId:', attemptId)
         setError('Không tìm thấy bài thi')
         setLoading(false)
         return
       }
 
+      if (!attemptData || !attemptData.exam_id) {
+        console.error('❌ No exam_id found in attempt data:', attemptData)
+        setError('Dữ liệu bài thi không hợp lệ')
+        setLoading(false)
+        return
+      }
+
       setAttempt(attemptData)
+      
+      // ONLY valid examId source: exam_attempts.exam_id
       const examId = attemptData.exam_id
+      console.log('✅ examId from exam_attempts:', examId)
 
-      // Step 2: Fetch exam info
-      const { data: examInfo, error: examError } = await supabase
-        .from('exams')
-        .select('id, title, duration, subject')
-        .eq('id', examId)
-        .single()
+      // Step 2: Use canonical function to fetch exam questions
+      const { examData, error: questionsError } = await getExamQuestionsForStudent(examId)
 
-      if (examError) {
-        console.error('Exam fetch error:', examError)
-        setError('Không tìm thấy thông tin đề thi')
+      if (questionsError || !examData) {
+        console.error('❌ Questions fetch error:', questionsError)
+        setError(questionsError || 'Không thể tải câu hỏi')
         setLoading(false)
         return
       }
 
-      const examMeta: ExamMeta = {
-        title: examInfo.title,
-        duration: examInfo.duration,
-        subject: examInfo.subject
-      }
+      // Debug: Log questions count
+      const totalQuestions = examData.part1.length + examData.part2.length + examData.part3.length
+      console.log('✅ Questions loaded successfully:')
+      console.log('   - Part 1:', examData.part1.length)
+      console.log('   - Part 2:', examData.part2.length) 
+      console.log('   - Part 3:', examData.part3.length)
+      console.log('   - Total questions:', totalQuestions)
 
-      // Step 3: Fetch exam_questions with questions joined
-      const { data: examQuestions, error: eqError } = await supabase
-        .from('exam_questions')
-        .select(`
-          part_number,
-          order_in_part,
-          questions (
-            id,
-            content,
-            question_type,
-            explanation,
-            tikz_image_url
-          )
-        `)
-        .eq('exam_id', examId)
-        .order('part_number', { ascending: true })
-        .order('order_in_part', { ascending: true })
-
-      if (eqError) {
-        console.error('Exam questions fetch error:', eqError)
-        setError('Không thể tải câu hỏi')
+      if (totalQuestions === 0) {
+        console.warn('⚠️ No questions found for examId:', examId)
+        setError('Đề thi chưa có câu hỏi')
         setLoading(false)
         return
       }
 
-      // Step 4: Get all question IDs for fetching answers
-      const questionIds = examQuestions
-        .map((eq: any) => eq.questions?.id)
-        .filter(Boolean)
-
-      // Step 5: Fetch answers for all questions
-      const { data: allAnswers, error: answersError } = await supabase
-        .from('answers')
-        .select('id, question_id, content, is_correct, order_index')
-        .in('question_id', questionIds)
-        .order('order_index', { ascending: true })
-
-      if (answersError) {
-        console.error('Answers fetch error:', answersError)
-      }
-
-      // Step 6: Group answers by question_id
-      const answersByQuestion: Record<string, any[]> = {}
-      if (allAnswers) {
-        for (const answer of allAnswers) {
-          if (!answersByQuestion[answer.question_id]) {
-            answersByQuestion[answer.question_id] = []
-          }
-          answersByQuestion[answer.question_id].push(answer)
-        }
-      }
-
-      // Step 7: Build questions with answers and group by part
-      const part1: Question[] = []
-      const part2: Question[] = []
-      const part3: Question[] = []
-
-      for (const eq of examQuestions) {
-        const q = eq.questions as any
-        if (!q) continue
-
-        const question: Question = {
-          id: q.id,
-          content: q.content,
-          question_type: q.question_type,
-          explanation: q.explanation,
-          part_number: eq.part_number,
-          order_in_part: eq.order_in_part,
-          tikz_image_url: q.tikz_image_url,
-          answers: q.question_type === 'multiple_choice' 
-            ? answersByQuestion[q.id] || []
-            : undefined
-        }
-
-        if (eq.part_number === 1) {
-          part1.push(question)
-        } else if (eq.part_number === 2) {
-          part2.push(question)
-        } else if (eq.part_number === 3) {
-          part3.push(question)
-        }
-      }
-
-      setExamData({ part1, part2, part3, examMeta })
+      setExamData(examData)
       setLoading(false)
     } catch (err) {
-      console.error('Unexpected error:', err)
+      console.error('❌ Unexpected error in fetchExamData:', err)
       setError('Lỗi kết nối')
       setLoading(false)
     }

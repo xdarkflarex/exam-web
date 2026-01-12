@@ -40,7 +40,11 @@ export default function AdminExamDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [disabling, setDisabling] = useState(false)
+  const [canHardDelete, setCanHardDelete] = useState(false)
+  const [studentAttemptCount, setStudentAttemptCount] = useState(0)
 
   useEffect(() => {
     if (examId) {
@@ -93,7 +97,8 @@ export default function AdminExamDetailPage() {
           submit_time,
           profiles!student_id (
             full_name,
-            email
+            email,
+            role
           )
         `)
         .eq('exam_id', examId)
@@ -119,6 +124,13 @@ export default function AdminExamDetailPage() {
         student_email: attempt.profiles?.email || ''
       }))
 
+      // Check for student attempts to determine if hard delete is allowed
+      const studentAttempts = (data || []).filter((attempt: any) => 
+        attempt.profiles?.role === 'student'
+      )
+      
+      setStudentAttemptCount(studentAttempts.length)
+      setCanHardDelete(studentAttempts.length === 0)
       setAttempts(formattedAttempts)
       setLoading(false)
     } catch (err) {
@@ -174,12 +186,6 @@ export default function AdminExamDetailPage() {
   }
 
   const handleDeleteExam = async () => {
-    if (attempts.length > 0) {
-      setError('Không thể xóa đề thi đã có học sinh làm bài')
-      setShowDeleteConfirm(false)
-      return
-    }
-
     setDeleting(true)
     setError(null)
 
@@ -219,6 +225,41 @@ export default function AdminExamDetailPage() {
       setError('Lỗi kết nối')
       setDeleting(false)
       setShowDeleteConfirm(false)
+    }
+  }
+
+  const handleDisableExam = async () => {
+    setDisabling(true)
+    setError(null)
+
+    try {
+      const { error } = await supabase
+        .from('exams')
+        .update({ is_published: false })
+        .eq('id', examId)
+
+      if (error) {
+        console.error('Disable exam error:', error)
+        setError('Không thể ngừng sử dụng đề thi')
+        setDisabling(false)
+        setShowDisableConfirm(false)
+        return
+      }
+
+      // Update local state
+      if (examInfo) {
+        setExamInfo({ ...examInfo, is_published: false })
+      }
+      
+      setShowDisableConfirm(false)
+      setDisabling(false)
+      setError(null)
+      // Show success message or redirect if needed
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      setError('Lỗi kết nối')
+      setDisabling(false)
+      setShowDisableConfirm(false)
     }
   }
 
@@ -304,13 +345,23 @@ export default function AdminExamDetailPage() {
                 <Eye className="w-4 h-4" />
                 Xem danh sách câu hỏi
               </button>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Xóa đề thi
-              </button>
+              {canHardDelete ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Xóa đề thi
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowDisableConfirm(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Ngừng sử dụng đề
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -538,14 +589,6 @@ export default function AdminExamDetailPage() {
                 Xóa đề thi sẽ xóa toàn bộ câu hỏi gắn với đề này. Bạn chắc chắn không?
               </p>
               
-              {attempts.length > 0 && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    ⚠️ Đề thi này đã có {attempts.length} lượt thi. Không thể xóa.
-                  </p>
-                </div>
-              )}
-              
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
@@ -556,10 +599,54 @@ export default function AdminExamDetailPage() {
                 </button>
                 <button
                   onClick={handleDeleteExam}
-                  disabled={deleting || attempts.length > 0}
+                  disabled={deleting}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {deleting ? 'Đang xóa...' : 'Xóa đề thi'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Disable Confirmation Dialog */}
+        {showDisableConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Ngừng sử dụng đề thi</h3>
+                  <p className="text-sm text-slate-600">Đề thi sẽ không còn hiển thị với học sinh</p>
+                </div>
+              </div>
+              
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ Đề đã có {studentAttemptCount} học sinh thi. Không thể xóa hoàn toàn.
+                </p>
+              </div>
+              
+              <p className="text-slate-700 mb-6">
+                Ngừng sử dụng đề thi sẽ ẩn đề khỏi danh sách của học sinh. Bạn có thể xuất bản lại sau này.
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDisableConfirm(false)}
+                  disabled={disabling}
+                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleDisableExam}
+                  disabled={disabling}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {disabling ? 'Đang xử lý...' : 'Ngừng sử dụng'}
                 </button>
               </div>
             </div>
