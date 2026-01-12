@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BookOpen, Clock, Eye, Users, CheckCircle, XCircle } from 'lucide-react'
+import { BookOpen, Clock, Eye, Users, CheckCircle, XCircle, Plus } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
 
 interface Exam {
@@ -133,12 +133,21 @@ export default function AdminExamsPage() {
             <h1 className="text-2xl font-bold text-slate-800">Danh sách bài thi</h1>
             <p className="text-slate-600">{exams.length} bài thi</p>
           </div>
-          <button
-            onClick={() => router.push('/admin')}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            ← Quay lại
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/admin/exams/create')}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Tạo bài thi
+            </button>
+            <button
+              onClick={() => router.push('/admin')}
+              className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              ← Quay lại
+            </button>
+          </div>
         </div>
 
         {exams.length === 0 ? (

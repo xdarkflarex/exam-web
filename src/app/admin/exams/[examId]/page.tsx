@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BookOpen, User, Clock, CheckCircle, XCircle, Eye, Calendar } from 'lucide-react'
+import { BookOpen, User, Clock, CheckCircle, XCircle, Eye, Calendar, FileText, List, Settings, Trash2 } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
 
 interface ExamAttempt {
@@ -25,6 +25,8 @@ interface ExamInfo {
   subject: string
   duration: number
   is_published: boolean
+  source_exam: string | null
+  question_count: number
 }
 
 export default function AdminExamDetailPage() {
@@ -37,6 +39,8 @@ export default function AdminExamDetailPage() {
   const [attempts, setAttempts] = useState<ExamAttempt[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (examId) {
@@ -48,7 +52,7 @@ export default function AdminExamDetailPage() {
     try {
       const { data, error } = await supabase
         .from('exams')
-        .select('id, title, subject, duration, is_published')
+        .select('id, title, subject, duration, is_published, source_exam')
         .eq('id', examId)
         .single()
 
@@ -58,7 +62,16 @@ export default function AdminExamDetailPage() {
         return
       }
 
-      setExamInfo(data)
+      // Get question count
+      const { count } = await supabase
+        .from('exam_questions')
+        .select('*', { count: 'exact', head: true })
+        .eq('exam_id', examId)
+
+      setExamInfo({
+        ...data,
+        question_count: count || 0
+      })
     } catch (err) {
       console.error('Unexpected error:', err)
       setError('Lỗi kết nối')
@@ -160,6 +173,55 @@ export default function AdminExamDetailPage() {
     )
   }
 
+  const handleDeleteExam = async () => {
+    if (attempts.length > 0) {
+      setError('Không thể xóa đề thi đã có học sinh làm bài')
+      setShowDeleteConfirm(false)
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+
+    try {
+      // 1. Delete exam_questions first
+      const { error: questionsError } = await supabase
+        .from('exam_questions')
+        .delete()
+        .eq('exam_id', examId)
+
+      if (questionsError) {
+        console.error('Delete exam_questions error:', questionsError)
+        setError('Không thể xóa câu hỏi của đề thi')
+        setDeleting(false)
+        setShowDeleteConfirm(false)
+        return
+      }
+
+      // 2. Delete exam
+      const { error: examError } = await supabase
+        .from('exams')
+        .delete()
+        .eq('id', examId)
+
+      if (examError) {
+        console.error('Delete exam error:', examError)
+        setError('Không thể xóa đề thi')
+        setDeleting(false)
+        setShowDeleteConfirm(false)
+        return
+      }
+
+      // Success - redirect to exams list
+      router.push('/admin/exams?deleted=true')
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      setError('Lỗi kết nối')
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-sky-50">
@@ -210,7 +272,50 @@ export default function AdminExamDetailPage() {
           </button>
         </div>
 
-        {/* Exam Info Card */}
+        {/* Source Exam & Questions Info */}
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {examInfo.source_exam && (
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-slate-500" />
+                  <span className="text-sm text-slate-600">Đề gốc:</span>
+                  <span className="font-medium text-slate-800">{examInfo.source_exam}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <List className="w-5 h-5 text-slate-500" />
+                <span className="text-sm text-slate-600">Số câu hỏi:</span>
+                <span className="font-medium text-slate-800">{examInfo.question_count}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push(`/admin/exams/${examId}/publish`)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Cấu hình & Xuất bản
+              </button>
+              <button
+                onClick={() => router.push(`/admin/exams/${examId}/questions`)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-medium hover:bg-indigo-100 transition-colors"
+              >
+                <Eye className="w-4 h-4" />
+                Xem danh sách câu hỏi
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa đề thi
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Exam Stats Card */}
         <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center">
@@ -414,6 +519,52 @@ export default function AdminExamDetailPage() {
             </>
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Xác nhận xóa đề thi</h3>
+                  <p className="text-sm text-slate-600">Hành động này không thể hoàn tác</p>
+                </div>
+              </div>
+              
+              <p className="text-slate-700 mb-6">
+                Xóa đề thi sẽ xóa toàn bộ câu hỏi gắn với đề này. Bạn chắc chắn không?
+              </p>
+              
+              {attempts.length > 0 && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ Đề thi này đã có {attempts.length} lượt thi. Không thể xóa.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleDeleteExam}
+                  disabled={deleting || attempts.length > 0}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Đang xóa...' : 'Xóa đề thi'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

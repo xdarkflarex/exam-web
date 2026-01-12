@@ -4,12 +4,17 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Trophy, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare } from 'lucide-react'
-import { Question, Answer } from '@/types'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import QuestionImage from '@/components/QuestionImage'
 import FeedbackModal from '@/components/FeedbackModal'
 import Toast from '@/components/Toast'
-import { isAdmin, isStudent } from '@/lib/auth/roles'
+import {
+  AttemptQuestionView,
+  buildAttemptView,
+  prepareRawAttemptData,
+  RawAnswer,
+  RawStudentAnswer
+} from '@/lib/attempts/attemptView'
 
 interface ExamAttempt {
   id: string
@@ -23,21 +28,6 @@ interface ExamAttempt {
   start_time: string
 }
 
-interface StudentAnswerData {
-  id: string
-  question_id: string
-  selected_answer: string | null
-  selected_answers: Record<string, boolean> | null
-  text_answer: string | null
-  is_correct: boolean
-  score: number
-}
-
-interface QuestionWithAnswer extends Question {
-  studentAnswer?: StudentAnswerData
-  correctAnswer?: Answer
-}
-
 export default function ResultPage() {
   const params = useParams()
   const router = useRouter()
@@ -45,7 +35,7 @@ export default function ResultPage() {
   const supabase = createClient()
 
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
-  const [questions, setQuestions] = useState<QuestionWithAnswer[]>([])
+  const [questions, setQuestions] = useState<AttemptQuestionView[]>([])
   const [examTitle, setExamTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -102,7 +92,7 @@ export default function ResultPage() {
 
       const { data: studentAnswers, error: saError } = await supabase
         .from('student_answers')
-        .select('id, question_id, selected_answer, selected_answers, text_answer, is_correct, score')
+        .select('question_id, selected_answer, selected_answers, text_answer, is_correct')
         .eq('attempt_id', attemptId)
 
       if (saError) {
@@ -119,6 +109,7 @@ export default function ResultPage() {
             content,
             question_type,
             explanation,
+            solution,
             tikz_image_url
           )
         `)
@@ -145,48 +136,15 @@ export default function ResultPage() {
         console.error('Answers fetch error:', answersError)
       }
 
-      const answersByQuestion: Record<string, Answer[]> = {}
-      if (allAnswers) {
-        for (const answer of allAnswers) {
-          if (!answersByQuestion[answer.question_id]) {
-            answersByQuestion[answer.question_id] = []
-          }
-          answersByQuestion[answer.question_id].push(answer)
-        }
-      }
-
-      const studentAnswerMap: Record<string, StudentAnswerData> = {}
-      if (studentAnswers) {
-        for (const sa of studentAnswers) {
-          studentAnswerMap[sa.question_id] = sa
-        }
-      }
-
-      const questionsWithAnswers: QuestionWithAnswer[] = []
-
-      for (const eq of examQuestions) {
-        const q = eq.questions as any
-        if (!q) continue
-
-        const answers = answersByQuestion[q.id] || []
-        const correctAnswer = answers.find(a => a.is_correct)
-        const studentAnswer = studentAnswerMap[q.id]
-
-        questionsWithAnswers.push({
-          id: q.id,
-          content: q.content,
-          question_type: q.question_type,
-          explanation: q.explanation,
-          tikz_image_url: q.tikz_image_url,
-          part_number: eq.part_number,
-          order_in_part: eq.order_in_part,
-          answers: answers,
-          studentAnswer: studentAnswer,
-          correctAnswer: correctAnswer
-        })
-      }
-
-      setQuestions(questionsWithAnswers)
+      // Use unified view model
+      const rawData = prepareRawAttemptData({
+        examQuestions: examQuestions as any,
+        studentAnswers: (studentAnswers || []) as RawStudentAnswer[],
+        allAnswers: (allAnswers || []) as RawAnswer[]
+      })
+      
+      const viewQuestions = buildAttemptView(rawData)
+      setQuestions(viewQuestions)
       setLoading(false)
     } catch (err) {
       console.error('Unexpected error:', err)
@@ -263,28 +221,19 @@ export default function ResultPage() {
     }
   }
 
-  const renderStudentAnswer = (question: QuestionWithAnswer) => {
-    const studentAns = question.studentAnswer
-    if (!studentAns) return <span className="text-slate-400 italic">Không trả lời</span>
-
-    if (question.question_type === 'multiple_choice' && studentAns.selected_answer) {
-      const selectedAnswer = question.answers?.find(a => a.id === studentAns.selected_answer)
-      return selectedAnswer ? (
-        <MathContent content={selectedAnswer.content} className="text-slate-700 dark:text-slate-300" />
-      ) : <span className="text-slate-400 italic">Không trả lời</span>
+  const renderStudentAnswer = (question: AttemptQuestionView) => {
+    if (!question.studentAnswerText) {
+      return <span className="text-slate-400 italic">Không trả lời</span>
     }
 
-    if (question.question_type === 'true_false' && studentAns.selected_answers) {
-      const answers = Object.entries(studentAns.selected_answers)
-      if (answers.length === 0) return <span className="text-slate-400 italic">Không trả lời</span>
-      
+    if (question.questionType === 'true_false' && question.trueFalseDetails) {
       return (
         <div className="space-y-1">
-          {answers.map(([index, value], idx) => (
+          {question.trueFalseDetails.map((detail, idx) => (
             <div key={idx} className="text-sm">
-              <span className="font-medium">{String.fromCharCode(97 + parseInt(index))}) </span>
-              <span className={value ? 'text-green-600' : 'text-red-600'}>
-                {value ? 'Đúng' : 'Sai'}
+              <span className="font-medium">{String.fromCharCode(97 + detail.statementIndex)}) </span>
+              <span className={detail.studentAnswer === detail.correctAnswer ? 'text-green-600' : 'text-red-600'}>
+                {detail.studentAnswer === null ? 'Chưa trả lời' : detail.studentAnswer ? 'Đúng' : 'Sai'}
               </span>
             </div>
           ))}
@@ -292,34 +241,34 @@ export default function ResultPage() {
       )
     }
 
-    if (question.question_type === 'short_answer' && studentAns.text_answer) {
-      return <span className="text-slate-700 dark:text-slate-300">{studentAns.text_answer}</span>
-    }
-
-    return <span className="text-slate-400 italic">Không trả lời</span>
+    return <MathContent content={question.studentAnswerText} className="text-slate-700 dark:text-slate-300" />
   }
 
-  const renderQuestionResult = (question: QuestionWithAnswer, index: number) => {
-    const isCorrect = question.studentAnswer?.is_correct
+  const renderQuestionResult = (question: AttemptQuestionView, index: number) => {
+    const questionTypeLabel = question.questionType === 'multiple_choice' 
+      ? 'Trắc nghiệm' 
+      : question.questionType === 'true_false' 
+        ? 'Đúng / Sai' 
+        : 'Trả lời ngắn'
 
     return (
-      <div key={question.id} className="bg-white dark:bg-slate-900 rounded-xl p-6 mb-4 border border-slate-100 dark:border-slate-800">
+      <div key={question.questionId} className="bg-white dark:bg-slate-900 rounded-xl p-6 mb-4 border border-slate-100 dark:border-slate-800">
         <div className="flex items-start gap-3 mb-4">
           <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isCorrect
+            question.isCorrect
               ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
               : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
           }`}>
-            {isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+            {question.isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
           </span>
           <div className="flex-1">
             <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
-              Câu {index + 1}
+              Câu {index + 1} • {questionTypeLabel}
             </div>
             <MathContent content={question.content} className="text-slate-800 dark:text-slate-200 mb-3" />
-            {question.tikz_image_url && (
+            {question.tikzImageUrl && (
               <QuestionImage 
-                src={question.tikz_image_url} 
+                src={question.tikzImageUrl} 
                 alt="Question diagram"
                 className="mb-3"
               />
@@ -328,7 +277,7 @@ export default function ResultPage() {
         </div>
 
         <div className="ml-11">
-          {isCorrect ? (
+          {question.isCorrect ? (
             <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-medium">
               ✓ Bạn làm đúng
             </div>
@@ -339,10 +288,10 @@ export default function ResultPage() {
                 {renderStudentAnswer(question)}
               </div>
 
-              {question.question_type === 'multiple_choice' && question.correctAnswer && (
+              {question.correctAnswerText && (
                 <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                   <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Đáp án đúng:</div>
-                  <MathContent content={question.correctAnswer.content} className="text-slate-800 dark:text-slate-200" />
+                  <MathContent content={question.correctAnswerText} className="text-slate-800 dark:text-slate-200" />
                 </div>
               )}
 
@@ -352,19 +301,26 @@ export default function ResultPage() {
                   <MathContent content={question.explanation} className="text-slate-700 dark:text-slate-300 text-sm" />
                 </div>
               )}
+
+              {question.solution && (
+                <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
+                  <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Lời giải:</div>
+                  <MathContent content={question.solution} className="text-slate-700 dark:text-slate-300 text-sm" />
+                </div>
+              )}
             </div>
           )}
 
           {/* Feedback Button */}
           <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-            {submittedFeedbacks.has(question.id) ? (
+            {submittedFeedbacks.has(question.questionId) ? (
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <CheckCircle2 className="w-4 h-4" />
                 Đã gửi góp ý
               </div>
             ) : (
               <button
-                onClick={() => openFeedbackModal(question.id, index + 1)}
+                onClick={() => openFeedbackModal(question.questionId, index + 1)}
                 className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />

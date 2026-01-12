@@ -6,6 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, User, Clock, CheckCircle, XCircle, BookOpen } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
 import MathContent, { MathProvider } from '@/components/MathContent'
+import { 
+  AttemptQuestionView, 
+  AttemptSummary,
+  buildAttemptViewFromNestedQuery,
+  NestedStudentAnswerRow
+} from '@/lib/attempts/attemptView'
 
 interface AttemptDetail {
   id: string
@@ -23,26 +29,6 @@ interface AttemptDetail {
   exam_subject: string
 }
 
-interface Answer {
-  id: string
-  content: string
-  is_correct: boolean
-  order_index: number
-}
-
-interface QuestionResult {
-  id: string
-  content: string
-  question_type: 'multiple_choice' | 'short_answer'
-  answers: Answer[]
-  correct_answer: string
-  explanation: string | null
-  selected_answer: string | null
-  selected_answers: string[] | null
-  text_answer: string | null
-  is_correct: boolean
-}
-
 export default function AdminAttemptDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -50,7 +36,7 @@ export default function AdminAttemptDetailPage() {
   const supabase = createClient()
   
   const [attemptDetail, setAttemptDetail] = useState<AttemptDetail | null>(null)
-  const [questions, setQuestions] = useState<QuestionResult[]>([])
+  const [questions, setQuestions] = useState<AttemptQuestionView[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -131,6 +117,7 @@ export default function AdminAttemptDetailPage() {
             question_type,
             explanation,
             solution,
+            tikz_image_url,
             answers (
               id,
               content,
@@ -149,24 +136,9 @@ export default function AdminAttemptDetailPage() {
         return
       }
 
-      const formattedQuestions: QuestionResult[] = (data || []).map((item: any) => {
-        const answers = (item.questions.answers || []).sort((a: Answer, b: Answer) => a.order_index - b.order_index)
-        const correctAnswer = answers.find((a: Answer) => a.is_correct)?.id || ''
-        return {
-          id: item.questions.id,
-          content: item.questions.content,
-          question_type: item.questions.question_type,
-          answers: answers,
-          correct_answer: correctAnswer,
-          explanation: item.questions.explanation,
-          selected_answer: item.selected_answer,
-          selected_answers: item.selected_answers,
-          text_answer: item.text_answer,
-          is_correct: item.is_correct
-        }
-      })
-
-      setQuestions(formattedQuestions)
+      // Use unified view model - cast through unknown to handle Supabase's dynamic typing
+      const viewQuestions = buildAttemptViewFromNestedQuery(data as unknown as NestedStudentAnswerRow[])
+      setQuestions(viewQuestions)
       setLoading(false)
     } catch (err) {
       console.error('Unexpected error:', err)
@@ -194,50 +166,64 @@ export default function AdminAttemptDetailPage() {
     return 'text-red-600'
   }
 
-  const renderStudentAnswer = (question: QuestionResult) => {
-    if (question.question_type === 'multiple_choice') {
-      const answers = question.answers || []
-      const studentAnswerId = question.selected_answer
-      const correctAnswerId = question.correct_answer
+  const renderStudentAnswer = (question: AttemptQuestionView) => {
+    // Admin view: ALWAYS show student answer and correct answer
+    // NEVER show explanation/solution (future feature)
+    
+    if (question.questionType === 'multiple_choice') {
+      return (
+        <div className="space-y-3">
+          <div>
+            <span className="text-sm font-medium text-slate-600">Câu trả lời của học sinh:</span>
+            <div className={`mt-1 p-3 rounded-lg border ${
+              question.isCorrect 
+                ? 'bg-green-50 border-green-200 text-green-800' 
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              <MathContent content={question.studentAnswerText || 'Không có câu trả lời'} />
+            </div>
+          </div>
+          {question.correctAnswerText && (
+            <div>
+              <span className="text-sm font-medium text-slate-600">Đáp án đúng:</span>
+              <div className="mt-1 p-3 rounded-lg border bg-green-50 border-green-200 text-green-800">
+                <MathContent content={question.correctAnswerText} />
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
 
+    if (question.questionType === 'true_false' && question.trueFalseDetails) {
       return (
         <div className="space-y-2">
-          {answers.map((answer, index) => {
-            const isStudentChoice = answer.id === studentAnswerId
-            const isCorrectChoice = answer.id === correctAnswerId
-            
-            let bgColor = 'bg-slate-50'
-            let textColor = 'text-slate-700'
-            let borderColor = 'border-slate-200'
-            
-            if (isCorrectChoice) {
-              bgColor = 'bg-green-50'
-              textColor = 'text-green-800'
-              borderColor = 'border-green-200'
-            } else if (isStudentChoice && !isCorrectChoice) {
-              bgColor = 'bg-red-50'
-              textColor = 'text-red-800'
-              borderColor = 'border-red-200'
-            }
-
+          {question.trueFalseDetails.map((detail, index) => {
+            const isCorrect = detail.studentAnswer === detail.correctAnswer
             return (
               <div
-                key={answer.id}
-                className={`p-3 rounded-lg border ${bgColor} ${borderColor} ${textColor}`}
+                key={index}
+                className={`p-3 rounded-lg border ${
+                  isCorrect 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-red-50 border-red-200'
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{String.fromCharCode(65 + index)}.</span>
-                  <MathContent content={answer.content} />
-                  {isStudentChoice && (
-                    <span className="ml-auto text-xs font-medium">
-                      {isCorrectChoice ? '✓ Đáp án của học sinh' : '✗ Đáp án của học sinh'}
-                    </span>
-                  )}
-                  {isCorrectChoice && !isStudentChoice && (
-                    <span className="ml-auto text-xs font-medium text-green-600">
-                      ✓ Đáp án đúng
-                    </span>
-                  )}
+                <div className="flex items-start gap-2">
+                  <span className="font-medium text-slate-700">
+                    {String.fromCharCode(97 + detail.statementIndex)})
+                  </span>
+                  <div className="flex-1">
+                    <MathContent content={detail.statementContent} />
+                    <div className="mt-1 text-sm">
+                      <span className={isCorrect ? 'text-green-600' : 'text-red-600'}>
+                        Học sinh: {detail.studentAnswer === null ? 'Chưa trả lời' : detail.studentAnswer ? 'Đúng' : 'Sai'}
+                      </span>
+                      <span className="ml-2 text-green-600">
+                        (Đáp án: {detail.correctAnswer ? 'Đúng' : 'Sai'})
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )
@@ -246,24 +232,27 @@ export default function AdminAttemptDetailPage() {
       )
     }
 
+    // For short_answer - show student answer and model answer (correctAnswerText)
     return (
       <div className="space-y-3">
         <div>
           <span className="text-sm font-medium text-slate-600">Câu trả lời của học sinh:</span>
           <div className={`mt-1 p-3 rounded-lg border ${
-            question.is_correct 
+            question.isCorrect 
               ? 'bg-green-50 border-green-200 text-green-800' 
               : 'bg-red-50 border-red-200 text-red-800'
           }`}>
-            <MathContent content={question.text_answer || 'Không có câu trả lời'} />
+            <MathContent content={question.studentAnswerText || 'Không có câu trả lời'} />
           </div>
         </div>
-        <div>
-          <span className="text-sm font-medium text-slate-600">Đáp án đúng:</span>
-          <div className="mt-1 p-3 rounded-lg border bg-green-50 border-green-200 text-green-800">
-            <MathContent content={question.correct_answer} />
+        {question.correctAnswerText && (
+          <div>
+            <span className="text-sm font-medium text-slate-600">Đáp án mẫu:</span>
+            <div className="mt-1 p-3 rounded-lg border bg-green-50 border-green-200 text-green-800">
+              <MathContent content={question.correctAnswerText} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     )
   }
@@ -400,52 +389,48 @@ export default function AdminAttemptDetailPage() {
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-slate-800">Chi tiết từng câu hỏi</h2>
             
-            {questions.map((question, index) => (
-              <div key={question.id} className="bg-white rounded-xl p-6 shadow-lg border border-slate-100">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    question.is_correct 
-                      ? 'bg-green-100 text-green-600' 
-                      : 'bg-red-100 text-red-600'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-slate-500">
-                        Câu {index + 1} • {question.question_type === 'multiple_choice' ? 'Trắc nghiệm' : 'Tự luận'}
-                      </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        question.is_correct 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {question.is_correct ? 'Đúng' : 'Sai'}
-                      </span>
+            {questions.map((question, index) => {
+              const questionTypeLabel = question.questionType === 'multiple_choice' 
+                ? 'Trắc nghiệm' 
+                : question.questionType === 'true_false' 
+                  ? 'Đúng / Sai' 
+                  : 'Trả lời ngắn'
+              
+              return (
+                <div key={question.questionId} className="bg-white rounded-xl p-6 shadow-lg border border-slate-100">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      question.isCorrect 
+                        ? 'bg-green-100 text-green-600' 
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      {index + 1}
                     </div>
-                    <div className="prose max-w-none mb-4">
-                      <MathContent content={question.content} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="ml-12">
-                  {renderStudentAnswer(question)}
-                  
-                  {question.explanation && (
-                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <BookOpen className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800">Giải thích</span>
+                        <span className="text-sm font-medium text-slate-500">
+                          Câu {index + 1} • {questionTypeLabel}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          question.isCorrect 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {question.isCorrect ? 'Đúng' : 'Sai'}
+                        </span>
                       </div>
-                      <div className="text-blue-700">
-                        <MathContent content={question.explanation} />
+                      <div className="prose max-w-none mb-4">
+                        <MathContent content={question.content} />
                       </div>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="ml-12">
+                    {renderStudentAnswer(question)}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>

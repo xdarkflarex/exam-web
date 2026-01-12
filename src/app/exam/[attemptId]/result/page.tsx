@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Trophy, CheckCircle2, XCircle, ArrowLeft, BookOpen } from 'lucide-react'
-import { Question, Answer } from '@/types'
 import MathContent, { MathProvider } from '@/components/MathContent'
+import {
+  AttemptQuestionView,
+  buildAttemptView,
+  prepareRawAttemptData,
+  RawAnswer,
+  RawStudentAnswer
+} from '@/lib/attempts/attemptView'
 
 interface ExamAttempt {
   id: string
@@ -18,21 +24,6 @@ interface ExamAttempt {
   submit_time: string
 }
 
-interface StudentAnswerData {
-  id: string
-  question_id: string
-  selected_answer: string | null
-  selected_answers: Record<string, boolean> | null
-  text_answer: string | null
-  is_correct: boolean
-  score: number
-}
-
-interface QuestionWithAnswer extends Question {
-  studentAnswer?: StudentAnswerData
-  correctAnswer?: Answer
-}
-
 export default function ExamResultPage() {
   const params = useParams()
   const router = useRouter()
@@ -40,7 +31,7 @@ export default function ExamResultPage() {
   const supabase = createClient()
 
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
-  const [questions, setQuestions] = useState<QuestionWithAnswer[]>([])
+  const [questions, setQuestions] = useState<AttemptQuestionView[]>([])
   const [examTitle, setExamTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,7 +80,7 @@ export default function ExamResultPage() {
       // Fetch student answers
       const { data: studentAnswers, error: saError } = await supabase
         .from('student_answers')
-        .select('id, question_id, selected_answer, selected_answers, text_answer, is_correct, score')
+        .select('question_id, selected_answer, selected_answers, text_answer, is_correct')
         .eq('attempt_id', attemptId)
 
       if (saError) {
@@ -106,7 +97,8 @@ export default function ExamResultPage() {
             id,
             content,
             question_type,
-            explanation
+            explanation,
+            solution
           )
         `)
         .eq('exam_id', attemptData.exam_id)
@@ -133,50 +125,15 @@ export default function ExamResultPage() {
         console.error('Answers fetch error:', answersError)
       }
 
-      // Build answers map
-      const answersByQuestion: Record<string, Answer[]> = {}
-      if (allAnswers) {
-        for (const answer of allAnswers) {
-          if (!answersByQuestion[answer.question_id]) {
-            answersByQuestion[answer.question_id] = []
-          }
-          answersByQuestion[answer.question_id].push(answer)
-        }
-      }
-
-      // Build student answers map
-      const studentAnswerMap: Record<string, StudentAnswerData> = {}
-      if (studentAnswers) {
-        for (const sa of studentAnswers) {
-          studentAnswerMap[sa.question_id] = sa
-        }
-      }
-
-      // Build questions with answers
-      const questionsWithAnswers: QuestionWithAnswer[] = []
-
-      for (const eq of examQuestions) {
-        const q = eq.questions as any
-        if (!q) continue
-
-        const answers = answersByQuestion[q.id] || []
-        const correctAnswer = answers.find(a => a.is_correct)
-        const studentAnswer = studentAnswerMap[q.id]
-
-        questionsWithAnswers.push({
-          id: q.id,
-          content: q.content,
-          question_type: q.question_type,
-          explanation: q.explanation,
-          part_number: eq.part_number,
-          order_in_part: eq.order_in_part,
-          answers: answers,
-          studentAnswer: studentAnswer,
-          correctAnswer: correctAnswer
-        })
-      }
-
-      setQuestions(questionsWithAnswers)
+      // Use unified view model
+      const rawData = prepareRawAttemptData({
+        examQuestions: examQuestions as any,
+        studentAnswers: (studentAnswers || []) as RawStudentAnswer[],
+        allAnswers: (allAnswers || []) as RawAnswer[]
+      })
+      
+      const viewQuestions = buildAttemptView(rawData)
+      setQuestions(viewQuestions)
       setLoading(false)
     } catch (err) {
       console.error('Unexpected error:', err)
@@ -191,18 +148,16 @@ export default function ExamResultPage() {
     return 'text-red-600 dark:text-red-400'
   }
 
-  const renderQuestionResult = (question: QuestionWithAnswer, index: number) => {
-    const isCorrect = question.studentAnswer?.is_correct
-
+  const renderQuestionResult = (question: AttemptQuestionView, index: number) => {
     return (
-      <div key={question.id} className="bg-white dark:bg-slate-900 rounded-xl p-6 mb-4 border border-slate-100 dark:border-slate-800">
+      <div key={question.questionId} className="bg-white dark:bg-slate-900 rounded-xl p-6 mb-4 border border-slate-100 dark:border-slate-800">
         <div className="flex items-start gap-3 mb-4">
           <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-            isCorrect
+            question.isCorrect
               ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
               : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
           }`}>
-            {isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+            {question.isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
           </span>
           <div className="flex-1">
             <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
@@ -212,16 +167,16 @@ export default function ExamResultPage() {
           </div>
         </div>
 
-        {isCorrect ? (
+        {question.isCorrect ? (
           <div className="ml-11 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm">
             Bạn làm đúng!
           </div>
         ) : (
           <div className="ml-11 space-y-3">
-            {question.question_type === 'multiple_choice' && question.correctAnswer && (
+            {question.correctAnswerText && (
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
                 <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Đáp án đúng:</div>
-                <MathContent content={question.correctAnswer.content} className="text-slate-800 dark:text-slate-200" />
+                <MathContent content={question.correctAnswerText} className="text-slate-800 dark:text-slate-200" />
               </div>
             )}
 
@@ -229,6 +184,13 @@ export default function ExamResultPage() {
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                 <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Giải thích:</div>
                 <MathContent content={question.explanation} className="text-slate-700 dark:text-slate-300 text-sm" />
+              </div>
+            )}
+
+            {question.solution && (
+              <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
+                <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Lời giải:</div>
+                <MathContent content={question.solution} className="text-slate-700 dark:text-slate-300 text-sm" />
               </div>
             )}
           </div>
