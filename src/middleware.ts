@@ -123,13 +123,25 @@ export async function middleware(request: NextRequest) {
   // ============================================
   // PUBLIC ROUTES - Allow without authentication
   // ============================================
-  const publicRoutes = ['/login', '/signup', '/auth/callback']
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+  // IMPORTANT: "/" (root/landing page) is PUBLIC and should NEVER redirect to login
+  const publicRoutes = ['/', '/login', '/signup', '/auth/callback']
+  const isPublicRoute = publicRoutes.some(route => 
+    route === '/' ? pathname === '/' : pathname.startsWith(route)
+  )
 
   // ============================================
   // API ROUTES - Allow API routes for OTP (handled by API auth)
   // ============================================
   if (pathname.startsWith('/api/')) {
+    return response
+  }
+
+  // ============================================
+  // LANDING PAGE "/" - ALWAYS PUBLIC
+  // ============================================
+  // The root path is the landing page and should NEVER redirect to login
+  // Authenticated users can still see the landing page
+  if (pathname === '/') {
     return response
   }
 
@@ -330,11 +342,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/admin', request.url))
   }
 
-  // Root path redirect
-  if (pathname === '/') {
-    const redirectPath = getDefaultRedirectPath(userRole)
-    return NextResponse.redirect(new URL(redirectPath, request.url))
-  }
+  // Root path "/" is PUBLIC - handled by landing page
+  // Do NOT redirect authenticated users from "/" - let them see landing page
+  // They can navigate to dashboard via navbar or CTA buttons
 
   return response
 }
