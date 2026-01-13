@@ -98,7 +98,10 @@ export default function CompleteProfilePage() {
       
       // Check if this is a Google OAuth user (has google in app_metadata.provider)
       const provider = user.app_metadata?.provider
-      const isGoogle = provider === 'google' || user.identities?.some(i => i.provider === 'google')
+      const isGoogle = !!(
+        provider === 'google' ||
+        user.identities?.some(i => i.provider === 'google')
+      )      
       setIsGoogleUser(isGoogle)
       
       // Pre-fill name from Google metadata if available
