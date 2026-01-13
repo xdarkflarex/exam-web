@@ -8,6 +8,7 @@ interface StudentDashboardProps {
     onLogout: () => void;
     history: HistoryEntry[];
     onClearHistory: () => void;
+    onViewResult: (attemptId: string) => void;
     loadingError: string | null;
     exams: Exam[];
 }
@@ -17,6 +18,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
     onLogout, 
     history, 
     onClearHistory, 
+    onViewResult,
     loadingError,
     exams
 }) => {
@@ -112,8 +114,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 </div>
                             ) : (
                                 history.map(item => (
-                                    <div key={item.id} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-4 rounded-xl flex items-center justify-between hover:shadow-md transition-shadow">
-                                        <div>
+                                    <button 
+                                        key={item.id} 
+                                        onClick={() => onViewResult(item.id)}
+                                        className="w-full bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-4 rounded-xl flex items-center justify-between hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer"
+                                    >
+                                        <div className="text-left">
                                             <div className="font-bold text-gray-800 dark:text-gray-200 mb-1">{item.subject}</div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
                                                 <Calendar className="w-3 h-3" />
@@ -126,7 +132,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                             </div>
                                             <div className="text-xs text-gray-400 dark:text-gray-500">Điểm</div>
                                         </div>
-                                    </div>
+                                    </button>
                                 ))
                             )}
                         </div>

@@ -17,6 +17,7 @@ export default function StudentPage() {
 
   useEffect(() => {
     fetchExams()
+    fetchHistory()
   }, [])
 
   const fetchExams = async () => {
@@ -35,6 +36,47 @@ export default function StudentPage() {
       setExams(data || [])
     } catch (error) {
       setLoadingError('Lỗi kết nối')
+    }
+  }
+
+  const fetchHistory = async () => {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.error('Auth error in fetchHistory:', authError)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('exam_attempts')
+        .select(`
+          id,
+          score,
+          submit_time,
+          exams!exam_id (
+            subject
+          )
+        `)
+        .eq('student_id', user.id)
+        .eq('status', 'submitted')
+        .not('submit_time', 'is', null)
+        .order('submit_time', { ascending: false })
+
+      if (error) {
+        console.error('Fetch history error:', error)
+        return
+      }
+
+      const historyEntries: HistoryEntry[] = (data || []).map(attempt => ({
+        id: attempt.id,
+        subject: (attempt.exams as any)?.subject || 'Không rõ',
+        date: attempt.submit_time!,
+        score: attempt.score || 0
+      }))
+
+      setHistory(historyEntries)
+    } catch (error) {
+      console.error('Unexpected error in fetchHistory:', error)
     }
   }
 
@@ -118,8 +160,37 @@ export default function StudentPage() {
     router.push('/login')
   }
 
-  const handleClearHistory = () => {
-    setHistory([])
+  const handleViewResult = (attemptId: string) => {
+    router.push(`/exam/${attemptId}/result`)
+  }
+
+  const handleClearHistory = async () => {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.error('Auth error in handleClearHistory:', authError)
+        return
+      }
+
+      // Delete all submitted exam attempts for this user
+      const { error } = await supabase
+        .from('exam_attempts')
+        .delete()
+        .eq('student_id', user.id)
+        .eq('status', 'submitted')
+
+      if (error) {
+        console.error('Clear history error:', error)
+        setLoadingError('Không thể xóa lịch sử')
+        return
+      }
+
+      // Clear local state after successful deletion
+      setHistory([])
+    } catch (error) {
+      console.error('Unexpected error in handleClearHistory:', error)
+      setLoadingError('Lỗi kết nối')
+    }
   }
 
   return (
@@ -128,6 +199,7 @@ export default function StudentPage() {
       onLogout={handleLogout}
       history={history}
       onClearHistory={handleClearHistory}
+      onViewResult={handleViewResult}
       loadingError={loadingError}
       exams={exams}
     />
