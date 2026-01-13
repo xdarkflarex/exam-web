@@ -9,6 +9,7 @@ import ConfirmModal from './ConfirmModal'
 import ExamSidebar from './ExamSidebar'
 import QuestionImage from './QuestionImage'
 import { useLoading } from '@/contexts/LoadingContext'
+import { useExamAntiCheat } from '@/hooks/useExamAntiCheat'
 
 interface StudentAnswer {
   questionId: string
@@ -29,6 +30,12 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
   const router = useRouter()
   const supabase = createClient()
   const { showLoading, hideLoading } = useLoading()
+  
+  // ============================================
+  // ANTI-CHEAT TRACKING
+  // Monitors suspicious activity during exam (observational only, no logout)
+  // ============================================
+  useExamAntiCheat({ attemptId, enabled: true })
   
   const [answers, setAnswers] = useState<Record<string, StudentAnswer>>({})
   const [submitting, setSubmitting] = useState(false)
