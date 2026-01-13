@@ -252,7 +252,7 @@ export default function ResultPage() {
         : 'Trả lời ngắn'
 
     return (
-      <div key={question.questionId} className="bg-white dark:bg-slate-900 rounded-xl p-6 mb-4 border border-slate-100 dark:border-slate-800">
+      <div key={question.questionId} className="bg-slate-200 dark:bg-slate-800 rounded-xl p-6 mb-4 border border-slate-300 dark:border-slate-700">
         <div className="flex items-start gap-3 mb-4">
           <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
             question.isCorrect
@@ -335,9 +335,9 @@ export default function ResultPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
           <p className="text-slate-500 dark:text-slate-400">Đang tải kết quả...</p>
         </div>
       </div>
@@ -346,7 +346,7 @@ export default function ResultPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
@@ -360,8 +360,8 @@ export default function ResultPage() {
 
   return (
     <MathProvider>
-      <div className="min-h-screen bg-sky-50 dark:bg-slate-950">
-        <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
+        <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-4 sm:px-6 py-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <button
               onClick={() => router.push('/student')}
@@ -374,9 +374,9 @@ export default function ResultPage() {
         </div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 sm:p-8 mb-8 text-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600 dark:text-indigo-400" />
+          <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-lg p-6 sm:p-8 mb-8 text-center border border-slate-300 dark:border-slate-700">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-teal-600 dark:text-teal-400" />
             </div>
             
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white mb-2">

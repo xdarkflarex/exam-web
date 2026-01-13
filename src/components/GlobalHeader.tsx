@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { LogOut, Sigma } from 'lucide-react'
 import LogoutConfirmModal from './LogoutConfirmModal'
 import { getRoleDisplayLabel, UserRole } from '@/lib/auth/roles'
+import ThemeToggle from './ThemeToggle'
 
 interface GlobalHeaderProps {
   title?: string
@@ -86,6 +87,7 @@ export default function GlobalHeader({ title, showLogout = true }: GlobalHeaderP
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             
             {shouldShowLogout && (
               <button

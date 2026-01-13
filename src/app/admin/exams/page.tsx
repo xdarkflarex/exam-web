@@ -104,7 +104,7 @@ export default function AdminExamsPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <AdminHeader title="Quản lý đề thi" subtitle={`${exams.length} đề thi trong hệ thống`} />
       
       <div className="p-8">
@@ -114,34 +114,34 @@ export default function AdminExamsPage() {
             onClick={() => setFilterStatus('all')}
             className={`p-4 rounded-xl border transition-all ${
               filterStatus === 'all' 
-                ? 'bg-teal-50 border-teal-200' 
-                : 'bg-white border-slate-100 hover:border-slate-200'
+                ? 'bg-teal-50 dark:bg-teal-900/30 border-teal-200 dark:border-teal-700' 
+                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
             }`}
           >
-            <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-            <p className="text-sm text-slate-500">Tổng số đề</p>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tổng số đề</p>
           </button>
           <button 
             onClick={() => setFilterStatus('published')}
             className={`p-4 rounded-xl border transition-all ${
               filterStatus === 'published' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-white border-slate-100 hover:border-slate-200'
+                ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' 
+                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
             }`}
           >
-            <p className="text-2xl font-bold text-green-600">{stats.published}</p>
-            <p className="text-sm text-slate-500">Đang mở</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.published}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Đang mở</p>
           </button>
           <button 
             onClick={() => setFilterStatus('draft')}
             className={`p-4 rounded-xl border transition-all ${
               filterStatus === 'draft' 
-                ? 'bg-amber-50 border-amber-200' 
-                : 'bg-white border-slate-100 hover:border-slate-200'
+                ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700' 
+                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
             }`}
           >
-            <p className="text-2xl font-bold text-amber-600">{stats.draft}</p>
-            <p className="text-sm text-slate-500">Bản nháp</p>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.draft}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Bản nháp</p>
           </button>
         </div>
 
@@ -156,14 +156,14 @@ export default function AdminExamsPage() {
                 placeholder="Tìm kiếm đề thi..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-80 pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-80 pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
           </div>
           
           <button
             onClick={() => router.push('/admin/exams/create')}
-            className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 dark:bg-teal-500 text-white rounded-xl font-medium hover:bg-teal-700 dark:hover:bg-teal-600 transition-colors"
           >
             <Plus className="w-5 h-5" />
             Tạo đề mới
@@ -175,24 +175,24 @@ export default function AdminExamsPage() {
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-4">
               <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-slate-500">Đang tải danh sách...</p>
+              <p className="text-slate-500 dark:text-slate-400">Đang tải danh sách...</p>
             </div>
           </div>
         ) : filteredExams.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8 text-slate-400" />
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-slate-400 dark:text-slate-500" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
               {searchTerm ? 'Không tìm thấy đề thi' : 'Chưa có đề thi nào'}
             </h3>
-            <p className="text-slate-500 mb-6">
+            <p className="text-slate-500 dark:text-slate-400 mb-6">
               {searchTerm ? 'Thử tìm kiếm với từ khóa khác' : 'Bắt đầu tạo đề thi đầu tiên của bạn'}
             </p>
             {!searchTerm && (
               <button
                 onClick={() => router.push('/admin/exams/create')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 dark:bg-teal-500 text-white rounded-xl font-medium hover:bg-teal-700 dark:hover:bg-teal-600 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 Tạo đề mới
@@ -205,18 +205,18 @@ export default function AdminExamsPage() {
               <div
                 key={exam.id}
                 onClick={() => router.push(`/admin/exams/${exam.id}`)}
-                className="bg-white rounded-xl border border-slate-100 p-5 hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
+                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-5 hover:shadow-md hover:border-teal-200 dark:hover:border-teal-600 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-6 h-6 text-teal-600" />
+                    <div className="w-12 h-12 bg-teal-50 dark:bg-teal-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-800 group-hover:text-teal-700 transition-colors">
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
                         {exam.title}
                       </h3>
-                      <div className="flex items-center gap-4 mt-1.5 text-sm text-slate-500">
+                      <div className="flex items-center gap-4 mt-1.5 text-sm text-slate-500 dark:text-slate-400">
                         <span>{exam.subject}</span>
                         <span className="flex items-center gap-1">
                           <FileText className="w-3.5 h-3.5" />
@@ -237,16 +237,16 @@ export default function AdminExamsPage() {
                   <div className="flex items-center gap-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 ${
                       exam.is_published 
-                        ? 'bg-green-50 text-green-700' 
-                        : 'bg-amber-50 text-amber-700'
+                        ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                        : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
                         exam.is_published ? 'bg-green-500' : 'bg-amber-500'
                       }`}></span>
                       {exam.is_published ? 'Đang mở' : 'Bản nháp'}
                     </span>
-                    <span className="text-sm text-slate-400">{formatDate(exam.created_at)}</span>
-                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-teal-500 transition-colors" />
+                    <span className="text-sm text-slate-400 dark:text-slate-500">{formatDate(exam.created_at)}</span>
+                    <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 dark:group-hover:text-teal-400 transition-colors" />
                   </div>
                 </div>
               </div>

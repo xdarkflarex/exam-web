@@ -66,15 +66,15 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-100 dark:bg-slate-900 border-r border-slate-300 dark:border-slate-700 flex flex-col z-40">
       {/* Logo */}
-      <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-100">
+      <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-300 dark:border-slate-700">
         <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center">
           <GraduationCap className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="font-bold text-slate-800 text-lg">ExamHub</h1>
-          <p className="text-xs text-slate-500">Quản lý đề thi</p>
+          <h1 className="font-bold text-slate-800 dark:text-slate-100 text-lg">ExamHub</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Quản lý đề thi</p>
         </div>
       </div>
 
@@ -92,12 +92,12 @@ export default function AdminSidebar() {
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
                     ${active 
-                      ? 'bg-teal-50 text-teal-700 font-medium' 
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                      ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium' 
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 ${active ? 'text-teal-600' : 'text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 ${active ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`} />
                   <span>{item.label}</span>
                 </Link>
               </li>
@@ -107,10 +107,10 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-slate-100">
+      <div className="p-4 border-t border-slate-300 dark:border-slate-700">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200"
         >
           <LogOut className="w-5 h-5" />
           <span>Đăng xuất</span>

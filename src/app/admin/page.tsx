@@ -148,7 +148,7 @@ export default function AdminDashboard() {
     return 'pending'
   }
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
       {/* Header */}
       <AdminHeader 
         title="Tổng quan" 

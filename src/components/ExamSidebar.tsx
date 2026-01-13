@@ -60,8 +60,8 @@ export default function ExamSidebar({
 
   const getTimeColor = () => {
     if (timeLeft <= 60) return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
-    if (timeLeft <= 300) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
-    return 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20'
+    if (timeLeft <= 300) return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20'
+    return 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
   }
 
   const part1Questions = questions.filter(q => q.part_number === 1)
@@ -112,7 +112,7 @@ export default function ExamSidebar({
     <div className="w-72 flex-shrink-0">
       <div className="sticky top-24 space-y-4">
         {/* Timer Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+        <div className="bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 p-4">
           <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
             Thời gian còn lại
           </div>
@@ -128,25 +128,25 @@ export default function ExamSidebar({
         </div>
 
         {/* Progress Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+        <div className="bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 p-4">
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
               Tiến độ
             </span>
-            <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+            <span className="text-sm font-bold text-teal-600 dark:text-teal-400">
               {answeredCount}/{totalCount}
             </span>
           </div>
-          <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+              className="h-full bg-teal-600 dark:bg-teal-500 rounded-full transition-all duration-300"
               style={{ width: `${(answeredCount / totalCount) * 100}%` }}
             />
           </div>
         </div>
 
         {/* Question Navigation */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+        <div className="bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 p-4">
           <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">
             Danh sách câu hỏi
           </div>
@@ -156,13 +156,13 @@ export default function ExamSidebar({
           {renderQuestionGrid(part3Questions, 'Phần 3 - Trả lời ngắn', part1Questions.length + part2Questions.length)}
 
           {/* Legend */}
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
               <div className="w-3 h-3 rounded bg-green-500" />
               Đã làm
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <div className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-700" />
+              <div className="w-3 h-3 rounded bg-slate-400 dark:bg-slate-600" />
               Chưa làm
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function ExamSidebar({
         <button
           onClick={onSubmit}
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 disabled:bg-teal-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-teal-500/20"
         >
           {submitting ? (
             <>

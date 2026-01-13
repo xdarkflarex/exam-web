@@ -236,10 +236,10 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
         key={question.id} 
         id={`question-${question.id}`}
         ref={(el) => { questionRefs.current[question.id] = el }}
-        className="bg-white dark:bg-slate-900 rounded-xl p-6 mb-4 border border-slate-100 dark:border-slate-800 scroll-mt-24"
+        className="bg-slate-200 dark:bg-slate-800 rounded-xl p-6 mb-4 border border-slate-300 dark:border-slate-700 scroll-mt-24 shadow-sm"
       >
         <div className="flex items-start gap-3 mb-4">
-          <span className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm font-bold">
+          <span className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center text-sm font-bold">
             {globalIndex}
           </span>
           <div className="flex-1">
@@ -269,14 +269,14 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                   onClick={() => handleMultipleChoiceAnswer(question.id, answer.id)}
                   className={`w-full text-left p-3 rounded-lg border transition-all flex items-center gap-3 ${
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      ? 'border-teal-500 dark:border-teal-600 bg-teal-50 dark:bg-teal-900/20'
+                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                     isSelected
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      ? 'bg-teal-600 dark:bg-teal-500 text-white'
+                      : 'bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
                   }`}>
                     {optionLabel}
                   </span>
@@ -296,7 +296,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
               const currentValue = answers[question.id]?.selectedAnswers?.[statementIdx]
               
               return (
-                <div key={statementIdx} className="flex items-center gap-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                <div key={statementIdx} className="flex items-center gap-4 p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
                   <span className="text-sm font-medium text-slate-600 dark:text-slate-400 w-6">
                     {String.fromCharCode(97 + statementIdx)})
                   </span>
@@ -359,9 +359,9 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
 
   return (
     <MathProvider>
-      <div className="min-h-screen bg-sky-50 dark:bg-slate-950">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
         {/* Header */}
-        <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+        <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-6 py-4">
           <div className="max-w-7xl mx-auto">
             <h1 className="font-bold text-slate-800 dark:text-white text-lg">{examData.examMeta.title}</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">{examData.examMeta.subject}</p>
@@ -380,8 +380,8 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                     onClick={() => setCurrentPart(1)}
                     className={`px-4 py-2 rounded-lg font-medium transition-all ${
                       currentPart === 1
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                        ? 'bg-teal-600 dark:bg-teal-600 text-white'
+                        : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     Phần 1
@@ -392,8 +392,8 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                     onClick={() => setCurrentPart(2)}
                     className={`px-4 py-2 rounded-lg font-medium transition-all ${
                       currentPart === 2
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                        ? 'bg-teal-600 dark:bg-teal-600 text-white'
+                        : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     Phần 2
@@ -404,8 +404,8 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                     onClick={() => setCurrentPart(3)}
                     className={`px-4 py-2 rounded-lg font-medium transition-all ${
                       currentPart === 3
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                        ? 'bg-teal-600 dark:bg-teal-600 text-white'
+                        : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     Phần 3

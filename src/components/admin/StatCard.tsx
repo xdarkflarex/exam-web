@@ -13,29 +13,29 @@ interface StatCardProps {
 
 const colorClasses = {
   teal: {
-    bg: 'bg-teal-50',
-    icon: 'text-teal-600',
-    trend: 'text-teal-600'
+    bg: 'bg-teal-50 dark:bg-teal-900/30',
+    icon: 'text-teal-600 dark:text-teal-400',
+    trend: 'text-teal-600 dark:text-teal-400'
   },
   blue: {
-    bg: 'bg-blue-50',
-    icon: 'text-blue-600',
-    trend: 'text-blue-600'
+    bg: 'bg-blue-50 dark:bg-blue-900/30',
+    icon: 'text-blue-600 dark:text-blue-400',
+    trend: 'text-blue-600 dark:text-blue-400'
   },
   purple: {
-    bg: 'bg-purple-50',
-    icon: 'text-purple-600',
-    trend: 'text-purple-600'
+    bg: 'bg-purple-50 dark:bg-purple-900/30',
+    icon: 'text-purple-600 dark:text-purple-400',
+    trend: 'text-purple-600 dark:text-purple-400'
   },
   amber: {
-    bg: 'bg-amber-50',
-    icon: 'text-amber-600',
-    trend: 'text-amber-600'
+    bg: 'bg-amber-50 dark:bg-amber-900/30',
+    icon: 'text-amber-600 dark:text-amber-400',
+    trend: 'text-amber-600 dark:text-amber-400'
   },
   rose: {
-    bg: 'bg-rose-50',
-    icon: 'text-rose-600',
-    trend: 'text-rose-600'
+    bg: 'bg-rose-50 dark:bg-rose-900/30',
+    icon: 'text-rose-600 dark:text-rose-400',
+    trend: 'text-rose-600 dark:text-rose-400'
   }
 }
 
@@ -49,13 +49,13 @@ export default function StatCard({
   const colors = colorClasses[color]
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-500 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-slate-800">{value}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
           {trend && (
-            <p className={`text-sm mt-2 ${trend.isUp ? 'text-green-600' : 'text-red-500'}`}>
+            <p className={`text-sm mt-2 ${trend.isUp ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
               {trend.isUp ? '↑' : '↓'} {trend.value}% so với tuần trước
             </p>
           )}
