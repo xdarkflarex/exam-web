@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react'
 import { ExamData } from '@/types'
 import ExamRunner from '@/components/ExamRunner'
 import { getExamQuestionsForStudent } from '@/lib/exam/questions'
+import { useLoading } from '@/contexts/LoadingContext'
 
 interface ExamAttempt {
   id: string
@@ -20,6 +21,7 @@ export default function ExamEntryPage() {
   const params = useParams()
   const attemptId = params.attemptId as string
   const supabase = createClient()
+  const { showLoading, hideLoading } = useLoading()
 
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
   const [examData, setExamData] = useState<ExamData | null>(null)
@@ -33,6 +35,7 @@ export default function ExamEntryPage() {
   }, [attemptId])
 
   const fetchExamData = async () => {
+    showLoading('Đang tải đề thi...')
     try {
       // Debug: Log attemptId from URL
       console.log('🔍 Student Exam Flow - attemptId from URL:', attemptId)
@@ -49,6 +52,7 @@ export default function ExamEntryPage() {
         console.error('❌ Failed to get exam_id from exam_attempts for attemptId:', attemptId)
         setError('Không tìm thấy bài thi')
         setLoading(false)
+        hideLoading()
         return
       }
 
@@ -56,6 +60,7 @@ export default function ExamEntryPage() {
         console.error('❌ No exam_id found in attempt data:', attemptData)
         setError('Dữ liệu bài thi không hợp lệ')
         setLoading(false)
+        hideLoading()
         return
       }
 
@@ -72,6 +77,7 @@ export default function ExamEntryPage() {
         console.error('❌ Questions fetch error:', questionsError)
         setError(questionsError || 'Không thể tải câu hỏi')
         setLoading(false)
+        hideLoading()
         return
       }
 
@@ -87,15 +93,18 @@ export default function ExamEntryPage() {
         console.warn('⚠️ No questions found for examId:', examId)
         setError('Đề thi chưa có câu hỏi')
         setLoading(false)
+        hideLoading()
         return
       }
 
       setExamData(examData)
       setLoading(false)
+      hideLoading()
     } catch (err) {
       console.error('❌ Unexpected error in fetchExamData:', err)
       setError('Lỗi kết nối')
       setLoading(false)
+      hideLoading()
     }
   }
 

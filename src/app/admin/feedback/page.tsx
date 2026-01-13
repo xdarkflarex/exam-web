@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, MessageSquare, User, Clock, ChevronDown, CheckCircle2, XCircle, Eye, AlertTriangle } from 'lucide-react'
-import GlobalHeader from '@/components/GlobalHeader'
-import { isAdmin } from '@/lib/auth/roles'
+import { AdminHeader } from '@/components/admin'
 
 interface FeedbackItem {
   id: string
@@ -184,10 +183,13 @@ export default function AdminFeedbackPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-          <p className="text-slate-500 dark:text-slate-400">Đang tải góp ý...</p>
+      <div className="min-h-screen">
+        <AdminHeader title="Góp ý từ học sinh" subtitle="Quản lý và xử lý góp ý" />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500">Đang tải góp ý...</p>
+          </div>
         </div>
       </div>
     )
@@ -195,54 +197,45 @@ export default function AdminFeedbackPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50 dark:bg-slate-950">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+      <div className="min-h-screen">
+        <AdminHeader title="Góp ý từ học sinh" subtitle="Quản lý và xử lý góp ý" />
+        <div className="flex items-center justify-center py-20">
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 max-w-md text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h1 className="text-xl font-bold text-slate-800 mb-2">Lỗi</h1>
+            <p className="text-slate-500">{error}</p>
           </div>
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Lỗi</h1>
-          <p className="text-slate-500 dark:text-slate-400">{error}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-sky-50 dark:bg-slate-950">
-      <GlobalHeader title="Quản lý góp ý" />
+    <div className="min-h-screen">
+      <AdminHeader title="Góp ý từ học sinh" subtitle={`${feedbacks.length} góp ý`} />
       
-      {/* Stats Bar */}
-      <div className="bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-            <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {feedbacks.length} góp ý
-          </p>
-        </div>
-      </div>
-
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="p-8">
         {feedbacks.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <MessageSquare className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">
               Chưa có góp ý nào
             </h3>
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-slate-500">
               Các góp ý từ học sinh sẽ hiển thị tại đây
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Desktop Table */}
-            <div className="hidden lg:block bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden">
+            <div className="hidden lg:block bg-white rounded-2xl border border-slate-100 overflow-hidden">
               <table className="w-full">
-                <thead className="bg-slate-50 dark:bg-slate-800">
+                <thead className="bg-slate-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Học sinh

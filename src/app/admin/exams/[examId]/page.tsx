@@ -3,8 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BookOpen, User, Clock, CheckCircle, XCircle, Eye, Calendar, FileText, List, Settings, Trash2 } from 'lucide-react'
-import GlobalHeader from '@/components/GlobalHeader'
+import { 
+  FileText, User, Clock, CheckCircle, XCircle, Eye, Calendar, 
+  List, Settings, Trash2, Users, ArrowLeft, Edit3, Save, RotateCcw, Circle,
+  ChevronLeft, ChevronRight, Plus
+} from 'lucide-react'
+import { AdminHeader } from '@/components/admin'
 
 interface ExamAttempt {
   id: string
@@ -29,6 +33,30 @@ interface ExamInfo {
   question_count: number
 }
 
+interface Question {
+  id: string
+  content: string
+  option_a: string
+  option_b: string
+  option_c: string
+  option_d: string
+  correct_answer: 'A' | 'B' | 'C' | 'D'
+  explanation?: string
+  order_index: number
+  topic_id?: string
+  category_id?: string
+}
+
+interface Topic {
+  id: string
+  name: string
+}
+
+interface Category {
+  id: string
+  name: string
+}
+
 export default function AdminExamDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -37,7 +65,26 @@ export default function AdminExamDetailPage() {
   
   const [examInfo, setExamInfo] = useState<ExamInfo | null>(null)
   const [attempts, setAttempts] = useState<ExamAttempt[]>([])
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null)
+  const [editedQuestion, setEditedQuestion] = useState<Question | null>(null)
+  const [activeTab, setActiveTab] = useState<'questions' | 'attempts'>('questions')
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  
+  // DERIVED STATE: selectedQuestion từ questions array (tránh stale state)
+  const selectedQuestion = questions.find(q => q.id === selectedQuestionId) || null
+  
+  // DEBUG: Log state flow
+  console.log('[STATE]', { 
+    questionsCount: questions.length, 
+    selectedQuestionId, 
+    selectedQuestion: selectedQuestion?.id,
+    editedQuestion: editedQuestion?.id 
+  })
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDisableConfirm, setShowDisableConfirm] = useState(false)
@@ -48,9 +95,144 @@ export default function AdminExamDetailPage() {
 
   useEffect(() => {
     if (examId) {
-      Promise.all([fetchExamInfo(), fetchAttempts()])
+      Promise.all([fetchExamInfo(), fetchAttempts(), fetchQuestions(), fetchTopicsAndCategories()])
     }
   }, [examId])
+
+  const fetchTopicsAndCategories = async () => {
+    try {
+      const [topicsRes, categoriesRes] = await Promise.all([
+        supabase.from('topics').select('id, name').order('name'),
+        supabase.from('categories').select('id, name').order('name')
+      ])
+
+      if (topicsRes.data) setTopics(topicsRes.data)
+      if (categoriesRes.data) setCategories(categoriesRes.data)
+    } catch (err) {
+      console.error('Fetch topics/categories error:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (editedQuestion && selectedQuestion) {
+      setHasChanges(JSON.stringify(editedQuestion) !== JSON.stringify(selectedQuestion))
+    }
+  }, [editedQuestion, selectedQuestion])
+
+  const fetchQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('exam_questions')
+        .select(`
+          question_id,
+          order_index,
+          questions (
+            id,
+            content,
+            option_a,
+            option_b,
+            option_c,
+            option_d,
+            correct_answer,
+            explanation,
+            topic_id,
+            category_id
+          )
+        `)
+        .eq('exam_id', examId)
+        .order('order_index', { ascending: true })
+
+      if (error) {
+        console.error('Fetch questions error:', error)
+        return
+      }
+
+      const formattedQuestions: Question[] = (data || []).map((eq: any) => ({
+        id: eq.questions.id,
+        content: eq.questions.content,
+        option_a: eq.questions.option_a,
+        option_b: eq.questions.option_b,
+        option_c: eq.questions.option_c,
+        option_d: eq.questions.option_d,
+        correct_answer: eq.questions.correct_answer,
+        explanation: eq.questions.explanation,
+        order_index: eq.order_index,
+        topic_id: eq.questions.topic_id,
+        category_id: eq.questions.category_id
+      }))
+
+      setQuestions(formattedQuestions)
+      
+      // AUTO-SELECT câu hỏi đầu tiên sau khi fetch
+      if (formattedQuestions.length > 0) {
+        const firstQuestion = formattedQuestions[0]
+        setSelectedQuestionId(firstQuestion.id)
+        setEditedQuestion({ ...firstQuestion })
+        console.log('[FETCH] Auto-selected first question:', firstQuestion.id)
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err)
+    }
+  }
+
+  const handleSaveQuestion = async () => {
+    if (!editedQuestion) return
+    
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('questions')
+        .update({
+          content: editedQuestion.content,
+          option_a: editedQuestion.option_a,
+          option_b: editedQuestion.option_b,
+          option_c: editedQuestion.option_c,
+          option_d: editedQuestion.option_d,
+          correct_answer: editedQuestion.correct_answer,
+          explanation: editedQuestion.explanation,
+          topic_id: editedQuestion.topic_id || null,
+          category_id: editedQuestion.category_id || null
+        })
+        .eq('id', editedQuestion.id)
+
+      if (error) {
+        console.error('Save question error:', error)
+        return
+      }
+
+      // Update local state - questions array sẽ tự động update selectedQuestion (derived)
+      setQuestions(questions.map(q => 
+        q.id === editedQuestion.id ? editedQuestion : q
+      ))
+      setHasChanges(false)
+      console.log('[SAVE] Question saved:', editedQuestion.id)
+    } catch (err) {
+      console.error('Unexpected error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleResetQuestion = () => {
+    if (selectedQuestion) {
+      setEditedQuestion({ ...selectedQuestion })
+    }
+  }
+
+  const handleSelectQuestion = (questionId: string) => {
+    if (hasChanges) {
+      if (!confirm('Bạn có thay đổi chưa lưu. Bạn có muốn bỏ thay đổi?')) {
+        return
+      }
+    }
+    const question = questions.find(q => q.id === questionId)
+    if (question) {
+      setSelectedQuestionId(questionId)
+      setEditedQuestion({ ...question })
+      setHasChanges(false)
+      console.log('[SELECT] Question selected:', questionId)
+    }
+  }
 
   const fetchExamInfo = async () => {
     try {
@@ -263,14 +445,21 @@ export default function AdminExamDetailPage() {
     }
   }
 
+  const options: Array<{ key: 'A' | 'B' | 'C' | 'D', field: 'option_a' | 'option_b' | 'option_c' | 'option_d' }> = [
+    { key: 'A', field: 'option_a' },
+    { key: 'B', field: 'option_b' },
+    { key: 'C', field: 'option_c' },
+    { key: 'D', field: 'option_d' },
+  ]
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-sky-50">
-        <GlobalHeader title="Chi tiết bài thi" />
+      <div className="min-h-screen">
+        <AdminHeader title="Chi tiết đề thi" />
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500">Đang tải chi tiết bài thi...</p>
+            <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500">Đang tải chi tiết đề thi...</p>
           </div>
         </div>
       </div>
@@ -279,15 +468,15 @@ export default function AdminExamDetailPage() {
 
   if (error || !examInfo) {
     return (
-      <div className="min-h-screen bg-sky-50">
-        <GlobalHeader title="Chi tiết bài thi" />
+      <div className="min-h-screen">
+        <AdminHeader title="Chi tiết đề thi" />
         <div className="flex items-center justify-center py-20">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <XCircle className="w-8 h-8 text-red-600" />
             </div>
             <h1 className="text-xl font-bold text-slate-800 mb-2">Lỗi</h1>
-            <p className="text-slate-500">{error || 'Không tìm thấy bài thi'}</p>
+            <p className="text-slate-500">{error || 'Không tìm thấy đề thi'}</p>
           </div>
         </div>
       </div>
@@ -295,173 +484,412 @@ export default function AdminExamDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-sky-50">
-      <GlobalHeader title="Chi tiết bài thi" />
+    <div className="min-h-screen">
+      <AdminHeader 
+        title={examInfo.title} 
+        subtitle={`${examInfo.subject} • ${formatDuration(examInfo.duration)} • ${questions.length} câu hỏi`} 
+      />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">{examInfo.title}</h1>
-            <p className="text-slate-600">{examInfo.subject} • {formatDuration(examInfo.duration)}</p>
-          </div>
+      <div className="p-8">
+        {/* Top Actions Bar */}
+        <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => router.push('/admin/exams')}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-800 transition-colors"
           >
-            ← Quay lại
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại danh sách
+          </button>
+          
+          <div className="flex items-center gap-3">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5 ${
+              examInfo.is_published 
+                ? 'bg-green-50 text-green-700' 
+                : 'bg-amber-50 text-amber-700'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                examInfo.is_published ? 'bg-green-500' : 'bg-amber-500'
+              }`}></span>
+              {examInfo.is_published ? 'Đang mở' : 'Bản nháp'}
+            </span>
+            
+            <button
+              onClick={() => router.push(`/admin/exams/${examId}/results`)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-medium hover:bg-blue-100 transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              Xem kết quả
+            </button>
+            
+            <button
+              onClick={() => router.push(`/admin/exams/${examId}/publish`)}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Cấu hình
+            </button>
+            
+            {canHardDelete ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowDisableConfirm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-xl font-medium hover:bg-orange-100 transition-colors"
+              >
+                <XCircle className="w-4 h-4" />
+                Ngừng sử dụng
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats Summary */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-slate-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
+                <FileText className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-800">{questions.length}</p>
+                <p className="text-xs text-slate-500">Câu hỏi</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-800">{attempts.length}</p>
+                <p className="text-xs text-slate-500">Lượt thi</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-800">
+                  {attempts.filter(a => a.status === 'submitted').length}
+                </p>
+                <p className="text-xs text-slate-500">Hoàn thành</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-100 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-800">{examInfo.duration}</p>
+                <p className="text-xs text-slate-500">Phút</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setActiveTab('questions')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'questions'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-600 hover:text-slate-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Edit3 className="w-4 h-4" />
+              Chỉnh sửa câu hỏi
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('attempts')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'attempts'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-600 hover:text-slate-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Kết quả thi ({attempts.length})
+            </span>
           </button>
         </div>
 
-        {/* Source Exam & Questions Info */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {examInfo.source_exam && (
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-slate-500" />
-                  <span className="text-sm text-slate-600">Đề gốc:</span>
-                  <span className="font-medium text-slate-800">{examInfo.source_exam}</span>
+        {/* Questions Tab - Two Column Layout */}
+        {activeTab === 'questions' && (
+          <div className="grid grid-cols-12 gap-6">
+            {/* Left: Question List */}
+            <div className="col-span-4">
+              <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                <div className="p-4 border-b border-slate-100">
+                  <h3 className="font-semibold text-slate-800">Danh sách câu hỏi</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Chọn câu hỏi để chỉnh sửa
+                  </p>
+                </div>
+                <div className="max-h-[600px] overflow-y-auto">
+                  {questions.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm text-slate-500">Chưa có câu hỏi</p>
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-1">
+                      {questions.map((question, index) => (
+                        <button
+                          key={question.id}
+                          onClick={() => handleSelectQuestion(question.id)}
+                          className={`w-full text-left p-3 rounded-xl transition-all ${
+                            selectedQuestionId === question.id
+                              ? 'bg-teal-50 border-2 border-teal-200'
+                              : 'hover:bg-slate-50 border-2 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                              selectedQuestionId === question.id
+                                ? 'bg-teal-500 text-white'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {index + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-slate-800 truncate">
+                                {question.content.substring(0, 50)}...
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Đáp án: {question.correct_answer}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Question Editor */}
+            <div className="col-span-8">
+              {!editedQuestion ? (
+                <div className="bg-white rounded-2xl border border-slate-100 p-8 h-full flex items-center justify-center">
+                  <div className="text-center text-slate-500">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-lg font-medium">Chọn một câu hỏi để chỉnh sửa</p>
+                    <p className="text-sm mt-1">Chọn từ danh sách bên trái</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-100 p-6">
+                  {/* Editor Header */}
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        Câu hỏi {questions.findIndex(q => q.id === editedQuestion.id) + 1}
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Chỉnh sửa bảng <code className="bg-slate-100 px-1.5 py-0.5 rounded text-teal-600 text-xs">questions</code>
+                      </p>
+                    </div>
+                    {hasChanges && (
+                      <span className="px-3 py-1 bg-amber-50 text-amber-700 text-sm rounded-full font-medium">
+                        Chưa lưu
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Question Content */}
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Nội dung câu hỏi
+                      </label>
+                      <textarea
+                        value={editedQuestion.content}
+                        onChange={(e) => setEditedQuestion({ ...editedQuestion, content: e.target.value })}
+                        rows={4}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none text-slate-800"
+                        placeholder="Nhập nội dung câu hỏi..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-3">
+                        Các đáp án
+                      </label>
+                      <div className="space-y-3">
+                        {options.map(({ key, field }) => (
+                          <div 
+                            key={key}
+                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                              editedQuestion.correct_answer === key 
+                                ? 'border-teal-300 bg-teal-50' 
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setEditedQuestion({ ...editedQuestion, correct_answer: key })}
+                              className="flex-shrink-0"
+                            >
+                              {editedQuestion.correct_answer === key ? (
+                                <CheckCircle className="w-6 h-6 text-teal-600" />
+                              ) : (
+                                <Circle className="w-6 h-6 text-slate-300 hover:text-slate-400" />
+                              )}
+                            </button>
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                              editedQuestion.correct_answer === key 
+                                ? 'bg-teal-500 text-white' 
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {key}
+                            </span>
+                            <input
+                              type="text"
+                              value={editedQuestion[field]}
+                              onChange={(e) => setEditedQuestion({ ...editedQuestion, [field]: e.target.value })}
+                              className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none focus:ring-0 text-slate-800"
+                              placeholder={`Đáp án ${key}...`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">
+                        Click vào biểu tượng tròn để chọn đáp án đúng
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Giải thích (tùy chọn)
+                      </label>
+                      <textarea
+                        value={editedQuestion.explanation || ''}
+                        onChange={(e) => setEditedQuestion({ ...editedQuestion, explanation: e.target.value })}
+                        rows={2}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none text-slate-800"
+                        placeholder="Thêm giải thích cho đáp án đúng..."
+                      />
+                    </div>
+
+                    {/* Topic & Category */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Chủ đề
+                        </label>
+                        <select
+                          value={editedQuestion.topic_id || ''}
+                          onChange={(e) => setEditedQuestion({ ...editedQuestion, topic_id: e.target.value || undefined })}
+                          className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-800 bg-white"
+                        >
+                          <option value="">-- Chọn chủ đề --</option>
+                          {topics.map(topic => (
+                            <option key={topic.id} value={topic.id}>{topic.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Danh mục
+                        </label>
+                        <select
+                          value={editedQuestion.category_id || ''}
+                          onChange={(e) => setEditedQuestion({ ...editedQuestion, category_id: e.target.value || undefined })}
+                          className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-800 bg-white"
+                        >
+                          <option value="">-- Chọn danh mục --</option>
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 mt-8 pt-6 border-t border-slate-100">
+                    <button
+                      onClick={handleResetQuestion}
+                      disabled={!hasChanges || saving}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Hoàn tác
+                    </button>
+                    <button
+                      onClick={handleSaveQuestion}
+                      disabled={!hasChanges || saving}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Save className="w-4 h-4" />
+                      {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    </button>
+                  </div>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <List className="w-5 h-5 text-slate-500" />
-                <span className="text-sm text-slate-600">Số câu hỏi:</span>
-                <span className="font-medium text-slate-800">{examInfo.question_count}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push(`/admin/exams/${examId}/publish`)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                Cấu hình & Xuất bản
-              </button>
-              <button
-                onClick={() => router.push(`/admin/exams/${examId}/questions`)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-medium hover:bg-indigo-100 transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                Xem danh sách câu hỏi
-              </button>
-              {canHardDelete ? (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Xóa đề thi
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowDisableConfirm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Ngừng sử dụng đề
-                </button>
-              )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Exam Stats Card */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <BookOpen className="w-6 h-6 text-indigo-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-800">{attempts.length}</div>
-              <div className="text-sm text-slate-500">Tổng lượt thi</div>
+        {/* Attempts Tab */}
+        {activeTab === 'attempts' && (
+          <div className="bg-white rounded-2xl border border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Danh sách bài làm</h3>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-800">
-                {attempts.filter(a => a.status === 'submitted').length}
-              </div>
-              <div className="text-sm text-slate-500">Đã hoàn thành</div>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-800">
-                {attempts.filter(a => a.status === 'in_progress').length}
-              </div>
-              <div className="text-sm text-slate-500">Đang làm</div>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <User className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-800">
-                {new Set(attempts.map(a => a.student_id)).size}
-              </div>
-              <div className="text-sm text-slate-500">Học sinh</div>
-            </div>
-          </div>
-        </div>
 
-        {/* Attempts List */}
-        <div className="bg-white rounded-xl shadow-lg border border-slate-100">
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800">Danh sách bài làm</h2>
-          </div>
-
-          {attempts.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <BookOpen className="w-8 h-8 text-slate-400" />
+            {attempts.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                  Chưa có bài làm nào
+                </h3>
+                <p className="text-slate-500">
+                  Các bài làm của học sinh sẽ hiển thị tại đây
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-2">
-                Chưa có bài làm nào
-              </h3>
-              <p className="text-slate-500">
-                Các bài làm của học sinh sẽ hiển thị tại đây
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden lg:block overflow-x-auto">
+            ) : (
+              <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Học sinh
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Trạng thái
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Điểm số
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Thời gian bắt đầu
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Thời gian nộp
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Thao tác
-                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Học sinh</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Trạng thái</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Điểm số</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Thời gian</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-100">
                     {attempts.map((attempt) => (
                       <tr key={attempt.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="w-4 h-4 text-blue-600" />
+                            <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center">
+                              <User className="w-4 h-4 text-teal-600" />
                             </div>
                             <div>
-                              <div className="font-medium text-slate-800">{attempt.student_name}</div>
-                              <div className="text-sm text-slate-500">{attempt.student_email}</div>
+                              <p className="font-medium text-slate-800">{attempt.student_name}</p>
+                              <p className="text-sm text-slate-500">{attempt.student_email}</p>
                             </div>
                           </div>
                         </td>
@@ -470,42 +898,24 @@ export default function AdminExamDetailPage() {
                         </td>
                         <td className="px-6 py-4">
                           {attempt.score !== null ? (
-                            <div>
-                              <span className={`text-lg font-semibold ${getScoreColor(attempt.score)}`}>
-                                {attempt.score.toFixed(1)}
-                              </span>
-                              <span className="text-sm text-slate-500 ml-1">
-                                ({attempt.correct_answers}/{attempt.total_questions})
-                              </span>
-                            </div>
+                            <span className={`text-lg font-semibold ${getScoreColor(attempt.score)}`}>
+                              {attempt.score.toFixed(1)}
+                            </span>
                           ) : (
-                            <span className="text-slate-400">Chưa có điểm</span>
+                            <span className="text-slate-400">-</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1 text-sm text-slate-600">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(attempt.start_time)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {attempt.submit_time ? (
-                            <div className="flex items-center gap-1 text-sm text-slate-600">
-                              <Calendar className="w-4 h-4" />
-                              {formatDate(attempt.submit_time)}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">Chưa nộp</span>
-                          )}
+                          <p className="text-sm text-slate-600">{formatDate(attempt.start_time)}</p>
                         </td>
                         <td className="px-6 py-4">
                           {attempt.status === 'submitted' && (
                             <button
                               onClick={() => router.push(`/admin/attempts/${attempt.id}`)}
-                              className="flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
+                              className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-sm font-medium hover:bg-teal-100 transition-colors"
                             >
                               <Eye className="w-4 h-4" />
-                              Xem chi tiết
+                              Chi tiết
                             </button>
                           )}
                         </td>
@@ -514,62 +924,9 @@ export default function AdminExamDetailPage() {
                   </tbody>
                 </table>
               </div>
-
-              {/* Mobile Cards */}
-              <div className="lg:hidden space-y-4 p-4">
-                {attempts.map((attempt) => (
-                  <div key={attempt.id} className="border border-slate-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-slate-800">{attempt.student_name}</div>
-                          <div className="text-sm text-slate-500">{attempt.student_email}</div>
-                        </div>
-                      </div>
-                      {getStatusBadge(attempt.status)}
-                    </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-slate-500">Điểm số:</span>
-                        {attempt.score !== null ? (
-                          <span className={`font-semibold ${getScoreColor(attempt.score)}`}>
-                            {attempt.score.toFixed(1)} ({attempt.correct_answers}/{attempt.total_questions})
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">Chưa có điểm</span>
-                        )}
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-slate-500">Bắt đầu:</span>
-                        <span className="text-sm text-slate-600">{formatDate(attempt.start_time)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-slate-500">Nộp bài:</span>
-                        <span className="text-sm text-slate-600">
-                          {attempt.submit_time ? formatDate(attempt.submit_time) : 'Chưa nộp'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {attempt.status === 'submitted' && (
-                      <button
-                        onClick={() => router.push(`/admin/attempts/${attempt.id}`)}
-                        className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Xem chi tiết
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Delete Confirmation Dialog */}
         {showDeleteConfirm && (

@@ -1,121 +1,202 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { FileText, HelpCircle, Users, ClipboardList } from 'lucide-react'
+import { AdminHeader, StatCard, RecentExamsList, RecentFeedbackList } from '@/components/admin'
 import { createClient } from '@/lib/supabase/client'
-import { BookOpen, Users, FileText, BarChart3 } from 'lucide-react'
-import GlobalHeader from '@/components/GlobalHeader'
+import { useLoading } from '@/contexts/LoadingContext'
 
-export default function AdminPage() {
-  const router = useRouter()
+interface Stats {
+  totalExams: number
+  totalQuestions: number
+  totalAttempts: number
+  totalStudents: number
+}
+
+interface RecentExam {
+  id: string
+  title: string
+  questionCount: number
+  createdAt: string
+}
+
+interface Feedback {
+  id: string
+  studentName: string
+  examTitle: string
+  questionNumber: number
+  content: string
+  createdAt: string
+  status: 'pending' | 'reviewed' | 'resolved'
+}
+
+export default function AdminDashboard() {
   const supabase = createClient()
-  
+  const { showLoading, hideLoading } = useLoading()
+  const [stats, setStats] = useState<Stats>({ totalExams: 0, totalQuestions: 0, totalAttempts: 0, totalStudents: 0 })
+  const [recentExams, setRecentExams] = useState<RecentExam[]>([])
+  const [recentFeedbacks, setRecentFeedbacks] = useState<Feedback[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(false)
+    fetchDashboardData()
   }, [])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500">Đang kiểm tra quyền truy cập...</p>
-        </div>
-      </div>
-    )
+  const fetchDashboardData = async () => {
+    showLoading('Đang tải dữ liệu dashboard...')
+    try {
+      // Fetch stats in parallel
+      const [examsRes, questionsRes, attemptsRes, studentsRes] = await Promise.all([
+        supabase.from('exams').select('*', { count: 'exact', head: true }),
+        supabase.from('questions').select('*', { count: 'exact', head: true }),
+        supabase.from('exam_attempts').select('*', { count: 'exact', head: true }),
+        supabase.from('exam_attempts').select('student_id')
+      ])
+
+      // Count unique students
+      const uniqueStudents = new Set(studentsRes.data?.map(a => a.student_id) || []).size
+
+      setStats({
+        totalExams: examsRes.count || 0,
+        totalQuestions: questionsRes.count || 0,
+        totalAttempts: attemptsRes.count || 0,
+        totalStudents: uniqueStudents
+      })
+
+      // Fetch recent exams with question count
+      const { data: examsData } = await supabase
+        .from('exams')
+        .select(`
+          id,
+          title,
+          created_at,
+          exam_questions(count)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (examsData) {
+        setRecentExams(examsData.map(exam => ({
+          id: exam.id,
+          title: exam.title,
+          questionCount: (exam.exam_questions as any)?.[0]?.count || 0,
+          createdAt: formatTimeAgo(exam.created_at)
+        })))
+      }
+
+      // Fetch recent feedbacks
+      const { data: feedbacksData } = await supabase
+        .from('question_feedbacks')
+        .select(`
+          id,
+          message,
+          status,
+          created_at,
+          profiles!student_id(full_name),
+          questions!question_id(
+            content,
+            exam_questions(
+              order,
+              exams(title)
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (feedbacksData) {
+        setRecentFeedbacks(feedbacksData.map(fb => {
+          const question = fb.questions as any
+          const examQuestion = question?.exam_questions?.[0]
+          return {
+            id: fb.id,
+            studentName: (fb.profiles as any)?.full_name || 'Học sinh',
+            examTitle: examQuestion?.exams?.title || 'Đề thi',
+            questionNumber: examQuestion?.order || 1,
+            content: fb.message,
+            createdAt: formatTimeAgo(fb.created_at),
+            status: mapFeedbackStatus(fb.status)
+          }
+        }))
+      }
+
+    } catch (err) {
+      console.error('Dashboard fetch error:', err)
+    } finally {
+      setLoading(false)
+      hideLoading()
+    }
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-sky-50">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-red-600" />
-          </div>
-          <h1 className="text-xl font-bold text-slate-800 mb-2">Lỗi</h1>
-          <p className="text-slate-500">{error}</p>
-        </div>
-      </div>
-    )
+  const formatTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 60) return `${diffMins} phút trước`
+    if (diffHours < 24) return `${diffHours} giờ trước`
+    if (diffDays < 7) return `${diffDays} ngày trước`
+    return `${Math.floor(diffDays / 7)} tuần trước`
   }
 
+  const mapFeedbackStatus = (status: string): 'pending' | 'reviewed' | 'resolved' => {
+    if (status === 'fixed') return 'resolved'
+    if (status === 'reviewed') return 'reviewed'
+    return 'pending'
+  }
   return (
-    <div className="min-h-screen bg-sky-50">
-      <GlobalHeader title="Bảng điều khiển Admin" />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">
-            Chào mừng đến với bảng điều khiển Admin
-          </h1>
-          <p className="text-slate-600">
-            Quản lý bài thi và theo dõi kết quả học sinh
+    <div className="min-h-screen">
+      {/* Header */}
+      <AdminHeader 
+        title="Tổng quan" 
+        subtitle="Chào mừng trở lại! Đây là tổng quan hệ thống của bạn."
+      />
+
+      {/* Content */}
+      <div className="p-8">
+        {/* Welcome Banner */}
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-2xl p-6 mb-8 text-white">
+          <h1 className="text-2xl font-bold mb-2">Xin chào, Giáo viên! 👋</h1>
+          <p className="text-teal-100">
+            Hôm nay là ngày tuyệt vời để tạo những bài kiểm tra mới. Hãy bắt đầu nào!
           </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <button
-            onClick={() => router.push('/admin/exams')}
-            className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 hover:shadow-xl transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                <BookOpen className="w-6 h-6 text-indigo-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-slate-800">Quản lý bài thi</h3>
-                <p className="text-sm text-slate-500">Xem danh sách bài thi và kết quả</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => router.push('/admin/feedback')}
-            className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 hover:shadow-xl transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                <Users className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-slate-800">Góp ý học sinh</h3>
-                <p className="text-sm text-slate-500">Xem và xử lý góp ý từ học sinh</p>
-              </div>
-            </div>
-          </button>
-
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 opacity-50">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-slate-400" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-slate-400">Thống kê</h3>
-                <p className="text-sm text-slate-400">Sắp ra mắt</p>
-              </div>
-            </div>
-          </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            title="Tổng số đề"
+            value={stats.totalExams}
+            icon={FileText}
+            color="teal"
+          />
+          <StatCard
+            title="Tổng câu hỏi"
+            value={stats.totalQuestions}
+            icon={HelpCircle}
+            color="blue"
+          />
+          <StatCard
+            title="Lượt làm bài"
+            value={stats.totalAttempts}
+            icon={ClipboardList}
+            color="purple"
+          />
+          <StatCard
+            title="Số học sinh"
+            value={stats.totalStudents}
+            icon={Users}
+            color="amber"
+          />
         </div>
 
-        {/* Recent Activity Placeholder */}
-        <div className="mt-12">
-          <h2 className="text-xl font-bold text-slate-800 mb-6">Hoạt động gần đây</h2>
-          <div className="bg-white rounded-xl p-8 shadow-lg border border-slate-100 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">
-              Chưa có hoạt động nào
-            </h3>
-            <p className="text-slate-500">
-              Các hoạt động gần đây sẽ hiển thị tại đây
-            </p>
-          </div>
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <RecentExamsList exams={recentExams} />
+          <RecentFeedbackList feedbacks={recentFeedbacks} />
         </div>
       </div>
     </div>

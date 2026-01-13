@@ -2,13 +2,13 @@
 
 import { ReactNode } from "react";
 import { LoadingProvider } from "@/contexts/LoadingContext";
-import LoadingPopup from "@/components/LoadingPopup";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <LoadingProvider>
       {children}
-      <LoadingPopup />
+      <LoadingOverlay />
     </LoadingProvider>
   );
 }
