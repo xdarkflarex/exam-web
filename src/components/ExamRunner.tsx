@@ -243,29 +243,29 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
         key={question.id} 
         id={`question-${question.id}`}
         ref={(el) => { questionRefs.current[question.id] = el }}
-        className="bg-slate-200 dark:bg-slate-800 rounded-xl p-6 mb-4 border border-slate-300 dark:border-slate-700 scroll-mt-24 shadow-sm"
+        className="bg-slate-200 dark:bg-slate-800 rounded-xl p-4 sm:p-6 mb-3 sm:mb-4 border border-slate-300 dark:border-slate-700 scroll-mt-20 sm:scroll-mt-24 shadow-sm"
       >
-        <div className="flex items-start gap-3 mb-4">
-          <span className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center text-sm font-bold">
+        <div className="flex items-start gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <span className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xs sm:text-sm font-bold">
             {globalIndex}
           </span>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <MathContent 
               content={question.content} 
-              className="text-slate-800 dark:text-slate-200"
+              className="text-slate-800 dark:text-slate-200 text-sm sm:text-base"
             />
             {question.tikz_image_url && (
               <QuestionImage 
                 src={question.tikz_image_url} 
                 alt="Question diagram"
-                className="mt-4"
+                className="mt-3 sm:mt-4 max-w-full"
               />
             )}
           </div>
         </div>
 
         {question.question_type === 'multiple_choice' && question.answers && (
-          <div className="space-y-2 ml-11">
+          <div className="space-y-2 ml-0 sm:ml-10">
             {question.answers.map((answer, idx) => {
               const isSelected = answers[question.id]?.selectedAnswer === answer.id
               const optionLabel = String.fromCharCode(65 + idx)
@@ -274,7 +274,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                 <button
                   key={answer.id}
                   onClick={() => handleMultipleChoiceAnswer(question.id, answer.id)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all flex items-center gap-3 ${
+                  className={`w-full text-left p-2.5 sm:p-3 rounded-lg border transition-all flex items-center gap-2 sm:gap-3 ${
                     isSelected
                       ? 'border-teal-500 dark:border-teal-600 bg-teal-50 dark:bg-teal-900/20'
                       : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
@@ -289,7 +289,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                   </span>
                   <MathContent 
                     content={answer.content} 
-                    className="text-slate-700 dark:text-slate-300"
+                    className="text-slate-700 dark:text-slate-300 text-sm sm:text-base"
                   />
                 </button>
               )
@@ -298,32 +298,32 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
         )}
 
         {question.question_type === 'true_false' && (
-          <div className="space-y-3 ml-11">
+          <div className="space-y-2 sm:space-y-3 ml-0 sm:ml-10">
             {[0, 1, 2, 3].map((statementIdx) => {
               const currentValue = answers[question.id]?.selectedAnswers?.[statementIdx]
               
               return (
-                <div key={statementIdx} className="flex items-center gap-4 p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400 w-6">
+                <div key={statementIdx} className="flex items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
+                  <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 w-5 sm:w-6">
                     {String.fromCharCode(97 + statementIdx)})
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 sm:gap-2">
                     <button
                       onClick={() => handleTrueFalseAnswer(question.id, statementIdx, true)}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                      className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
                         currentValue === true
                           ? 'bg-green-500 text-white'
-                          : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600'
+                          : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
                       }`}
                     >
                       Đúng
                     </button>
                     <button
                       onClick={() => handleTrueFalseAnswer(question.id, statementIdx, false)}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                      className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
                         currentValue === false
                           ? 'bg-red-500 text-white'
-                          : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600'
+                          : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
                       }`}
                     >
                       Sai
@@ -336,13 +336,13 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
         )}
 
         {question.question_type === 'short_answer' && (
-          <div className="ml-11">
+          <div className="ml-0 sm:ml-10">
             <input
               type="text"
               value={answers[question.id]?.textAnswer || ''}
               onChange={(e) => handleShortAnswer(question.id, e.target.value)}
               placeholder="Nhập đáp án..."
-              className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900 outline-none transition-all"
+              className="w-full p-2.5 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-700 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 dark:focus:ring-teal-900 outline-none transition-all text-sm sm:text-base"
             />
           </div>
         )}
@@ -366,26 +366,26 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
 
   return (
     <MathProvider>
-      <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 pb-20 lg:pb-0">
         {/* Header */}
-        <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-6 py-4">
+        <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-4 sm:px-6 py-3 sm:py-4">
           <div className="max-w-7xl mx-auto">
-            <h1 className="font-bold text-slate-800 dark:text-white text-lg">{examData.examMeta.title}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{examData.examMeta.subject}</p>
+            <h1 className="font-bold text-slate-800 dark:text-white text-base sm:text-lg line-clamp-1">{examData.examMeta.title}</h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{examData.examMeta.subject}</p>
           </div>
         </div>
 
-        {/* Two Column Layout */}
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex gap-6">
+        {/* Responsive Layout */}
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
             {/* Left: Questions */}
             <div className="flex-1 min-w-0">
-              {/* Part Navigation */}
-              <div className="flex gap-2 mb-6">
+              {/* Part Navigation - Scrollable on mobile */}
+              <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
                 {examData.part1.length > 0 && (
                   <button
                     onClick={() => setCurrentPart(1)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap text-sm sm:text-base flex-shrink-0 ${
                       currentPart === 1
                         ? 'bg-teal-600 dark:bg-teal-600 text-white'
                         : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -397,7 +397,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                 {examData.part2.length > 0 && (
                   <button
                     onClick={() => setCurrentPart(2)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap text-sm sm:text-base flex-shrink-0 ${
                       currentPart === 2
                         ? 'bg-teal-600 dark:bg-teal-600 text-white'
                         : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -409,7 +409,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                 {examData.part3.length > 0 && (
                   <button
                     onClick={() => setCurrentPart(3)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap text-sm sm:text-base flex-shrink-0 ${
                       currentPart === 3
                         ? 'bg-teal-600 dark:bg-teal-600 text-white'
                         : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'

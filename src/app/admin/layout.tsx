@@ -12,10 +12,10 @@ export default function AdminLayout({
         {/* Sidebar */}
         <AdminSidebar />
         
-        {/* Main Content Area */}
-        <div className="ml-64">
+        {/* Main Content Area - responsive margin */}
+        <div className="lg:ml-64">
           {/* Content */}
-          <main className="min-h-screen">
+          <main className="min-h-screen pt-14 lg:pt-0">
             {children}
           </main>
         </div>

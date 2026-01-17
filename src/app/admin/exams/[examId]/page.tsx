@@ -490,67 +490,68 @@ export default function AdminExamDetailPage() {
         subtitle={`${examInfo.subject} • ${formatDuration(examInfo.duration)} • ${questions.length} câu hỏi`} 
       />
       
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Top Actions Bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <button
             onClick={() => router.push('/admin/exams')}
-            className="flex items-center gap-2 text-slate-600 hover:text-slate-800 transition-colors"
+            className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Quay lại danh sách
+            <span className="hidden sm:inline">Quay lại danh sách</span>
+            <span className="sm:hidden">Quay lại</span>
           </button>
           
-          <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5 ${
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 ${
               examInfo.is_published 
-                ? 'bg-green-50 text-green-700' 
-                : 'bg-amber-50 text-amber-700'
+                ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${
                 examInfo.is_published ? 'bg-green-500' : 'bg-amber-500'
               }`}></span>
-              {examInfo.is_published ? 'Đang mở' : 'Bản nháp'}
+              {examInfo.is_published ? 'Mở' : 'Nháp'}
             </span>
             
             <button
               onClick={() => router.push(`/admin/exams/${examId}/results`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-medium hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg sm:rounded-xl text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               <Eye className="w-4 h-4" />
-              Xem kết quả
+              <span className="hidden sm:inline">Xem kết quả</span>
             </button>
             
             <button
               onClick={() => router.push(`/admin/exams/${examId}/publish`)}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded-lg sm:rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors"
             >
               <Settings className="w-4 h-4" />
-              Cấu hình
+              <span className="hidden sm:inline">Cấu hình</span>
             </button>
             
             {canHardDelete ? (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg sm:rounded-xl text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                Xóa
+                <span className="hidden sm:inline">Xóa</span>
               </button>
             ) : (
               <button
                 onClick={() => setShowDisableConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-xl font-medium hover:bg-orange-100 transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg sm:rounded-xl text-sm font-medium hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
               >
                 <XCircle className="w-4 h-4" />
-                Ngừng sử dụng
+                <span className="hidden sm:inline">Ngừng</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="bg-white rounded-xl border border-slate-100 p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
@@ -600,40 +601,43 @@ export default function AdminExamDetailPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-6 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
           <button
             onClick={() => setActiveTab('questions')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'questions'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-600 hover:text-slate-800'
+                ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center justify-center gap-1.5 sm:gap-2">
               <Edit3 className="w-4 h-4" />
-              Chỉnh sửa câu hỏi
+              <span className="hidden sm:inline">Chỉnh sửa câu hỏi</span>
+              <span className="sm:hidden">Câu hỏi</span>
             </span>
           </button>
           <button
             onClick={() => setActiveTab('attempts')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'attempts'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-600 hover:text-slate-800'
+                ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center justify-center gap-1.5 sm:gap-2">
               <Users className="w-4 h-4" />
-              Kết quả thi ({attempts.length})
+              <span className="hidden sm:inline">Kết quả thi</span>
+              <span className="sm:hidden">Kết quả</span>
+              <span className="text-xs">({attempts.length})</span>
             </span>
           </button>
         </div>
 
-        {/* Questions Tab - Two Column Layout */}
+        {/* Questions Tab - Responsive Layout */}
         {activeTab === 'questions' && (
-          <div className="grid grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
             {/* Left: Question List */}
-            <div className="col-span-4">
+            <div className="lg:col-span-4">
               <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
                 <div className="p-4 border-b border-slate-100">
                   <h3 className="font-semibold text-slate-800">Danh sách câu hỏi</h3>
@@ -685,7 +689,7 @@ export default function AdminExamDetailPage() {
             </div>
 
             {/* Right: Question Editor */}
-            <div className="col-span-8">
+            <div className="lg:col-span-8">
               {!editedQuestion ? (
                 <div className="bg-white rounded-2xl border border-slate-100 p-8 h-full flex items-center justify-center">
                   <div className="text-center text-slate-500">

@@ -49,19 +49,19 @@ export default function StatCard({
   const colors = colorClasses[color]
 
   return (
-    <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+    <div className="bg-slate-200 dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-slate-300 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-0.5 sm:mb-1 truncate">{title}</p>
+          <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
           {trend && (
-            <p className={`text-sm mt-2 ${trend.isUp ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-              {trend.isUp ? '↑' : '↓'} {trend.value}% so với tuần trước
+            <p className={`text-xs sm:text-sm mt-1 sm:mt-2 ${trend.isUp ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+              {trend.isUp ? '↑' : '↓'} {trend.value}%
             </p>
           )}
         </div>
-        <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center`}>
-          <Icon className={`w-6 h-6 ${colors.icon}`} />
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 ${colors.bg} rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0`}>
+          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${colors.icon}`} />
         </div>
       </div>
     </div>
