@@ -138,6 +138,256 @@ html {
   -webkit-overflow-scrolling: touch;
 }
 
+/* =============================================
+   MICRO-INTERACTIONS & ANIMATIONS
+   Based on UI/UX Pro Max recommendations
+   ============================================= */
+
+/* Micro-interaction keyframes (50-100ms) */
+@keyframes micro-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes micro-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes success-bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+/* Micro-interaction classes */
+.micro-bounce {
+  animation: micro-bounce 0.1s ease-in-out;
+}
+
+.micro-pulse {
+  animation: micro-pulse 0.08s ease-in-out;
+}
+
+.slide-in-up {
+  animation: slide-in-up 0.3s ease-out;
+}
+
+.fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.success-bounce {
+  animation: success-bounce 0.6s ease-in-out;
+}
+
+/* Hover micro-interactions */
+.hover-lift {
+  transition: all 0.1s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.hover-scale {
+  transition: transform 0.08s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-glow {
+  transition: box-shadow 0.1s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+/* Button micro-interactions */
+.btn-primary {
+  @apply bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl;
+  @apply transition-all duration-75 ease-in-out;
+  @apply hover:scale-105 active:scale-95;
+}
+
+.btn-secondary {
+  @apply bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl;
+  @apply transition-all duration-75 ease-in-out;
+  @apply hover:scale-105 active:scale-95;
+}
+
+/* Card micro-interactions */
+.card-interactive {
+  @apply transition-all duration-200 ease-out;
+  @apply hover:shadow-xl hover:-translate-y-1.5;
+  @apply cursor-pointer;
+}
+
+/* Page transition animations */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.page-exit {
+  animation: page-exit 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Staggered list animation */
+@keyframes list-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.list-item-enter {
+  animation: list-item-enter 0.3s ease-out forwards;
+}
+
+/* Scale-in animation for modals */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-in {
+  animation: scale-in 0.2s ease-out forwards;
+}
+
+/* Backdrop blur animation */
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.backdrop-in {
+  animation: backdrop-in 0.25s ease-out forwards;
+}
+
+/* Smooth content reveal */
+@keyframes content-reveal {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.content-reveal {
+  animation: content-reveal 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Floating animation for decorative elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, 
+    var(--background-card) 25%, 
+    var(--background) 50%, 
+    var(--background-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Loading states */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-500;
+}
+
+/* Progress indicators */
+.progress-bar {
+  @apply bg-gray-200 rounded-full overflow-hidden;
+}
+
+.progress-fill {
+  @apply bg-gradient-to-r from-blue-500 to-blue-600 h-full;
+  @apply transition-all duration-300 ease-out;
+}
+
+/* Educational color palette */
+:root {
+  --color-primary: #3B82F6;    /* blue-500 */
+  --color-secondary: #60A5FA;  /* blue-400 */
+  --color-cta: #F97316;        /* orange-500 */
+  --color-success: #10B981;    /* emerald-500 */
+  --color-warning: #F59E0B;    /* amber-500 */
+  --color-error: #EF4444;      /* red-500 */
+}
+
 /* Extra small breakpoint (xs: 480px) - custom for very small phones */
 @media (min-width: 480px) {
   .xs\:inline {

@@ -1,18 +1,91 @@
 'use client'
 
-import { useState } from 'react'
-import { Settings, Bell, Shield, Database, Save } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings, Bell, Shield, Database, Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
+import { createClient } from '@/lib/supabase/client'
+
+interface SiteSettings {
+  siteName: string
+  allowRegistration: boolean
+  examTimeWarning: number
+  autoSubmitOnTimeout: boolean
+  showCorrectAnswers: boolean
+  emailNotifications: boolean
+}
+
+const DEFAULT_SETTINGS: SiteSettings = {
+  siteName: 'ExamHub',
+  allowRegistration: true,
+  examTimeWarning: 5,
+  autoSubmitOnTimeout: true,
+  showCorrectAnswers: true,
+  emailNotifications: true
+}
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState({
-    siteName: 'ExamHub',
-    allowRegistration: true,
-    examTimeWarning: 5,
-    autoSubmitOnTimeout: true,
-    showCorrectAnswers: true,
-    emailNotifications: true
-  })
+  const supabase = createClient()
+  const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
+
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('key, value')
+        .eq('key', 'admin.settings')
+        .single()
+
+      if (data?.value) {
+        setSettings({ ...DEFAULT_SETTINGS, ...data.value })
+      }
+    } catch (err) {
+      console.log('No existing settings, using defaults')
+    }
+    setLoading(false)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveStatus('idle')
+    
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          key: 'admin.settings',
+          value: settings,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' })
+
+      if (error) throw error
+      
+      setSaveStatus('success')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    } catch (err) {
+      console.error('Save error:', err)
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    }
+    setSaving(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <AdminHeader title="Cài đặt" subtitle="Quản lý cấu hình hệ thống" />
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">
@@ -20,7 +93,7 @@ export default function AdminSettingsPage() {
       
       <div className="p-8 max-w-4xl">
         {/* General Settings */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 mb-6">
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center">
               <Settings className="w-5 h-5 text-teal-600" />
@@ -55,7 +128,7 @@ export default function AdminSettingsPage() {
                   settings.allowRegistration ? 'bg-teal-500' : 'bg-slate-300'
                 }`}
               >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                <span className={`absolute top-1 w-4 h-4 bg-slate-100 rounded-full transition-transform ${
                   settings.allowRegistration ? 'left-7' : 'left-1'
                 }`} />
               </button>
@@ -64,7 +137,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Exam Settings */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 mb-6">
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
               <Database className="w-5 h-5 text-blue-600" />
@@ -100,7 +173,7 @@ export default function AdminSettingsPage() {
                   settings.autoSubmitOnTimeout ? 'bg-teal-500' : 'bg-slate-300'
                 }`}
               >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                <span className={`absolute top-1 w-4 h-4 bg-slate-100 rounded-full transition-transform ${
                   settings.autoSubmitOnTimeout ? 'left-7' : 'left-1'
                 }`} />
               </button>
@@ -117,7 +190,7 @@ export default function AdminSettingsPage() {
                   settings.showCorrectAnswers ? 'bg-teal-500' : 'bg-slate-300'
                 }`}
               >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                <span className={`absolute top-1 w-4 h-4 bg-slate-100 rounded-full transition-transform ${
                   settings.showCorrectAnswers ? 'left-7' : 'left-1'
                 }`} />
               </button>
@@ -126,7 +199,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Notification Settings */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 mb-6">
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
               <Bell className="w-5 h-5 text-amber-600" />
@@ -148,7 +221,7 @@ export default function AdminSettingsPage() {
                 settings.emailNotifications ? 'bg-teal-500' : 'bg-slate-300'
               }`}
             >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+              <span className={`absolute top-1 w-4 h-4 bg-slate-100 rounded-full transition-transform ${
                 settings.emailNotifications ? 'left-7' : 'left-1'
               }`} />
             </button>
@@ -156,18 +229,42 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end">
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors">
-            <Save className="w-4 h-4" />
-            Lưu cài đặt
+        <div className="flex items-center justify-end gap-4">
+          {saveStatus === 'success' && (
+            <span className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
+              <CheckCircle className="w-4 h-4" />
+              Đã lưu thành công
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              Lỗi khi lưu
+            </span>
+          )}
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Đang lưu...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Lưu cài đặt
+              </>
+            )}
           </button>
         </div>
 
         {/* Note */}
-        <div className="mt-6 p-4 bg-slate-50 rounded-xl">
-          <p className="text-sm text-slate-600">
-            <strong>Lưu ý:</strong> Đây là trang cài đặt mẫu. Các cài đặt chưa được kết nối với backend.
-            Bạn có thể tùy chỉnh theo nhu cầu thực tế của hệ thống.
+        <div className="mt-6 p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-800">
+          <p className="text-sm text-teal-700 dark:text-teal-300">
+            <strong>Lưu ý:</strong> Các cài đặt được lưu trong bảng <code className="bg-teal-100 dark:bg-teal-800 px-1 rounded">site_settings</code> và sẽ được áp dụng cho toàn hệ thống.
           </p>
         </div>
       </div>

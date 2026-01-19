@@ -14,7 +14,8 @@ import {
   LogOut,
   GraduationCap,
   Menu,
-  X
+  X,
+  Users
 } from 'lucide-react'
 
 const menuItems = [
@@ -32,6 +33,11 @@ const menuItems = [
     label: 'Câu hỏi', 
     href: '/admin/questions', 
     icon: HelpCircle 
+  },
+  { 
+    label: 'Tài khoản', 
+    href: '/admin/users', 
+    icon: Users 
   },
   { 
     label: 'Góp ý', 

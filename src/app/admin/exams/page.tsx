@@ -115,7 +115,7 @@ export default function AdminExamsPage() {
             className={`p-3 sm:p-4 rounded-xl border transition-all ${
               filterStatus === 'all' 
                 ? 'bg-teal-50 dark:bg-teal-900/30 border-teal-200 dark:border-teal-700' 
-                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
+                : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
             }`}
           >
             <p className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total}</p>
@@ -126,7 +126,7 @@ export default function AdminExamsPage() {
             className={`p-3 sm:p-4 rounded-xl border transition-all ${
               filterStatus === 'published' 
                 ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' 
-                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
+                : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
             }`}
           >
             <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{stats.published}</p>
@@ -137,7 +137,7 @@ export default function AdminExamsPage() {
             className={`p-3 sm:p-4 rounded-xl border transition-all ${
               filterStatus === 'draft' 
                 ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700' 
-                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
+                : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600'
             }`}
           >
             <p className="text-lg sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.draft}</p>
@@ -156,7 +156,7 @@ export default function AdminExamsPage() {
                 placeholder="Tìm kiếm đề thi..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-64 lg:w-80 pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full sm:w-64 lg:w-80 pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ export default function AdminExamsPage() {
             </div>
           </div>
         ) : filteredExams.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <FileText className="w-8 h-8 text-slate-400 dark:text-slate-500" />
             </div>
@@ -206,7 +206,7 @@ export default function AdminExamsPage() {
               <div
                 key={exam.id}
                 onClick={() => router.push(`/admin/exams/${exam.id}`)}
-                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4 sm:p-5 hover:shadow-md hover:border-teal-200 dark:hover:border-teal-600 transition-all cursor-pointer group"
+                className="bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4 sm:p-5 hover:shadow-md hover:border-teal-200 dark:hover:border-teal-600 transition-all cursor-pointer group"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-start sm:items-center gap-3 sm:gap-4">

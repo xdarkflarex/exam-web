@@ -161,7 +161,7 @@ export default function AdminFeedbackPage() {
         </button>
 
         {openDropdown === feedback.id && (
-          <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-10">
+          <div className="absolute right-0 mt-1 w-40 bg-slate-50 dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-10">
             {Object.entries(statusConfig).map(([status, config]) => {
               const Icon = config.icon
               return (

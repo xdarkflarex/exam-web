@@ -3,6 +3,7 @@
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { LoadingProvider } from '@/contexts/LoadingContext'
 import LoadingOverlay from '@/components/LoadingOverlay'
+import { MathProvider } from '@/components/MathContent'
 import { usePathname } from 'next/navigation'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -12,7 +13,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <LoadingProvider>
-        {children}
+        <MathProvider>
+          {children}
+        </MathProvider>
         {!isAuthRoute && <LoadingOverlay />}
       </LoadingProvider>
     </ThemeProvider>

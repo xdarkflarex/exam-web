@@ -25,9 +25,16 @@ export function MathProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default function MathContent({ content, className = '' }: MathContentProps) {
+  // Check if content contains HTML tags
+  const hasHtml = /<[^>]+>/.test(content)
+  
   return (
-    <MathJax className={className}>
-      <div dangerouslySetInnerHTML={{ __html: content }} />
+    <MathJax className={className} dynamic>
+      {hasHtml ? (
+        <div dangerouslySetInnerHTML={{ __html: content }} />
+      ) : (
+        <span>{content}</span>
+      )}
     </MathJax>
   )
 }
