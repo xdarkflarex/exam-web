@@ -25,32 +25,69 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   // Handle session expiry message and signup success from redirect
+  // Also check if user already has a valid session
   useEffect(() => {
-    const expired = searchParams.get('expired')
-    const reason = searchParams.get('reason')
-    const signup = searchParams.get('signup')
-    
-    if (expired === 'true') {
-      // Clear any remaining session data
-      clearSessionData()
+    const checkExistingSession = async () => {
+      const expired = searchParams.get('expired')
+      const reason = searchParams.get('reason')
+      const signup = searchParams.get('signup')
       
-      if (reason === 'idle') {
-        setSessionExpiredMessage('Phiên đăng nhập đã hết hạn do không hoạt động. Vui lòng đăng nhập lại.')
-      } else if (reason === 'absolute') {
-        setSessionExpiredMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
-      } else {
-        setSessionExpiredMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+      // If not coming from session expiry, check if user already has valid session
+      if (!expired) {
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          // User has valid Supabase session - check profile and redirect
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+          
+          if (profile?.role) {
+            // Has profile - redirect to appropriate dashboard
+            if (profile.role === 'admin') {
+              router.replace('/admin/verify-otp')
+            } else {
+              const redirectPath = getDefaultRedirectPath(profile.role)
+              router.replace(redirectPath)
+            }
+            return
+          } else {
+            // Has session but no profile - redirect to complete profile
+            router.replace('/complete-profile')
+            return
+          }
+        }
       }
       
-      // Clean up URL
-      router.replace('/login')
-    } else if (signup === 'success') {
-      setSessionExpiredMessage('Tài khoản đã được tạo thành công! Vui lòng đăng nhập.')
-      
-      // Clean up URL
-      router.replace('/login')
+      if (expired === 'true') {
+        // Clear any remaining session data
+        clearSessionData()
+        
+        // Also sign out from Supabase to ensure clean state
+        await supabase.auth.signOut()
+        
+        if (reason === 'idle') {
+          setSessionExpiredMessage('Phiên đăng nhập đã hết hạn do không hoạt động. Vui lòng đăng nhập lại.')
+        } else if (reason === 'absolute') {
+          setSessionExpiredMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+        } else {
+          setSessionExpiredMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+        }
+        
+        // Clean up URL
+        router.replace('/login')
+      } else if (signup === 'success') {
+        setSessionExpiredMessage('Tài khoản đã được tạo thành công! Vui lòng đăng nhập.')
+        
+        // Clean up URL
+        router.replace('/login')
+      }
     }
-  }, [searchParams, router])
+    
+    checkExistingSession()
+  }, [searchParams, router, supabase])
 
   const handleLogin = async (email: string, password: string) => {
     setError('')

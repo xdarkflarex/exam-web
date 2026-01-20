@@ -36,12 +36,14 @@ interface ExamInfo {
 interface Question {
   id: string
   content: string
-  option_a: string
-  option_b: string
-  option_c: string
-  option_d: string
-  correct_answer: 'A' | 'B' | 'C' | 'D'
-  explanation?: string
+  question_type: string
+  explanation: string
+  answers: Array<{
+    id: string
+    content: string
+    is_correct: boolean
+    order_index: number
+  }>
   order_index: number
   topic_id?: string
   category_id?: string
@@ -125,22 +127,22 @@ export default function AdminExamDetailPage() {
         .from('exam_questions')
         .select(`
           question_id,
-          order_index,
+          order_in_part,
           questions (
             id,
             content,
-            option_a,
-            option_b,
-            option_c,
-            option_d,
-            correct_answer,
+            question_type,
             explanation,
-            topic_id,
-            category_id
+            answers (
+              id,
+              content,
+              is_correct,
+              order_index
+            )
           )
         `)
         .eq('exam_id', examId)
-        .order('order_index', { ascending: true })
+        .order('order_in_part', { ascending: true })
 
       if (error) {
         console.error('Fetch questions error:', error)
@@ -150,15 +152,10 @@ export default function AdminExamDetailPage() {
       const formattedQuestions: Question[] = (data || []).map((eq: any) => ({
         id: eq.questions.id,
         content: eq.questions.content,
-        option_a: eq.questions.option_a,
-        option_b: eq.questions.option_b,
-        option_c: eq.questions.option_c,
-        option_d: eq.questions.option_d,
-        correct_answer: eq.questions.correct_answer,
+        question_type: eq.questions.question_type,
         explanation: eq.questions.explanation,
-        order_index: eq.order_index,
-        topic_id: eq.questions.topic_id,
-        category_id: eq.questions.category_id
+        answers: (eq.questions.answers || []).sort((a: any, b: any) => a.order_index - b.order_index),
+        order_index: eq.order_in_part
       }))
 
       setQuestions(formattedQuestions)
@@ -180,24 +177,34 @@ export default function AdminExamDetailPage() {
     
     setSaving(true)
     try {
-      const { error } = await supabase
+      // Update question content and explanation
+      const { error: questionError } = await supabase
         .from('questions')
         .update({
           content: editedQuestion.content,
-          option_a: editedQuestion.option_a,
-          option_b: editedQuestion.option_b,
-          option_c: editedQuestion.option_c,
-          option_d: editedQuestion.option_d,
-          correct_answer: editedQuestion.correct_answer,
-          explanation: editedQuestion.explanation,
-          topic_id: editedQuestion.topic_id || null,
-          category_id: editedQuestion.category_id || null
+          explanation: editedQuestion.explanation
         })
         .eq('id', editedQuestion.id)
 
-      if (error) {
-        console.error('Save question error:', error)
+      if (questionError) {
+        console.error('Save question error:', questionError)
         return
+      }
+
+      // Update answers
+      for (const answer of editedQuestion.answers) {
+        const { error: answerError } = await supabase
+          .from('answers')
+          .update({
+            content: answer.content,
+            is_correct: answer.is_correct
+          })
+          .eq('id', answer.id)
+
+        if (answerError) {
+          console.error('Save answer error:', answerError)
+          return
+        }
       }
 
       // Update local state - questions array sẽ tự động update selectedQuestion (derived)
@@ -445,12 +452,8 @@ export default function AdminExamDetailPage() {
     }
   }
 
-  const options: Array<{ key: 'A' | 'B' | 'C' | 'D', field: 'option_a' | 'option_b' | 'option_c' | 'option_d' }> = [
-    { key: 'A', field: 'option_a' },
-    { key: 'B', field: 'option_b' },
-    { key: 'C', field: 'option_c' },
-    { key: 'D', field: 'option_d' },
-  ]
+  // Helper function to get option label (A, B, C, D)
+  const getOptionLabel = (index: number) => String.fromCharCode(65 + index)
 
   if (loading) {
     return (
@@ -676,7 +679,7 @@ export default function AdminExamDetailPage() {
                                 {question.content.substring(0, 50)}...
                               </p>
                               <p className="text-xs text-slate-500">
-                                Đáp án: {question.correct_answer}
+                                Đáp án: {question.answers.find(a => a.is_correct)?.content?.substring(0, 20) || 'N/A'}...
                               </p>
                             </div>
                           </div>
@@ -688,163 +691,98 @@ export default function AdminExamDetailPage() {
               </div>
             </div>
 
-            {/* Right: Question Editor */}
+            {/* Right: Question Preview */}
             <div className="lg:col-span-8">
-              {!editedQuestion ? (
+              {!selectedQuestion ? (
                 <div className="bg-white rounded-2xl border border-slate-100 p-8 h-full flex items-center justify-center">
                   <div className="text-center text-slate-500">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-lg font-medium">Chọn một câu hỏi để chỉnh sửa</p>
+                    <p className="text-lg font-medium">Chọn một câu hỏi để xem chi tiết</p>
                     <p className="text-sm mt-1">Chọn từ danh sách bên trái</p>
                   </div>
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-slate-100 p-6">
-                  {/* Editor Header */}
+                  {/* Preview Header */}
                   <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
                     <div>
                       <h3 className="text-lg font-semibold text-slate-800">
-                        Câu hỏi {questions.findIndex(q => q.id === editedQuestion.id) + 1}
+                        Câu hỏi {questions.findIndex(q => q.id === selectedQuestion.id) + 1}
                       </h3>
                       <p className="text-sm text-slate-500 mt-1">
-                        Chỉnh sửa bảng <code className="bg-slate-100 px-1.5 py-0.5 rounded text-teal-600 text-xs">questions</code>
+                        Xem chi tiết câu hỏi trong đề thi
                       </p>
                     </div>
-                    {hasChanges && (
-                      <span className="px-3 py-1 bg-amber-50 text-amber-700 text-sm rounded-full font-medium">
-                        Chưa lưu
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full font-medium">
+                        Chỉ xem
                       </span>
-                    )}
+                      <a
+                        href="/admin/questions"
+                        className="px-3 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-sm rounded-full font-medium transition-colors"
+                      >
+                        Chỉnh sửa trong Quản lý câu hỏi
+                      </a>
+                    </div>
                   </div>
 
-                  {/* Question Content */}
+                  {/* Question Preview */}
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Nội dung câu hỏi
                       </label>
-                      <textarea
-                        value={editedQuestion.content}
-                        onChange={(e) => setEditedQuestion({ ...editedQuestion, content: e.target.value })}
-                        rows={4}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none text-slate-800"
-                        placeholder="Nhập nội dung câu hỏi..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-3">
-                        Các đáp án
-                      </label>
-                      <div className="space-y-3">
-                        {options.map(({ key, field }) => (
-                          <div 
-                            key={key}
-                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                              editedQuestion.correct_answer === key 
-                                ? 'border-teal-300 bg-teal-50' 
-                                : 'border-slate-200 hover:border-slate-300'
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setEditedQuestion({ ...editedQuestion, correct_answer: key })}
-                              className="flex-shrink-0"
-                            >
-                              {editedQuestion.correct_answer === key ? (
-                                <CheckCircle className="w-6 h-6 text-teal-600" />
-                              ) : (
-                                <Circle className="w-6 h-6 text-slate-300 hover:text-slate-400" />
-                              )}
-                            </button>
-                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-                              editedQuestion.correct_answer === key 
-                                ? 'bg-teal-500 text-white' 
-                                : 'bg-slate-100 text-slate-600'
-                            }`}>
-                              {key}
-                            </span>
-                            <input
-                              type="text"
-                              value={editedQuestion[field]}
-                              onChange={(e) => setEditedQuestion({ ...editedQuestion, [field]: e.target.value })}
-                              className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none focus:ring-0 text-slate-800"
-                              placeholder={`Đáp án ${key}...`}
-                            />
-                          </div>
-                        ))}
+                      <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                        {selectedQuestion.content}
                       </div>
-                      <p className="text-xs text-slate-500 mt-2">
-                        Click vào biểu tượng tròn để chọn đáp án đúng
-                      </p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Giải thích (tùy chọn)
+                        Các đáp án
                       </label>
-                      <textarea
-                        value={editedQuestion.explanation || ''}
-                        onChange={(e) => setEditedQuestion({ ...editedQuestion, explanation: e.target.value })}
-                        rows={2}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none text-slate-800"
-                        placeholder="Thêm giải thích cho đáp án đúng..."
-                      />
-                    </div>
-
-                    {/* Topic & Category */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Chủ đề
-                        </label>
-                        <select
-                          value={editedQuestion.topic_id || ''}
-                          onChange={(e) => setEditedQuestion({ ...editedQuestion, topic_id: e.target.value || undefined })}
-                          className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-800 bg-white"
-                        >
-                          <option value="">-- Chọn chủ đề --</option>
-                          {topics.map(topic => (
-                            <option key={topic.id} value={topic.id}>{topic.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Danh mục
-                        </label>
-                        <select
-                          value={editedQuestion.category_id || ''}
-                          onChange={(e) => setEditedQuestion({ ...editedQuestion, category_id: e.target.value || undefined })}
-                          className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-800 bg-white"
-                        >
-                          <option value="">-- Chọn danh mục --</option>
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                          ))}
-                        </select>
+                      <div className="space-y-3">
+                        {selectedQuestion.answers.map((answer, index) => (
+                          <div 
+                            key={answer.id}
+                            className={`flex items-center gap-3 p-3 rounded-xl border ${
+                              answer.is_correct
+                                ? 'border-teal-300 bg-teal-50' 
+                                : 'border-slate-200 bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex-shrink-0">
+                              {answer.is_correct ? (
+                                <CheckCircle className="w-6 h-6 text-teal-600" />
+                              ) : (
+                                <Circle className="w-6 h-6 text-slate-300" />
+                              )}
+                            </div>
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                              answer.is_correct
+                                ? 'bg-teal-500 text-white' 
+                                : 'bg-slate-200 text-slate-600'
+                            }`}>
+                              {getOptionLabel(index)}
+                            </span>
+                            <div className="flex-1 text-slate-800">
+                              {answer.content}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-3 mt-8 pt-6 border-t border-slate-100">
-                    <button
-                      onClick={handleResetQuestion}
-                      disabled={!hasChanges || saving}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Hoàn tác
-                    </button>
-                    <button
-                      onClick={handleSaveQuestion}
-                      disabled={!hasChanges || saving}
-                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <Save className="w-4 h-4" />
-                      {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-                    </button>
+                    {selectedQuestion.explanation && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Giải thích
+                        </label>
+                        <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                          {selectedQuestion.explanation}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

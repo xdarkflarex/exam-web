@@ -94,12 +94,12 @@ export default function ExamSidebar({
                 onClick={() => isMobile ? handleQuestionClickMobile(q.id, q.part_number) : onQuestionClick(q.id, q.part_number)}
                 className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
                   isCurrent
-                    ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900'
+                    ? 'ring-2 ring-teal-500 dark:ring-teal-400 ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800'
                     : ''
                 } ${
                   isAnswered
-                    ? 'bg-green-500 text-white hover:bg-green-600'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    ? 'bg-green-500 dark:bg-green-600 text-white hover:bg-green-600 dark:hover:bg-green-500'
+                    : 'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-400 dark:hover:bg-slate-500 border border-slate-400 dark:border-slate-500'
                 }`}
               >
                 {globalIndex}
@@ -184,12 +184,12 @@ export default function ExamSidebar({
 
               {/* Legend */}
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <div className="w-3 h-3 rounded bg-green-500" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="w-3 h-3 rounded bg-green-500 dark:bg-green-600" />
                   Đã làm
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <div className="w-3 h-3 rounded bg-slate-400 dark:bg-slate-600" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="w-3 h-3 rounded bg-slate-300 dark:bg-slate-600 border border-slate-400 dark:border-slate-500" />
                   Chưa làm
                 </div>
               </div>
@@ -247,12 +247,12 @@ export default function ExamSidebar({
 
             {/* Legend */}
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <div className="w-3 h-3 rounded bg-green-500" />
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <div className="w-3 h-3 rounded bg-green-500 dark:bg-green-600" />
                 Đã làm
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <div className="w-3 h-3 rounded bg-slate-400 dark:bg-slate-600" />
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <div className="w-3 h-3 rounded bg-slate-300 dark:bg-slate-600 border border-slate-400 dark:border-slate-500" />
                 Chưa làm
               </div>
             </div>

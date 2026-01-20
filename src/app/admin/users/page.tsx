@@ -47,9 +47,18 @@ export default function AdminUsersPage() {
 
       if (error) {
         console.error('Error fetching users:', error)
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        })
         setLoading(false)
         return
       }
+
+      console.log('Fetched profiles:', profiles?.length || 0, 'profiles')
+      console.log('Profile data sample:', profiles?.[0])
 
       // Get exam attempt counts for each user
       const userIds = profiles?.map(p => p.id) || []

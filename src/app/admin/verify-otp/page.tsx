@@ -203,7 +203,12 @@ export default function VerifyOTPPage() {
 
       // Success - redirect to admin dashboard
       setSuccess('Xác thực thành công!')
-      router.replace('/admin')
+      
+      // Use window.location.href to ensure the new cookie is picked up
+      // router.replace doesn't always pick up newly set cookies from API response
+      setTimeout(() => {
+        window.location.href = '/admin'
+      }, 500)
     } catch (err) {
       setError('Đã xảy ra lỗi khi xác thực')
       setIsLoading(false)

@@ -519,6 +519,19 @@ export default function AdminQuestionsPage() {
               ))}
             </select>
 
+            {/* Subsection = Dạng bài */}
+            <select
+              value={selectedSubsectionId}
+              onChange={(e) => setSelectedSubsectionId(e.target.value)}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
+              disabled={!selectedSectionId}
+            >
+              <option value="">Tất cả dạng bài</option>
+              {filteredSubsections.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+
             {/* Difficulty */}
             <select
               value={selectedDifficulty}

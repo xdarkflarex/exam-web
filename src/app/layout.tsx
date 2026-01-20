@@ -28,8 +28,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.variable} ${baloo2.variable} font-sans antialiased bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200`}>
-        <Providers>{children}</Providers>
+      <body className={`${inter.variable} ${baloo2.variable} font-sans antialiased bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200`} suppressHydrationWarning>
+        <div suppressHydrationWarning>
+          <Providers>{children}</Providers>
+        </div>
       </body>
     </html>
   );

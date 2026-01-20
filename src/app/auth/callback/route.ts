@@ -19,8 +19,12 @@ import { getDefaultRedirectPath } from '@/lib/auth/roles'
  * This is for security and data quality reasons.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get('code')
+  
+  // Determine the correct origin for redirects
+  // In development, use localhost; in production, use the actual domain
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin
 
   if (code) {
     const cookieStore = await cookies()
