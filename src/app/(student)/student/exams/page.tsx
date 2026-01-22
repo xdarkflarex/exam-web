@@ -34,7 +34,6 @@ export default function ExamsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'attempted' | 'not_attempted'>('all')
-  const [startingExam, setStartingExam] = useState<string | null>(null)
 
   useEffect(() => {
     fetchExams()
@@ -90,65 +89,9 @@ export default function ExamsPage() {
     }
   }
 
-  const handleStartExam = async (examId: string) => {
-    setStartingExam(examId)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      // Check for existing in-progress attempt
-      const { data: existingAttempt } = await supabase
-        .from('exam_attempts')
-        .select('id')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .eq('status', 'in_progress')
-        .maybeSingle()
-
-      if (existingAttempt) {
-        router.push(`/exam/${existingAttempt.id}`)
-        return
-      }
-
-      // Get next attempt number
-      const { data: maxAttempt } = await supabase
-        .from('exam_attempts')
-        .select('attempt_number')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .order('attempt_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      const nextAttemptNumber = maxAttempt ? maxAttempt.attempt_number + 1 : 1
-
-      // Create new attempt
-      const { data: newAttempt, error } = await supabase
-        .from('exam_attempts')
-        .insert({
-          exam_id: examId,
-          student_id: user.id,
-          attempt_number: nextAttemptNumber,
-          start_time: new Date().toISOString(),
-          status: 'in_progress'
-        })
-        .select('id')
-        .single()
-
-      if (error) {
-        console.error('Create attempt error:', error)
-        return
-      }
-
-      router.push(`/exam/${newAttempt.id}`)
-    } catch (error) {
-      console.error('Error starting exam:', error)
-    } finally {
-      setStartingExam(null)
-    }
+  const handleStartExam = (examId: string) => {
+    // Navigate to preparation page instead of directly starting
+    router.push(`/exam/prepare/${examId}`)
   }
 
   // Filter exams
@@ -281,22 +224,12 @@ export default function ExamsPage() {
 
                   <button
                     onClick={() => handleStartExam(exam.id)}
-                    disabled={startingExam === exam.id}
-                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white rounded-xl font-medium transition-colors"
+                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium transition-colors"
                   >
-                    {startingExam === exam.id ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span className="hidden sm:inline">Đang mở...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4" />
-                        <span className="hidden sm:inline">
-                          {(exam.attempt_count || 0) > 0 ? 'Thi lại' : 'Bắt đầu'}
-                        </span>
-                      </>
-                    )}
+                    <Play className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {(exam.attempt_count || 0) > 0 ? 'Thi lại' : 'Bắt đầu'}
+                    </span>
                   </button>
                 </div>
               </div>

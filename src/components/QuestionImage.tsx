@@ -23,7 +23,7 @@ export default function QuestionImage({ src, alt = "Question diagram", className
           <img 
             src={src} 
             alt={alt}
-            className="max-w-full h-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200"
+            className="max-w-full h-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200 bg-white"
             style={{ maxWidth: '520px' }}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors duration-200 flex items-center justify-center">
@@ -48,7 +48,7 @@ export default function QuestionImage({ src, alt = "Question diagram", className
             <img 
               src={src} 
               alt={alt}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white"
               onClick={closeModal}
             />
           </div>

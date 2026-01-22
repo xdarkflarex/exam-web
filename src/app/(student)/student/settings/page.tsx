@@ -15,7 +15,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/contexts/ThemeContext'
 
 export default function StudentSettingsPage() {
   const supabase = createClient()
@@ -462,6 +462,7 @@ export default function StudentSettingsPage() {
               className={`relative w-14 h-7 rounded-full transition-colors ${
                 mounted && theme === 'dark' ? 'bg-teal-600' : 'bg-slate-300'
               }`}
+              disabled={!mounted}
             >
               <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
                 mounted && theme === 'dark' ? 'left-8' : 'left-1'

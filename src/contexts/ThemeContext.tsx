@@ -6,6 +6,7 @@ type Theme = 'light' | 'dark'
 
 interface ThemeContextType {
   theme: Theme
+  setTheme: (theme: Theme) => void
   toggleTheme: () => void
 }
 
@@ -25,13 +26,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle('dark', initialTheme === 'dark')
   }, [])
 
+  // Set theme directly
+  const handleSetTheme = (newTheme: Theme) => {
+    setTheme(newTheme)
+    localStorage.setItem('theme', newTheme)
+    document.documentElement.classList.toggle('dark', newTheme === 'dark')
+  }
+
   // Toggle
   const toggleTheme = () => {
     if (!theme) return
     const next = theme === 'light' ? 'dark' : 'light'
-    setTheme(next)
-    localStorage.setItem('theme', next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
+    handleSetTheme(next)
   }
 
   // ⛔ CRITICAL: block render until mounted
@@ -40,7 +46,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme: handleSetTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   )

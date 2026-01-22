@@ -189,6 +189,10 @@ html {
   animation: slide-in-up 0.3s ease-out;
 }
 
+.animate-slide-up {
+  animation: slide-in-up 0.4s ease-out;
+}
+
 .fade-in {
   animation: fade-in 0.2s ease-out;
 }

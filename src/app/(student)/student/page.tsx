@@ -62,7 +62,6 @@ export default function StudentPage() {
   const [recentAttempts, setRecentAttempts] = useState<RecentAttempt[]>([])
   const [weakAreas, setWeakAreas] = useState<WeakArea[]>([])
   const [inProgressAttempt, setInProgressAttempt] = useState<InProgressAttempt | null>(null)
-  const [startingExam, setStartingExam] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDashboardData()
@@ -256,62 +255,9 @@ export default function StudentPage() {
     }
   }
 
-  const handleStartExam = async (examId: string) => {
-    setStartingExam(examId)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      // Check existing in-progress
-      const { data: existing } = await supabase
-        .from('exam_attempts')
-        .select('id')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .eq('status', 'in_progress')
-        .maybeSingle()
-
-      if (existing) {
-        router.push(`/exam/${existing.id}`)
-        return
-      }
-
-      // Get next attempt number
-      const { data: maxAttempt } = await supabase
-        .from('exam_attempts')
-        .select('attempt_number')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .order('attempt_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      const nextNumber = maxAttempt ? maxAttempt.attempt_number + 1 : 1
-
-      // Create attempt
-      const { data: newAttempt } = await supabase
-        .from('exam_attempts')
-        .insert({
-          exam_id: examId,
-          student_id: user.id,
-          attempt_number: nextNumber,
-          start_time: new Date().toISOString(),
-          status: 'in_progress'
-        })
-        .select('id')
-        .single()
-
-      if (newAttempt) {
-        router.push(`/exam/${newAttempt.id}`)
-      }
-    } catch (error) {
-      console.error('Error starting exam:', error)
-    } finally {
-      setStartingExam(null)
-    }
+  const handleStartExam = (examId: string) => {
+    // Redirect to preparation page instead of directly starting exam
+    router.push(`/exam/prepare/${examId}`)
   }
 
   const getScoreColor = (score: number) => {
@@ -413,7 +359,7 @@ export default function StudentPage() {
                 </p>
               </div>
               <button
-                onClick={() => router.push(`/exam/${inProgressAttempt.id}`)}
+                onClick={() => router.push(`/exam/prepare/${inProgressAttempt.exam_id}`)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white text-teal-600 rounded-xl font-medium hover:bg-teal-50 transition-colors"
               >
                 <Play className="w-4 h-4" />
@@ -460,17 +406,10 @@ export default function StudentPage() {
                     </div>
                     <button
                       onClick={() => handleStartExam(exam.id)}
-                      disabled={startingExam === exam.id}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
                     >
-                      {startingExam === exam.id ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4" />
-                          Làm bài
-                        </>
-                      )}
+                      <Play className="w-4 h-4" />
+                      Làm bài
                     </button>
                   </div>
                 ))}
