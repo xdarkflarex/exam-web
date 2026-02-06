@@ -1,0 +1,476 @@
+# 🐛 Exam-Web Bug Report & Feature Recommendations v2
+
+**Ngày kiểm tra:** 2026-02-04  
+**Phạm vi:** Full project audit + RLS review + Feature proposals  
+**Trạng thái:** 5 lỗi tìm thấy, 6 đề xuất tính năng mới
+
+---
+
+## 📋 MỤC LỤC
+
+- [Critical Bugs](#-critical-bugs-cần-fix-ngay)
+- [RLS Policy Issues](#-rls-policy-issues-found)
+- [Medium Priority Issues](#️-medium-priority-issues)
+- [Feature Recommendations](#-feature-recommendations)
+- [Reference Websites](#-tham-khảo-các-website-thi-thử)
+- [Summary](#-summary)
+- [Action Items](#-action-items)
+
+---
+
+## 🔴 CRITICAL BUGS (Cần Fix Ngay)
+
+### Bug #1: Google OAuth Redirect về Localhost ⚠️ **HIGH PRIORITY**
+
+> [!CAUTION]
+> Tất cả đăng nhập Google trên production sẽ FAIL vì redirect về localhost!
+
+**Mô tả:** Khi đăng nhập bằng Google (OAuth), người dùng bị redirect về `localhost` thay vì domain production.
+
+**File:** [auth/callback/route.ts](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/auth/callback/route.ts)
+
+```typescript
+const origin = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin
+```
+
+**Fix:**
+1. Thêm vào [.env](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/.env):
+   ```bash
+   NEXT_PUBLIC_SITE_URL=https://your-production-domain.com
+   ```
+2. Thêm production URL vào Supabase Dashboard → Authentication → URL Configuration
+
+---
+
+### Bug #2: Admin KHÔNG THỂ Xem Tài Khoản Học Sinh ⚠️ **HIGH PRIORITY**
+
+> [!CAUTION]
+> RLS policies thiếu quyền cho admin! Admin không thể:
+> - Xem danh sách tất cả học sinh
+> - Xem lượt làm bài của học sinh khác
+> - Phân tích tổng quan bài làm
+
+**Phân tích RLS trong [EXAM_SYSTEM_SCHEMA.sql](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/database/EXAM_SYSTEM_SCHEMA.sql):**
+
+#### ❌ Bảng `profiles` (Line 400-408):
+```sql
+-- HIỆN TẠI: Public profiles viewable by everyone
+CREATE POLICY "Public profiles are viewable by everyone" ON profiles
+  FOR SELECT USING (true);
+
+-- VẤN ĐỀ: Đã cho phép SELECT all, nhưng admin cần thêm quyền UPDATE/DELETE
+```
+
+#### ❌ Bảng `exam_attempts` (Line 447-460):
+```sql
+-- HIỆN TẠI: Chỉ students xem được attempts của mình
+-- Teachers chỉ xem được attempts của exams họ tạo
+CREATE POLICY "Students see own attempts" ON exam_attempts
+  FOR SELECT USING (student_id = auth.uid());
+  
+CREATE POLICY "Teachers see class attempts" ON exam_attempts
+  FOR SELECT USING (
+    exam_id IN (SELECT id FROM exams WHERE created_by = auth.uid())
+  );
+
+-- VẤN ĐỀ: KHÔNG CÓ POLICY CHO ADMIN!
+-- Admin không thể xem ALL attempts của tất cả học sinh
+```
+
+#### ❌ Bảng `student_answers` (Line 462-475):
+```sql
+-- HIỆN TẠI: Students manage own, teachers view class answers
+-- VẤN ĐỀ: Admin không có quyền xem TẤT CẢ answers
+```
+
+#### ❌ Bảng `exam_analytics` (Line 477-484):
+```sql
+-- HIỆN TẠI: Teachers see own exam analytics
+-- VẤN ĐỀ: Admin không có quyền xem analytics TOÀN BỘ hệ thống
+```
+
+---
+
+## 🔐 RLS POLICY ISSUES FOUND
+
+### Issue #1: Missing Admin Policies cho User Management
+
+**Vấn đề:** Role `admin` được định nghĩa trong schema nhưng không được sử dụng trong RLS policies!
+
+**Bảng cần fix RLS:**
+
+| Bảng | Hiện tại | Cần thêm |
+|------|----------|----------|
+| `profiles` | Public SELECT | Admin FULL ACCESS |
+| `classes` | Teacher/Student | Admin FULL ACCESS |
+| `exams` | Creator only | Admin FULL ACCESS |
+| `exam_attempts` | Owner/Creator | Admin SELECT ALL |
+| `student_answers` | Owner/Creator | Admin SELECT ALL |
+| `exam_analytics` | Exam creator | Admin SELECT ALL |
+| `anti_cheat_logs` | Exam creator | Admin SELECT ALL |
+
+**Fix SQL cần chạy:**
+
+```sql
+-- ==============================================
+-- FIX ADMIN RLS POLICIES
+-- Chạy script này trên Supabase SQL Editor
+-- ==============================================
+
+-- PROFILES: Admin can manage all profiles
+CREATE POLICY "Admin can manage all profiles" ON profiles
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- CLASSES: Admin can manage all classes
+CREATE POLICY "Admin can manage all classes" ON classes
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- EXAMS: Admin can manage all exams
+CREATE POLICY "Admin can manage all exams" ON exams
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- EXAM_ATTEMPTS: Admin can view all attempts
+CREATE POLICY "Admin can view all attempts" ON exam_attempts
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- STUDENT_ANSWERS: Admin can view all answers
+CREATE POLICY "Admin can view all answers" ON student_answers
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- EXAM_ANALYTICS: Admin can view all analytics
+CREATE POLICY "Admin can view all analytics" ON exam_analytics
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- ANTI_CHEAT_LOGS: Admin can view all logs
+CREATE POLICY "Admin can view all anti-cheat logs" ON anti_cheat_logs
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role = 'admin'
+    )
+  );
+```
+
+---
+
+## ⚠️ MEDIUM PRIORITY ISSUES
+
+### Bug #3: Console.error Exposure trong Production
+
+**Mô tả:** 120+ lần gọi `console.error` trong codebase, leak sensitive info ra DevTools.
+
+**Ví dụ:**
+- [admin/users/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/admin/users/page.tsx) Line 49-55
+- [middleware.ts](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/middleware.ts) Line 168, 194, 253
+
+**Rủi ro:** Information disclosure, khó track production errors
+
+---
+
+### Bug #4: Missing Username Uniqueness Check
+
+**File:** [complete-profile/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/complete-profile/page.tsx)
+
+**Vấn đề:** Không kiểm tra username trùng lặp trước khi submit
+
+---
+
+### Bug #5: Thiếu Error Handling cho RLS Failures
+
+**Mô tả:** Khi RLS block request, error message không rõ ràng cho user
+
+**File:** [admin/users/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/admin/users/page.tsx) Line 48-58
+
+```typescript
+if (error) {
+  console.error('Error fetching users:', error)
+  // Không hiển thị thông báo cho user biết vì sao không load được
+}
+```
+
+---
+
+## 💡 FEATURE RECOMMENDATIONS
+
+### 🎯 Tính năng cho ADMIN
+
+#### Feature #1: Analytics Dashboard - Tổng quan học sinh
+
+> [!TIP]
+> Tham khảo từ Azota, SHub Classroom - cung cấp dashboard trực quan cho giáo viên
+
+**Yêu cầu:**
+1. **Biểu đồ tổng quan:**
+   - Số lượt làm bài theo ngày/tuần/tháng
+   - Điểm trung bình theo đề thi
+   - Phân bố điểm (histogram)
+   - Tỷ lệ hoàn thành
+
+2. **Bảng xếp hạng học sinh:**
+   - Top học sinh điểm cao nhất
+   - Học sinh làm bài nhiều nhất
+   - Học sinh có tiến bộ tốt nhất
+
+3. **Phân tích câu hỏi:**
+   - Câu hỏi khó nhất (làm sai nhiều)
+   - Câu hỏi dễ nhất
+   - Thời gian làm bài trung bình/câu
+
+**Mockup:**
+```
+┌─────────────────────────────────────────────────────────┐
+│  📊 ANALYTICS DASHBOARD                                 │
+├─────────────────────────────────────────────────────────┤
+│  [Filters: Thời gian | Đề thi | Lớp]                    │
+│                                                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
+│  │ 1,234    │  │ 7.85     │  │ 89%      │  │ 45 min   │ │
+│  │ Lượt thi │  │ Điểm TB  │  │ Hoàn thành│  │ Thời gian│ │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │
+│                                                         │
+│  [BIỂU ĐỒ: Lượt làm bài theo thời gian]                 │
+│  [BIỂU ĐỒ: Phân bố điểm]                                │
+│                                                         │
+│  ┌─────────────────────────────────────────────────────┐│
+│  │  TOP 10 HỌC SINH                                    ││
+│  │  1. Nguyễn Văn A - 9.5 điểm - 15 lượt              ││
+│  │  2. Trần Thị B - 9.2 điểm - 12 lượt                ││
+│  └─────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### Feature #2: Chi tiết theo dõi từng học sinh
+
+**Yêu cầu:**
+1. **Trang chi tiết học sinh:**
+   - Lịch sử làm bài của học sinh
+   - Biểu đồ tiến bộ theo thời gian
+   - Điểm mạnh/yếu theo chủ đề
+   - Thời gian làm bài trung bình
+
+2. **Export báo cáo:**
+   - Xuất PDF của lịch sử + thống kê
+   - Xuất Excel danh sách điểm
+
+**Files cần tạo:**
+- `/admin/students/[studentId]/page.tsx` - Chi tiết học sinh
+- `/admin/students/page.tsx` - Danh sách học sinh với filter/search
+
+---
+
+#### Feature #3: Quản lý lớp học
+
+**Yêu cầu:**
+1. Tạo/sửa/xóa lớp
+2. Gán học sinh vào lớp
+3. Giao đề thi cho lớp cụ thể
+4. Thống kê theo lớp
+
+---
+
+### 🎯 Tính năng cho STUDENT
+
+#### Feature #4: Student Dashboard - Tiến bộ cá nhân
+
+**Yêu cầu:**
+1. **Trang chủ học sinh:**
+   - Tổng số bài đã làm
+   - Điểm trung bình cá nhân
+   - Biểu đồ tiến bộ
+   - Bài thi sắp tới
+
+2. **Lịch sử làm bài:**
+   - Danh sách bài đã làm
+   - Filter theo đề/điểm/thời gian
+   - Xem lại bài làm chi tiết
+
+3. **Phân tích điểm yếu:**
+   - Chủ đề làm sai nhiều
+   - Đề xuất ôn tập
+
+**Mockup Student Dashboard:**
+```
+┌─────────────────────────────────────────────────────────┐
+│  👋 Xin chào, [Tên học sinh]!                          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│  │ 25       │  │ 7.4      │  │ ↑ 0.8    │              │
+│  │ Bài đã làm│  │ Điểm TB  │  │ So với    │              │
+│  │          │  │          │  │ tháng trước│              │
+│  └──────────┘  └──────────┘  └──────────┘              │
+│                                                         │
+│  [BIỂU ĐỒ: Tiến bộ điểm số theo thời gian]             │
+│                                                         │
+│  📚 CHUYÊN ĐỀ CẦN ÔN TẬP                               │
+│  ⚠️ Tích phân - 45% đúng                               │
+│  ⚠️ Lượng giác - 52% đúng                              │
+│                                                         │
+│  📝 BÀI THI GẦN ĐÂY                                    │
+│  • THPT Chuyên KHTN Lần 1 - 8.5 điểm - 2 ngày trước   │
+│  • Đề thi thử số 5 - 7.0 điểm - 5 ngày trước          │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### Feature #5: Leaderboard - Bảng xếp hạng
+
+**Yêu cầu:**
+1. Xếp hạng theo đề thi
+2. Xếp hạng tổng điểm
+3. Xếp hạng theo tuần/tháng
+4. Compare với bạn bè
+
+---
+
+#### Feature #6: Practice Mode - Luyện tập theo chủ đề
+
+**Yêu cầu:**
+1. Chọn chủ đề cần luyện
+2. Làm bài không giới hạn thời gian
+3. Xem đáp án ngay sau mỗi câu
+4. Thống kê tiến bộ theo chủ đề
+
+---
+
+## 🌐 THAM KHẢO CÁC WEBSITE THI THỬ
+
+### Các nền tảng phổ biến tại Việt Nam
+
+| Website | Tính năng nổi bật |
+|---------|-------------------|
+| **Azota** | Tạo đề thi, chấm điểm tự động, quản lý lớp học, ngân hàng câu hỏi |
+| **SHub Classroom** | LMS đầy đủ, tracking học sinh, giao bài tập |
+| **Thi Thử Online** | Đề thi THPT, chấm điểm ngay, xem đáp án |
+| **Trắc Nghiệm VN** | Ngân hàng đề phong phú, lời giải chi tiết |
+| **K12Online** | LMS cho trường học, quản lý toàn diện |
+| **PrepEdu** | Lộ trình học cá nhân hóa, tracking tiến bộ |
+
+### Tính năng cần học hỏi
+
+1. **Chấm điểm tự động + lời giải chi tiết** ✅ Đã có
+2. **Theo dõi tiến độ học tập** ⚡ Cần thêm
+3. **Phân tích điểm mạnh/yếu** ⚡ Cần thêm
+4. **Quản lý lớp học** ⚡ Cần thêm
+5. **Leaderboard** ⚡ Cần thêm
+6. **Practice mode** ⚡ Cần thêm
+
+---
+
+## ✅ ĐIỂM TỐT HIỆN TẠI
+
+| Feature | Đánh giá |
+|---------|----------|
+| Middleware auth guards | ⭐⭐⭐⭐⭐ Excellent |
+| 2FA cho admin | ⭐⭐⭐⭐⭐ Secure |
+| Session timeout handling | ⭐⭐⭐⭐⭐ Smart (skip cho exam) |
+| Anti-cheat system | ⭐⭐⭐⭐ Good design |
+| Profile completion flow | ⭐⭐⭐⭐ Clean UX |
+| Exam analytics table | ⭐⭐⭐⭐ Ready for features |
+
+---
+
+## 📊 Summary
+
+| Category | Count | Status |
+|----------|-------|--------|
+| 🔴 Critical Bugs | 2 | **FIX NGAY** |
+| ⚠️ Medium Issues | 3 | Fix trong sprint |
+| 💡 Admin Features | 3 | Đề xuất mới |
+| 💡 Student Features | 3 | Đề xuất mới |
+| ✅ Good Practices | 6 | Maintain |
+
+---
+
+## 🎯 Action Items
+
+### 🔥 Tuần này (Critical)
+
+- [ ] **Fix Bug #1** - Thêm `NEXT_PUBLIC_SITE_URL` vào [.env](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/.env)
+- [ ] **Fix Bug #2** - Chạy SQL script thêm Admin RLS policies
+- [ ] **Verify** - Test OAuth flow + Admin user management
+
+### 📋 Sprint 1 (High Priority)
+
+- [ ] Tạo Analytics Dashboard cho Admin
+- [ ] Tạo trang chi tiết học sinh `/admin/students/[id]`
+- [ ] Setup Sentry error monitoring
+- [ ] Replace console.error với centralized logger
+
+### 📋 Sprint 2 (Medium Priority)
+
+- [ ] Student Dashboard với biểu đồ tiến bộ
+- [ ] Leaderboard feature
+- [ ] Export PDF/Excel reports
+- [ ] Quản lý lớp học
+
+### 📋 Backlog
+
+- [ ] Practice mode theo chủ đề
+- [ ] So sánh với bạn bè
+- [ ] Push notifications cho deadline
+- [ ] Mobile responsive improvements
+
+---
+
+## 📝 Notes
+
+**File cần tạo mới cho features:**
+- `/admin/analytics/page.tsx` - Analytics Dashboard
+- `/admin/students/page.tsx` - Danh sách học sinh
+- `/admin/students/[id]/page.tsx` - Chi tiết học sinh
+- `/admin/classes/page.tsx` - Quản lý lớp
+- `/student/progress/page.tsx` - Tiến bộ cá nhân
+- `/student/leaderboard/page.tsx` - Bảng xếp hạng
+- `/lib/analytics/` - Analytics utilities
+
+**Database cần thêm:**
+- `student_progress` table cho tracking chi tiết
+- `leaderboard` view cho ranking
+
+---
+
+**Codebase tổng thể:** **7/10** 
+- 🔴 RLS policies thiếu admin → cần fix ngay
+- 🔴 OAuth redirect → cần config
+- 💡 Thiếu analytics features → cần phát triển

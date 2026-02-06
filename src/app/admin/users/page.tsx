@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Users, Search, Filter, UserCheck, UserX, Shield, GraduationCap,
-  Mail, Calendar, MoreVertical, ChevronDown, Eye, Trash2, RefreshCw
+  Mail, Calendar, MoreVertical, ChevronDown, Eye, Trash2, RefreshCw, AlertCircle
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
+import { logger } from '@/lib/logger'
 
 interface UserProfile {
   id: string
@@ -31,6 +32,7 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>('')
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -38,6 +40,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true)
+    setErrorMessage(null)
     try {
       // Fetch profiles
       const { data: profiles, error } = await supabase
@@ -46,19 +49,13 @@ export default function AdminUsersPage() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error fetching users:', error)
-        console.error('Error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        })
+        const userMessage = logger.supabaseError('fetch profiles', error, { operation: 'fetchUsers' })
+        setErrorMessage(userMessage)
         setLoading(false)
         return
       }
 
-      console.log('Fetched profiles:', profiles?.length || 0, 'profiles')
-      console.log('Profile data sample:', profiles?.[0])
+      logger.debug('Fetched profiles', { count: profiles?.length || 0 })
 
       // Get exam attempt counts for each user
       const userIds = profiles?.map(p => p.id) || []
@@ -86,7 +83,8 @@ export default function AdminUsersPage() {
         setUsers(profiles || [])
       }
     } catch (err) {
-      console.error('Error:', err)
+      logger.error('Unexpected error fetching users', err)
+      setErrorMessage('Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.')
     }
     setLoading(false)
   }
@@ -110,7 +108,7 @@ export default function AdminUsersPage() {
   // Debug log to check fetched data
   useEffect(() => {
     if (users.length > 0) {
-      console.log('Fetched users:', users.map(u => ({ name: u.full_name, role: u.role })))
+      logger.debug('Users loaded', { count: users.length })
     }
   }, [users])
 
@@ -135,6 +133,23 @@ export default function AdminUsersPage() {
       />
       
       <div className="p-6">
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-red-800 dark:text-red-200">Không thể tải danh sách</p>
+              <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+            </div>
+            <button
+              onClick={fetchUsers}
+              className="ml-auto px-3 py-1.5 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">

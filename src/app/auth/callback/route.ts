@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getDefaultRedirectPath } from '@/lib/auth/roles'
+import { logger } from '@/lib/logger'
 
 /**
  * OAuth Callback Route
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     
     if (exchangeError) {
-      console.error('OAuth code exchange error:', exchangeError)
+      logger.error('OAuth code exchange error', exchangeError)
       return NextResponse.redirect(`${origin}/login?error=oauth_failed`)
     }
 

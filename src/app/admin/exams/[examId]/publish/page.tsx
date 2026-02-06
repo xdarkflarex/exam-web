@@ -165,6 +165,24 @@ export default function ExamPublishPage() {
         return
       }
 
+      // Auto-create announcement when publishing
+      if (newPublishState && title) {
+        const endDate = new Date()
+        endDate.setDate(endDate.getDate() + 7) // Show for 7 days
+        
+        await supabase
+          .from('announcements')
+          .insert({
+            title: `Đề thi mới: ${title}`,
+            content: description || 'Đề thi mới đã được xuất bản. Đăng nhập để làm bài ngay!',
+            type: 'new_exam',
+            link_url: `/exam/prepare/${examId}`,
+            link_text: 'Làm bài ngay',
+            is_active: true,
+            end_date: endDate.toISOString()
+          })
+      }
+
       setSuccess(newPublishState ? 'Đã xuất bản bài thi!' : 'Đã hủy xuất bản bài thi!')
       setSaving(false)
     } catch (err) {

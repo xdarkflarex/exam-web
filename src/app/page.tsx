@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Sigma, BookOpen, Target, TrendingUp, Clock, Award, ArrowRight, CheckCircle } from 'lucide-react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
+import AnnouncementBanner from '@/components/AnnouncementBanner'
 
 /**
  * Default content for landing page
@@ -169,6 +170,9 @@ export default async function LandingPage() {
           </div>
         </div>
       </header>
+
+      {/* Announcement Banner */}
+      <AnnouncementBanner />
 
       {/* Hero Section */}
       <section className="py-20 sm:py-28">

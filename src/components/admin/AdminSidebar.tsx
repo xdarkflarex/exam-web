@@ -15,7 +15,11 @@ import {
   GraduationCap,
   Menu,
   X,
-  Users
+  Users,
+  BarChart3,
+  School,
+  Megaphone,
+  FileSpreadsheet
 } from 'lucide-react'
 
 const menuItems = [
@@ -23,6 +27,11 @@ const menuItems = [
     label: 'Tổng quan', 
     href: '/admin', 
     icon: LayoutDashboard 
+  },
+  { 
+    label: 'Thống kê', 
+    href: '/admin/analytics', 
+    icon: BarChart3 
   },
   { 
     label: 'Đề thi', 
@@ -35,9 +44,29 @@ const menuItems = [
     icon: HelpCircle 
   },
   { 
+    label: 'Học sinh', 
+    href: '/admin/students', 
+    icon: Users 
+  },
+  { 
+    label: 'Lớp học', 
+    href: '/admin/classes', 
+    icon: School 
+  },
+  { 
     label: 'Tài khoản', 
     href: '/admin/users', 
-    icon: Users 
+    icon: GraduationCap 
+  },
+  { 
+    label: 'Xuất báo cáo', 
+    href: '/admin/reports', 
+    icon: FileSpreadsheet 
+  },
+  { 
+    label: 'Thông báo', 
+    href: '/admin/announcements', 
+    icon: Megaphone 
   },
   { 
     label: 'Góp ý', 

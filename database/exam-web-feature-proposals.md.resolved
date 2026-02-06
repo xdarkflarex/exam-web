@@ -1,0 +1,189 @@
+# 💡 Exam-Web Feature Proposals
+
+**Ngày tạo:** 2026-02-04  
+**Cập nhật:** Sau khi review toàn bộ code
+
+---
+
+## ✅ ĐÃ CÓ SẴN (Phát hiện từ code review)
+
+| Feature | File | Status |
+|---------|------|--------|
+| Leaderboard | [/app/leaderboard/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/leaderboard/page.tsx) | ✅ Hoàn thiện với filter theo thời gian/đề |
+| Practice Mode | [/app/practice/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/practice/page.tsx) | ✅ Luyện tập theo chủ đề với stats |
+| History + Analytics | [/student/history/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/%28student%29/student/history/page.tsx) | ✅ Taxonomy & difficulty stats |
+| Weak Areas Detection | [/student/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/%28student%29/student/page.tsx) | ✅ Tự động phát hiện điểm yếu |
+| Streak Tracking | [/student/page.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/%28student%29/student/page.tsx) | ✅ Đếm ngày liên tiếp |
+| Admin Exam Detail | `/admin/exams/[examId]/page.tsx` | ✅ Xem attempts của đề |
+| Anti-cheat System | [useExamAntiCheat.ts](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/hooks/useExamAntiCheat.ts) | ✅ Tab switch, dev tools detection |
+| Session Timeout | [SessionTimeoutProvider.tsx](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/components/SessionTimeoutProvider.tsx) | ✅ Idle + absolute timeout |
+| 2FA for Admin | `/admin/verify-otp/` | ✅ OTP verification |
+
+---
+
+## 🎯 LANDING PAGE FEATURES (MỚI)
+
+### Feature #1: Hệ thống Thông báo (Announcements)
+
+> Admin đăng thông báo trên trang chủ
+
+**Yêu cầu:**
+- `/admin/announcements` - Quản lý thông báo
+- Loại: [info](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/tsconfig.tsbuildinfo), `warning`, [update](file:///d:/ToanTHPT/Web-nhap-cau-hoi/exam-web/src/app/admin/settings/landing/page.tsx#159-167), `new_exam`
+- Thời gian hiển thị (từ - đến)
+- Banner trên landing page
+
+**Database:**
+```sql
+CREATE TABLE announcements (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT,
+  type TEXT DEFAULT 'info',
+  link_url TEXT,
+  is_active BOOLEAN DEFAULT true,
+  is_pinned BOOLEAN DEFAULT false,
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Files cần tạo:**
+- `/admin/announcements/page.tsx`
+- `/components/AnnouncementBanner.tsx`
+
+---
+
+### Feature #2: Thông báo Đề thi mới tự động
+
+- Publish đề → tự động tạo announcement
+- Hiển thị 7 ngày
+
+---
+
+## 🎯 ADMIN FEATURES (MỚI)
+
+### Feature #3: Admin Analytics Dashboard
+
+> **Hiện tại thiếu:** Trang tổng hợp analytics cho admin
+
+**Yêu cầu:**
+- Biểu đồ lượt làm bài theo thời gian
+- Phân bố điểm toàn hệ thống
+- Top học sinh
+- Câu hỏi khó nhất/dễ nhất
+
+**File cần tạo:** `/admin/analytics/page.tsx`
+
+---
+
+### Feature #4: Quản lý học sinh chi tiết
+
+> **Hiện tại thiếu:** Trang xem chi tiết từng học sinh
+
+**Yêu cầu:**
+- Xem lịch sử làm bài của học sinh cụ thể
+- Biểu đồ tiến bộ cá nhân
+- Export PDF báo cáo
+
+**File cần tạo:** `/admin/students/[studentId]/page.tsx`
+
+---
+
+### Feature #5: Quản lý lớp học
+
+> **Có schema `classes` nhưng chưa có UI**
+
+**Yêu cầu:**
+- CRUD lớp học
+- Gán học sinh vào lớp
+- Thống kê theo lớp
+
+**Files cần tạo:**
+- `/admin/classes/page.tsx`
+- `/admin/classes/[classId]/page.tsx`
+
+---
+
+### Feature #6: Export Reports
+
+> **Hiện tại thiếu**
+
+**Yêu cầu:**
+- Export danh sách điểm Excel
+- Export PDF báo cáo học sinh
+- Export thống kê đề thi
+
+---
+
+## 🎯 STUDENT FEATURES (MỚI)
+
+### Feature #7: Badges & Achievements
+
+> **Gamification để tăng engagement**
+
+**Yêu cầu:**
+- Badge khi đạt mốc (10 bài, 50 bài, 100 bài)
+- Badge điểm cao (8+, 9+, 10 điểm)
+- Badge streak (7 ngày, 30 ngày)
+- Hiển thị trên profile
+
+---
+
+### Feature #8: So sánh với bạn bè
+
+> **Leaderboard có nhưng thiếu compare chi tiết**
+
+**Yêu cầu:**
+- Xem profile bạn bè
+- So sánh điểm trung bình
+- Challenge bạn bè làm cùng đề
+
+---
+
+### Feature #9: Bookmarks / Saved Questions
+
+> **Lưu câu hỏi để ôn tập sau**
+
+**Yêu cầu:**
+- Bookmark câu hỏi trong khi làm bài
+- Trang xem lại câu đã bookmark
+- Filter theo chủ đề
+
+---
+
+### Feature #10: Personal Goals
+
+> **Đặt mục tiêu cá nhân**
+
+**Yêu cầu:**
+- Đặt mục tiêu điểm (vd: đạt 8.0 trung bình)
+- Đặt mục tiêu số bài/tuần
+- Tracking tiến độ
+
+---
+
+## 📊 ƯU TIÊN IMPLEMENT
+
+| Priority | Feature | Effort |
+|----------|---------|--------|
+| 🔴 HIGH | Announcements | 2-3 ngày |
+| 🔴 HIGH | Admin Analytics Dashboard | 3-4 ngày |
+| 🟡 MEDIUM | Admin Student Detail | 2 ngày |
+| 🟡 MEDIUM | Badges & Achievements | 3 ngày |
+| 🟢 LOW | Export Reports | 2 ngày |
+| 🟢 LOW | Bookmarks | 2 ngày |
+| 🟢 LOW | Classes Management | 3 ngày |
+| 🟢 LOW | Personal Goals | 2 ngày |
+
+---
+
+## 📝 GHI CHÚ
+
+**Code quality observations:**
+- ✅ TypeScript được sử dụng tốt
+- ✅ Component structure rõ ràng
+- ✅ RLS policies đã được fix
+- ⚠️ Còn nhiều `console.error` cần replace với logger
+- ⚠️ Một số page files khá dài, có thể tách component

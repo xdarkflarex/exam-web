@@ -25,6 +25,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { User, CheckCircle, School, Users, Lock, Eye, EyeOff, Info } from 'lucide-react'
+import { logger } from '@/lib/logger'
 
 // Password strength checker
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
@@ -156,51 +157,70 @@ export default function CompleteProfilePage() {
 
     try {
       // ============================================
-      // STEP 1: Set password if provided (BEFORE profile creation)
+      // STEP 0: Check if profile already exists (email uniqueness)
       // ============================================
-      if (password) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: password
-        })
-        
-        if (passwordError) {
-          console.error('Password set error:', passwordError)
-          setError('Không thể thiết lập mật khẩu. Vui lòng thử lại.')
-          setIsLoading(false)
-          return
-        }
-      }
-
-      // ============================================
-      // STEP 2: Create profile with role='student'
-      // ============================================
-      const { error: insertError } = await supabase
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .insert({
-          id: userId,
-          email: userEmail,
-          role: 'student', // ALWAYS student - no user input for role
-          full_name: fullName.trim(),
-          school: school.trim() || null,
-          class_id: classId.trim() || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .select('id')
+        .eq('email', userEmail)
+        .single()
 
-      if (insertError) {
-        console.error('Profile creation error:', insertError)
-        setError('Không thể tạo hồ sơ. Vui lòng thử lại.')
+      if (existingProfile) {
+        setError('Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác.')
         setIsLoading(false)
         return
       }
-
-      // Success - redirect to student dashboard
-      router.replace('/student')
-    } catch (err) {
-      console.error('Unexpected error:', err)
-      setError('Đã xảy ra lỗi. Vui lòng thử lại.')
-      setIsLoading(false)
+    } catch {
+      // No existing profile found - this is expected, continue
+      logger.debug('No existing profile found, proceeding with creation')
     }
+
+    // ============================================
+    // STEP 1: Set password if provided (BEFORE profile creation)
+    // ============================================
+    if (password) {
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: password
+      })
+      
+      if (passwordError) {
+        logger.error('Password set error', passwordError)
+        setError('Không thể thiết lập mật khẩu. Vui lòng thử lại.')
+        setIsLoading(false)
+        return
+      }
+    }
+
+    // ============================================
+    // STEP 2: Create profile with role='student'
+    // ============================================
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
+        email: userEmail,
+        role: 'student', // ALWAYS student - no user input for role
+        full_name: fullName.trim(),
+        school: school.trim() || null,
+        class_id: classId.trim() || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+    if (insertError) {
+      // Check for duplicate email error
+      if (insertError.code === '23505') {
+        setError('Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác.')
+      } else {
+        const userMessage = logger.supabaseError('create profile', insertError)
+        setError(userMessage)
+      }
+      setIsLoading(false)
+      return
+    }
+
+    // Success - redirect to student dashboard
+    router.replace('/student')
   }
   
   const passwordStrength = getPasswordStrength(password)

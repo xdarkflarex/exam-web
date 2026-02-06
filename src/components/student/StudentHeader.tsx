@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { GraduationCap, User, LogOut, Settings, ChevronDown } from 'lucide-react'
+import { GraduationCap, User, LogOut, Settings, ChevronDown, Trophy, BookOpen, Home, Award, Bookmark, Target } from 'lucide-react'
+import Link from 'next/link'
 import ThemeToggle from '@/components/ThemeToggle'
 
 interface StudentHeaderProps {
@@ -43,6 +44,38 @@ export default function StudentHeader({
             )}
           </button>
 
+          {/* Navigation Links */}
+          <nav className="hidden sm:flex items-center gap-1">
+            <Link
+              href="/student"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              Trang chủ
+            </Link>
+            <Link
+              href="/practice"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            >
+              <BookOpen className="w-4 h-4" />
+              Luyện tập
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            >
+              <Trophy className="w-4 h-4" />
+              Xếp hạng
+            </Link>
+            <Link
+              href="/badges"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            >
+              <Award className="w-4 h-4" />
+              Huy hiệu
+            </Link>
+          </nav>
+
           {/* Right Actions */}
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -67,6 +100,26 @@ export default function StudentHeader({
                     onClick={() => setShowMenu(false)} 
                   />
                   <div className="absolute right-0 mt-2 w-48 bg-slate-100 dark:bg-slate-800 rounded-xl shadow-lg border border-slate-300 dark:border-slate-700 py-1 z-20">
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        router.push('/bookmarks')
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    >
+                      <Bookmark className="w-4 h-4" />
+                      Câu hỏi đã lưu
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        router.push('/goals')
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    >
+                      <Target className="w-4 h-4" />
+                      Mục tiêu
+                    </button>
                     <button
                       onClick={() => {
                         setShowMenu(false)
