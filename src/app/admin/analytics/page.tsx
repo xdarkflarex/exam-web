@@ -161,7 +161,7 @@ export default function AnalyticsDashboard() {
           avgScore: data.scores.reduce((a, b) => a + b, 0) / data.scores.length,
           totalAttempts: data.attempts,
           trend: data.scores.length > 1 
-            ? (data.scores[0] > data.scores[data.scores.length - 1] ? 'up' : 'down')
+            ? (data.scores[0] > data.scores[data.scores.length - 1] ? 'up' as const : 'down' as const)
             : 'stable' as const
         }))
         .sort((a, b) => b.avgScore - a.avgScore)
