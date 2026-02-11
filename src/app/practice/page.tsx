@@ -9,6 +9,7 @@ import {
   RotateCcw, ArrowRight, Lightbulb, Target, Clock,
   ChevronDown, Filter, TrendingUp
 } from 'lucide-react'
+import MathContent from '@/components/MathContent'
 
 interface Topic {
   id: string
@@ -484,12 +485,12 @@ export default function PracticePage() {
                 <Lightbulb className="w-5 h-5" />
                 Giải thích
               </div>
-              <div className="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300">
+              <div className="text-slate-700 dark:text-slate-300">
                 {currentQuestion.explanation && (
-                  <div dangerouslySetInnerHTML={{ __html: currentQuestion.explanation }} />
+                  <MathContent content={currentQuestion.explanation} className="text-sm" />
                 )}
                 {currentQuestion.solution && (
-                  <div dangerouslySetInnerHTML={{ __html: currentQuestion.solution }} />
+                  <MathContent content={currentQuestion.solution} className="text-sm" />
                 )}
               </div>
             </div>
