@@ -156,11 +156,11 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-100 dark:bg-slate-900 transition-colors">
       <div className="w-full max-w-md">
         {/* Signup Card */}
-        <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-300 dark:border-slate-700">
+        <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-300 dark:border-slate-700 animate-fade-in-up">
           
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white mb-4 shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white mb-4 shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20 bounce-in">
               <User className="w-8 h-8" />
             </div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -179,7 +179,7 @@ export default function SignupPage() {
           )}
 
           {/* Signup Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 animate-list-stagger">
             {/* Email */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">

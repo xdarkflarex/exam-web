@@ -33,6 +33,8 @@ export default function CreateExamPage() {
   // Form fields
   const [title, setTitle] = useState('')
   const [duration, setDuration] = useState(90)
+  const [grade, setGrade] = useState<number>(12)
+  const [examMode, setExamMode] = useState<'practice' | 'simulation'>('simulation')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -144,7 +146,9 @@ export default function CreateExamPage() {
           total_score: preview?.totalQuestions || 0,
           passing_score: Math.ceil((preview?.totalQuestions || 0) * 0.5),
           is_published: false,
-          source_exam: selectedSource
+          source_exam: selectedSource,
+          grade: grade,
+          exam_mode: examMode
         })
         .select('id')
         .single()
@@ -202,12 +206,12 @@ export default function CreateExamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sky-50">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
         <GlobalHeader title="Tạo bài thi mới" />
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-            <p className="text-slate-500">Đang tải...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+            <p className="text-slate-500 dark:text-slate-400">Đang tải...</p>
           </div>
         </div>
       </div>
@@ -215,19 +219,19 @@ export default function CreateExamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-sky-50">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
       <GlobalHeader title="Tạo bài thi mới" />
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Tạo bài thi từ đề gốc</h1>
-            <p className="text-slate-600">Chọn đề gốc và tạo bài thi mới</p>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Tạo bài thi từ đề gốc</h1>
+            <p className="text-slate-600 dark:text-slate-400">Chọn đề gốc và tạo bài thi mới</p>
           </div>
           <button
             onClick={() => router.push('/admin/exams')}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại
@@ -235,16 +239,16 @@ export default function CreateExamPage() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 space-y-6">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 dark:border-slate-700 space-y-6">
           {/* Source Exam Selector */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Chọn đề gốc <span className="text-red-500">*</span>
             </label>
             <select
               value={selectedSource}
               onChange={(e) => setSelectedSource(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="">-- Chọn đề gốc --</option>
               {sourceExams.map((source) => (
@@ -258,34 +262,88 @@ export default function CreateExamPage() {
           {/* Preview */}
           {loadingPreview && (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600 dark:text-indigo-400" />
             </div>
           )}
 
           {preview && !loadingPreview && (
-            <div className="bg-slate-50 rounded-lg p-4">
-              <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
+            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+              <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 Thông tin đề gốc
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-indigo-600">{preview.totalQuestions}</div>
-                  <div className="text-xs text-slate-500">Tổng câu hỏi</div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{preview.totalQuestions}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Tổng câu hỏi</div>
                 </div>
                 {preview.breakdown.map((item) => (
-                  <div key={item.question_type} className="bg-white rounded-lg p-3 text-center">
-                    <div className="text-2xl font-bold text-slate-700">{item.count}</div>
-                    <div className="text-xs text-slate-500">{getQuestionTypeLabel(item.question_type)}</div>
+                  <div key={item.question_type} className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{item.count}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{getQuestionTypeLabel(item.question_type)}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Grade Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Khối lớp <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-3">
+              {[10, 11, 12].map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGrade(g)}
+                  className={`flex-1 py-3 rounded-lg font-medium transition-all border ${
+                    grade === g
+                      ? 'bg-teal-600 text-white border-teal-600'
+                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-teal-400'
+                  }`}
+                >
+                  Lớp {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Exam Mode */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Loại đề <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setExamMode('simulation')}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all border ${
+                  examMode === 'simulation'
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-teal-400'
+                }`}
+              >
+                Thi thử (có timer)
+              </button>
+              <button
+                type="button"
+                onClick={() => setExamMode('practice')}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all border ${
+                  examMode === 'practice'
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-amber-400'
+                }`}
+              >
+                Ôn tập (không timer)
+              </button>
+            </div>
+          </div>
+
           {/* Exam Title */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Tên bài thi <span className="text-red-500">*</span>
             </label>
             <input
@@ -293,13 +351,13 @@ export default function CreateExamPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="VD: Đề thi thử THPT 2024 - Lần 1"
-              className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
           {/* Duration */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Thời gian làm bài (phút)
             </label>
             <div className="flex items-center gap-3">
@@ -309,9 +367,9 @@ export default function CreateExamPage() {
                 onChange={(e) => setDuration(parseInt(e.target.value) || 90)}
                 min={10}
                 max={300}
-                className="w-32 px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-32 px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
-              <div className="flex items-center gap-1 text-slate-500">
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                 <Clock className="w-4 h-4" />
                 <span>{Math.floor(duration / 60)}h {duration % 60}m</span>
               </div>
@@ -320,17 +378,17 @@ export default function CreateExamPage() {
 
           {/* Error */}
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
               {error}
             </div>
           )}
 
           {/* Submit */}
-          <div className="pt-4 border-t border-slate-200">
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
             <button
               onClick={handleCreateExam}
               disabled={creating || !selectedSource || !title.trim()}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
             >
               {creating ? (
                 <>

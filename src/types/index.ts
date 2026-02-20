@@ -5,6 +5,8 @@ export interface HistoryEntry {
   score: number;
 }
 
+export type ExamMode = 'practice' | 'simulation';
+
 export interface Exam {
   id: string;
   title: string;
@@ -13,6 +15,8 @@ export interface Exam {
   duration: number;
   is_published: boolean;
   created_at: string;
+  grade?: number;
+  exam_mode?: ExamMode;
 }
 
 export interface Answer {

@@ -83,11 +83,11 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
 
       <div className="w-full max-w-md">
         {/* Login Card - Anti-eye-strain design */}
-        <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-300 dark:border-slate-700">
+        <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-300 dark:border-slate-700 animate-fade-in-up">
           
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white mb-4 shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white mb-4 shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20 bounce-in">
               <Sigma className="w-8 h-8" />
             </div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -110,7 +110,7 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isGoogleLoading || isLoading}
-            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-3 mb-6"
+            className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium btn-action flex items-center justify-center gap-3 mb-6"
           >
             {isGoogleLoading ? (
               <>
@@ -146,7 +146,7 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
           </div>
 
           {/* Email/Password Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 animate-list-stagger">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Email
@@ -184,7 +184,7 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
             <button 
               type="submit"
               disabled={isLoading || isGoogleLoading || !email || !password}
-              className="w-full py-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20 btn-action mt-2 flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>

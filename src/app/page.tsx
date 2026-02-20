@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { Sigma, BookOpen, Target, TrendingUp, Clock, Award, ArrowRight, CheckCircle } from 'lucide-react'
+import { Sigma, BookOpen, Target, TrendingUp, Clock, Award, ArrowRight, CheckCircle, LogIn, UserPlus, Sparkles } from 'lucide-react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
 import AnnouncementBanner from '@/components/AnnouncementBanner'
+import ThemeToggle from '@/components/ThemeToggle'
 
 /**
  * Default content for landing page
@@ -139,12 +140,12 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-slate-200/90 dark:bg-slate-800/90 backdrop-blur-lg border-b border-slate-300/50 dark:border-slate-700/50 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/20 fade-in">
+      <header className="sticky top-0 z-50 glass-strong shadow-sm fade-in">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 hover-scale">
-              <div className="w-10 h-10 rounded-xl bg-teal-600 dark:bg-teal-500 flex items-center justify-center shadow-lg shadow-teal-600/20 hover-glow">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 dark:from-teal-400 dark:to-teal-600 flex items-center justify-center shadow-lg shadow-teal-600/25 dark:shadow-teal-500/20 group-hover:shadow-teal-600/40 dark:group-hover:shadow-teal-400/30 transition-all duration-300 group-hover:scale-105">
                 <Sigma className="w-6 h-6 text-white" />
               </div>
               <span className="text-xl font-bold text-slate-800 dark:text-slate-100 font-baloo">
@@ -153,18 +154,21 @@ export default async function LandingPage() {
             </Link>
             
             {/* Navigation */}
-            <nav className="flex items-center gap-3">
+            <nav className="flex items-center gap-2 sm:gap-3">
+              <ThemeToggle />
               <Link
                 href="/login"
-                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-75 hover-scale"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
               >
-                Đăng nhập
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">Đăng nhập</span>
               </Link>
               <Link
                 href="/signup"
-                className="btn-secondary micro-bounce-on-hover"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400 rounded-xl shadow-md shadow-teal-600/20 dark:shadow-teal-500/15 hover:shadow-lg hover:shadow-teal-600/30 dark:hover:shadow-teal-400/25 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
               >
-                Đăng ký
+                <UserPlus className="w-4 h-4" />
+                <span className="hidden sm:inline">Đăng ký</span>
               </Link>
             </nav>
           </div>
@@ -224,28 +228,32 @@ export default async function LandingPage() {
           
           {exams.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {exams.map((exam) => (
-                <Link
-                  key={exam.id}
-                  href="/login"
-                  className="group bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-400 transition-all hover:shadow-lg"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
-                      <BookOpen className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+              {exams.map((exam, index) => (
+                <ScrollRevealClient key={exam.id} delay={index * 80}>
+                  <Link
+                    href="/login"
+                    className="group block bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 hover:shadow-xl hover:shadow-teal-600/5 dark:hover:shadow-teal-400/5 hover:-translate-y-1"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <BookOpen className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <span className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {exam.duration} phút
+                      </span>
                     </div>
-                    <span className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {exam.duration} phút
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                    {exam.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {exam.subject || 'Toán học'}
-                  </p>
-                </Link>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                      {exam.title}
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {exam.subject || 'Toán học'}
+                      </p>
+                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-teal-500 dark:group-hover:text-teal-400 group-hover:translate-x-1 transition-all duration-200" />
+                    </div>
+                  </Link>
+                </ScrollRevealClient>
               ))}
             </div>
           ) : (
@@ -281,11 +289,11 @@ export default async function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {(content.benefits || DEFAULT_CONTENT.benefits).map((benefit: any, index: number) => (
               <ScrollRevealClient key={index} delay={index * 100}>
-                <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 h-full">
-                  <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4">
+                <div className="group bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 h-full hover:border-teal-500/40 dark:hover:border-teal-400/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                  <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-teal-200 dark:group-hover:bg-teal-900/50 transition-all duration-300">
                     <BenefitIcon icon={benefit.icon} className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2 group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors">
                     {benefit.title}
                   </h3>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -299,9 +307,14 @@ export default async function LandingPage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-20 bg-slate-200/50 dark:bg-slate-800/50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="py-20 bg-slate-200/50 dark:bg-slate-800/50 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]" style={{backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px'}} />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
           <ScrollRevealClient>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-sm font-medium mb-5">
+              <Sparkles className="w-4 h-4" />
+              Miễn phí
+            </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4">
               Sẵn sàng nâng cao điểm số?
             </h2>
@@ -310,27 +323,27 @@ export default async function LandingPage() {
             </p>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 text-white font-semibold text-lg shadow-lg shadow-teal-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 dark:from-teal-500 dark:to-teal-400 dark:hover:from-teal-400 dark:hover:to-teal-300 text-white font-semibold text-lg shadow-lg shadow-teal-600/25 dark:shadow-teal-500/20 hover:shadow-xl hover:shadow-teal-600/30 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
             >
               Đăng ký miễn phí
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
             </Link>
           </ScrollRevealClient>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 border-t border-slate-300 dark:border-slate-700">
+      <footer className="py-8 border-t border-slate-300/50 dark:border-slate-700/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-teal-600 dark:bg-teal-500 flex items-center justify-center">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                 <Sigma className="w-4 h-4 text-white" />
               </div>
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                 ExamHub
               </span>
-            </div>
+            </Link>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               © {new Date().getFullYear()} ExamHub. Powered by Gemini AI 2.0
             </p>

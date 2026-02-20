@@ -42,7 +42,7 @@ export default function RecentExamsList({ exams }: RecentExamsListProps) {
         </Link>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-3 animate-list-stagger">
         {exams.map((exam) => (
           <Link
             key={exam.id}

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Users, Search, Filter, UserCheck, UserX, Shield, GraduationCap,
-  Mail, Calendar, MoreVertical, ChevronDown, Eye, Trash2, RefreshCw, AlertCircle
+  Mail, Calendar, MoreVertical, ChevronDown, Eye, Trash2, RefreshCw, AlertCircle,
+  Pencil, X, Save, Loader2, CheckCircle, School, Clock, Hash
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
 import { logger } from '@/lib/logger'
@@ -311,6 +312,7 @@ export default function AdminUsersPage() {
         <UserDetailModal
           user={selectedUser}
           onClose={() => setShowDetailModal(false)}
+          onSave={() => fetchUsers()}
           formatDate={formatDate}
         />
       )}
@@ -321,82 +323,320 @@ export default function AdminUsersPage() {
 function UserDetailModal({
   user,
   onClose,
+  onSave,
   formatDate
 }: {
   user: UserProfile
   onClose: () => void
+  onSave: () => void
   formatDate: (date: string) => string
 }) {
+  const supabase = createClient()
+  const [isEditing, setIsEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Edit form state
+  const [editName, setEditName] = useState(user.full_name || '')
+  const [editSchool, setEditSchool] = useState(user.school || '')
+  const [editRole, setEditRole] = useState<string>(user.role)
+  const [editClassId, setEditClassId] = useState(user.class_id || '')
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveError(null)
+    setSaveSuccess(false)
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editName.trim() || null,
+          school: editSchool.trim() || null,
+          role: editRole,
+          class_id: editClassId.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+
+      if (error) {
+        logger.supabaseError('update profile', error)
+        setSaveError('Không thể cập nhật thông tin. Vui lòng thử lại.')
+        setSaving(false)
+        return
+      }
+
+      setSaveSuccess(true)
+      setSaving(false)
+      setIsEditing(false)
+      onSave()
+
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      logger.error('Unexpected error updating profile', err)
+      setSaveError('Đã xảy ra lỗi không mong muốn.')
+      setSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditName(user.full_name || '')
+    setEditSchool(user.school || '')
+    setEditRole(user.role)
+    setEditClassId(user.class_id || '')
+    setIsEditing(false)
+    setSaveError(null)
+  }
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Quản trị viên'
+      case 'teacher': return 'Giáo viên'
+      case 'student': return 'Học sinh'
+      default: return role
+    }
+  }
+
+  const getRoleBadgeClass = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+      case 'teacher': return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+      case 'student': return 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+      default: return 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
         onClick={onClose}
       />
       
-      <div className="relative bg-slate-50 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+      <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-[slideUp_0.3s_ease-out]">
+        {/* Gradient Header */}
+        <div className="relative bg-gradient-to-r from-teal-500 via-teal-600 to-blue-600 px-6 pt-6 pb-16">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white/90">Thông tin tài khoản</h2>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Avatar + Name overlay */}
+        <div className="relative px-6 -mt-10 mb-4">
+          <div className="flex items-end gap-4">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg border-4 border-white dark:border-slate-900 flex-shrink-0">
               {user.full_name?.charAt(0)?.toUpperCase() || '?'}
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
-                {user.full_name || 'Chưa đặt tên'}
-              </h2>
-              <p className="text-slate-500 dark:text-slate-400">{user.email}</p>
+            <div className="flex-1 min-w-0 pb-1">
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full text-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Nhập họ tên..."
+                />
+              ) : (
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white truncate">
+                  {user.full_name || 'Chưa đặt tên'}
+                </h3>
+              )}
+              <div className="flex items-center gap-2 mt-1">
+                <Mail className="w-3.5 h-3.5 text-slate-400" />
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Success/Error Messages */}
+        {saveSuccess && (
+          <div className="mx-6 mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm text-green-700 dark:text-green-300">Cập nhật thành công!</span>
+          </div>
+        )}
+        {saveError && (
+          <div className="mx-6 mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <span className="text-sm text-red-700 dark:text-red-300">{saveError}</span>
+          </div>
+        )}
+
         {/* Content */}
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Vai trò</p>
-              <p className="font-medium text-slate-800 dark:text-slate-100">
-                {user.role === 'admin' ? 'Quản trị viên' : 'Học sinh'}
+        <div className="px-6 pb-2 space-y-4">
+          {/* Info Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Vai trò */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="w-4 h-4 text-slate-400" />
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Vai trò</p>
+              </div>
+              {isEditing ? (
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-white"
+                >
+                  <option value="student">Học sinh</option>
+                  <option value="teacher">Giáo viên</option>
+                  <option value="admin">Quản trị viên</option>
+                </select>
+              ) : (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${getRoleBadgeClass(user.role)}`}>
+                  {user.role === 'admin' && <Shield className="w-3 h-3" />}
+                  {user.role === 'teacher' && <UserCheck className="w-3 h-3" />}
+                  {user.role === 'student' && <GraduationCap className="w-3 h-3" />}
+                  {getRoleLabel(user.role)}
+                </span>
+              )}
+            </div>
+
+            {/* Lượt làm bài */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="w-4 h-4 text-slate-400" />
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Lượt làm bài</p>
+              </div>
+              <p className="text-lg font-bold text-slate-800 dark:text-white">
+                {user.exam_attempts_count || 0}
+                <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-1">lượt</span>
               </p>
             </div>
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Lượt làm bài</p>
-              <p className="font-medium text-slate-800 dark:text-slate-100">
-                {user.exam_attempts_count || 0} lượt
-              </p>
+
+            {/* Trường */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <School className="w-4 h-4 text-slate-400" />
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Trường</p>
+              </div>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editSchool}
+                  onChange={(e) => setEditSchool(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-white"
+                  placeholder="Nhập tên trường..."
+                />
+              ) : (
+                <p className="font-medium text-slate-800 dark:text-white text-sm">
+                  {user.school || <span className="text-slate-400 italic">Chưa cập nhật</span>}
+                </p>
+              )}
             </div>
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Ngày tạo</p>
-              <p className="font-medium text-slate-800 dark:text-slate-100">
-                {formatDate(user.created_at)}
-              </p>
-            </div>
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Trường</p>
-              <p className="font-medium text-slate-800 dark:text-slate-100">
-                {user.school || 'Chưa cập nhật'}
-              </p>
+
+            {/* Lớp */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-100 dark:border-slate-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Hash className="w-4 h-4 text-slate-400" />
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Lớp</p>
+              </div>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editClassId}
+                  onChange={(e) => setEditClassId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-white"
+                  placeholder="Nhập lớp..."
+                />
+              ) : (
+                <p className="font-medium text-slate-800 dark:text-white text-sm">
+                  {user.class_id || <span className="text-slate-400 italic">Chưa cập nhật</span>}
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">ID tài khoản</p>
-            <p className="font-mono text-xs text-slate-600 dark:text-slate-300 break-all">
+          {/* Date row */}
+          <div className="flex items-center gap-6 px-1">
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <Calendar className="w-4 h-4" />
+              <span>Ngày tạo: <span className="text-slate-700 dark:text-slate-300 font-medium">{formatDate(user.created_at)}</span></span>
+            </div>
+            {user.updated_at && user.updated_at !== user.created_at && (
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <Clock className="w-4 h-4" />
+                <span>Cập nhật: <span className="text-slate-700 dark:text-slate-300 font-medium">{formatDate(user.updated_at)}</span></span>
+              </div>
+            )}
+          </div>
+
+          {/* ID */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3.5 py-2.5 border border-slate-100 dark:border-slate-700/50">
+            <p className="text-xs text-slate-400 mb-0.5">ID tài khoản</p>
+            <p className="font-mono text-xs text-slate-500 dark:text-slate-400 break-all select-all">
               {user.id}
             </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-          >
-            Đóng
-          </button>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 mt-2 border-t border-slate-200 dark:border-slate-700">
+          {isEditing ? (
+            <>
+              <button
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-600/50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Lưu thay đổi
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-2 px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Chỉnh sửa
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
   )
 }

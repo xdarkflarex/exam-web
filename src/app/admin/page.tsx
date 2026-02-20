@@ -158,7 +158,7 @@ export default function AdminDashboard() {
       {/* Content */}
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-white">
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-white animate-fade-in-up">
           <h1 className="text-lg sm:text-xl lg:text-2xl font-bold mb-1 sm:mb-2">Xin chào, Giáo viên! 👋</h1>
           <p className="text-teal-100 text-sm sm:text-base">
             Hôm nay là ngày tuyệt vời để tạo những bài kiểm tra mới. Hãy bắt đầu nào!
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 animate-list-stagger">
           <StatCard
             title="Tổng số đề"
             value={stats.totalExams}
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 animate-fade-in-up-delay-2">
           <RecentExamsList exams={recentExams} />
           <RecentFeedbackList feedbacks={recentFeedbacks} />
         </div>

@@ -14,7 +14,8 @@ import {
   X,
   User,
   Moon,
-  Sun
+  Sun,
+  PenTool
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -25,12 +26,17 @@ const menuItems = [
     icon: Home 
   },
   { 
-    label: 'Đề thi', 
+    label: 'Ôn tập', 
+    href: '/student/practice', 
+    icon: PenTool 
+  },
+  { 
+    label: 'Thi thử', 
     href: '/student/exams', 
     icon: FileText 
   },
   { 
-    label: 'Lịch sử thi', 
+    label: 'Lịch sử', 
     href: '/student/history', 
     icon: BarChart3 
   },

@@ -63,7 +63,7 @@ export default function RecentFeedbackList({ feedbacks }: RecentFeedbackListProp
         </Link>
       </div>
       
-      <div className="space-y-3">
+      <div className="space-y-3 animate-list-stagger">
         {feedbacks.map((feedback) => {
           const status = statusConfig[feedback.status]
           return (

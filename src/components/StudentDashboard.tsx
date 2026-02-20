@@ -48,7 +48,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
       
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         {/* Welcome Section */}
-        <div className="mb-8">
+        <div className="mb-8 animate-fade-in-up">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2">
             Xin chào! 👋
           </h1>
@@ -66,7 +66,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
         {/* Quick Stats */}
         {totalAttempts > 0 && (
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-3 gap-3 mb-8 animate-list-stagger">
             <div className="bg-slate-200 dark:bg-slate-800 rounded-xl p-4 border border-slate-300 dark:border-slate-700">
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs mb-1">
                 <FileText className="w-3.5 h-3.5" />
@@ -112,12 +112,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
 
         {/* Exam List */}
-        <div className="space-y-3">
+        <div className="space-y-3 animate-list-stagger">
           {exams.map((exam) => (
             <button
               key={exam.id}
               onClick={() => onStartExam(exam.id, exam.title)}
-              className="w-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-4 text-left hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm transition-all group"
+              className="w-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-4 text-left hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm transition-all group hover:-translate-y-0.5"
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
@@ -155,7 +155,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">
               Kết quả gần đây
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-2 animate-list-stagger">
               {history.slice(0, 3).map((item) => (
                 <button
                   key={item.id}
@@ -193,10 +193,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {showHistoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
-            className="absolute inset-0 bg-black/30 dark:bg-black/60 backdrop-blur-sm" 
+            className="absolute inset-0 bg-black/30 dark:bg-black/60 backdrop-in" 
             onClick={() => setShowHistoryModal(false)}
           />
-          <div className="relative bg-slate-100 dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden">
+          <div className="relative bg-slate-100 dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden scale-in">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">

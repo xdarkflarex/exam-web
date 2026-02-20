@@ -17,6 +17,7 @@ interface Student {
   email: string
   school: string | null
   class_id: string | null
+  grade: number | null
   created_at: string
   totalAttempts: number
   avgScore: number
@@ -92,6 +93,7 @@ export default function StudentsListPage() {
           email: p.email || '',
           school: p.school,
           class_id: p.class_id,
+          grade: p.grade || null,
           created_at: p.created_at,
           totalAttempts: stats?.scores.length || 0,
           avgScore: stats?.scores.length ? stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length : 0,
@@ -200,7 +202,7 @@ export default function StudentsListPage() {
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6 animate-list-stagger">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -251,14 +253,14 @@ export default function StudentsListPage() {
             </div>
             <button
               onClick={fetchStudents}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 btn-action-sm"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Làm mới
             </button>
             <button
               onClick={exportToCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm btn-action-sm"
             >
               <Download className="w-4 h-4" />
               Xuất CSV
@@ -313,7 +315,7 @@ export default function StudentsListPage() {
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Chi tiết</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700 animate-list-stagger">
                 {filteredAndSortedStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="px-6 py-4">
@@ -329,7 +331,14 @@ export default function StudentsListPage() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-slate-600 dark:text-slate-300">{student.school || '-'}</p>
-                      <p className="text-xs text-slate-400">{student.class_id || '-'}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-slate-400">{student.class_id || '-'}</p>
+                        {student.grade && (
+                          <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium">
+                            Lớp {student.grade}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-sm font-medium">
@@ -354,7 +363,7 @@ export default function StudentsListPage() {
                     <td className="px-6 py-4 text-right">
                       <Link
                         href={`/admin/students/${student.id}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 rounded-lg text-sm hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 rounded-lg text-sm hover:bg-teal-100 dark:hover:bg-teal-900/50 btn-action-sm"
                       >
                         Chi tiết
                         <ChevronRight className="w-4 h-4" />

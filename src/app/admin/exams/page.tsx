@@ -13,6 +13,8 @@ interface Exam {
   duration: number
   is_published: boolean
   created_at: string
+  grade: number | null
+  exam_mode: string | null
   attempt_count?: number
   question_count?: number
 }
@@ -25,6 +27,8 @@ export default function AdminExamsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
+  const [filterGrade, setFilterGrade] = useState<'all' | '10' | '11' | '12'>('all')
+  const [filterMode, setFilterMode] = useState<'all' | 'practice' | 'simulation'>('all')
 
   useEffect(() => {
     fetchExams()
@@ -40,7 +44,9 @@ export default function AdminExamsPage() {
           subject,
           duration,
           is_published,
-          created_at
+          created_at,
+          grade,
+          exam_mode
         `)
         .order('created_at', { ascending: false })
 
@@ -94,7 +100,9 @@ export default function AdminExamsPage() {
     const matchesFilter = filterStatus === 'all' || 
                          (filterStatus === 'published' && exam.is_published) ||
                          (filterStatus === 'draft' && !exam.is_published)
-    return matchesSearch && matchesFilter
+    const matchesGrade = filterGrade === 'all' || exam.grade === parseInt(filterGrade)
+    const matchesMode = filterMode === 'all' || exam.exam_mode === filterMode
+    return matchesSearch && matchesFilter && matchesGrade && matchesMode
   })
 
   const stats = {
@@ -109,7 +117,7 @@ export default function AdminExamsPage() {
       
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Stats Summary */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8 animate-list-stagger">
           <button 
             onClick={() => setFilterStatus('all')}
             className={`p-3 sm:p-4 rounded-xl border transition-all ${
@@ -145,6 +153,40 @@ export default function AdminExamsPage() {
           </button>
         </div>
 
+        {/* Grade & Mode Filters */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex gap-1">
+            {(['all', '10', '11', '12'] as const).map(g => (
+              <button
+                key={g}
+                onClick={() => setFilterGrade(g)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  filterGrade === g
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                {g === 'all' ? 'Tất cả lớp' : `Lớp ${g}`}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            {(['all', 'simulation', 'practice'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => setFilterMode(m)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  filterMode === m
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                {m === 'all' ? 'Tất cả loại' : m === 'simulation' ? 'Thi thử' : 'Ôn tập'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Actions Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-6">
           <div className="flex items-center gap-4 flex-1">
@@ -163,7 +205,7 @@ export default function AdminExamsPage() {
           
           <button
             onClick={() => router.push('/admin/exams/create')}
-            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-teal-600 dark:bg-teal-500 text-white rounded-xl font-medium hover:bg-teal-700 dark:hover:bg-teal-600 transition-colors"
+            className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-teal-600 dark:bg-teal-500 text-white rounded-xl font-medium hover:bg-teal-700 dark:hover:bg-teal-600 btn-action"
           >
             <Plus className="w-5 h-5" />
             <span className="hidden xs:inline">Tạo đề mới</span>
@@ -201,7 +243,7 @@ export default function AdminExamsPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-list-stagger">
             {filteredExams.map((exam) => (
               <div
                 key={exam.id}
@@ -219,6 +261,18 @@ export default function AdminExamsPage() {
                       </h3>
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1 sm:mt-1.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                         <span className="truncate">{exam.subject}</span>
+                        {exam.grade && (
+                          <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium">
+                            Lớp {exam.grade}
+                          </span>
+                        )}
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                          exam.exam_mode === 'practice'
+                            ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                            : 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
+                        }`}>
+                          {exam.exam_mode === 'practice' ? 'Ôn tập' : 'Thi thử'}
+                        </span>
                         <span className="flex items-center gap-1">
                           <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           {exam.question_count} câu

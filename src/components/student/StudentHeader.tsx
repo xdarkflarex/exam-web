@@ -99,7 +99,7 @@ export default function StudentHeader({
                     className="fixed inset-0 z-10" 
                     onClick={() => setShowMenu(false)} 
                   />
-                  <div className="absolute right-0 mt-2 w-48 bg-slate-100 dark:bg-slate-800 rounded-xl shadow-lg border border-slate-300 dark:border-slate-700 py-1 z-20">
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-100 dark:bg-slate-800 rounded-xl shadow-lg border border-slate-300 dark:border-slate-700 py-1 z-20 scale-in">
                     <button
                       onClick={() => {
                         setShowMenu(false)

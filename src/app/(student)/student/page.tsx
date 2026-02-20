@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   ChevronRight,
   Flame,
-  BookOpen
+  BookOpen,
+  PenTool
 } from 'lucide-react'
 
 interface Exam {
@@ -43,6 +44,7 @@ interface InProgressAttempt {
   exam_id: string
   exam_title: string
   start_time: string
+  exam_mode?: string
 }
 
 export default function StudentPage() {
@@ -62,6 +64,8 @@ export default function StudentPage() {
   const [recentAttempts, setRecentAttempts] = useState<RecentAttempt[]>([])
   const [weakAreas, setWeakAreas] = useState<WeakArea[]>([])
   const [inProgressAttempt, setInProgressAttempt] = useState<InProgressAttempt | null>(null)
+  const [practiceInProgress, setPracticeInProgress] = useState<InProgressAttempt | null>(null)
+  const [studentGrade, setStudentGrade] = useState<number | null>(null)
 
   useEffect(() => {
     fetchDashboardData()
@@ -76,16 +80,17 @@ export default function StudentPage() {
       // Fetch user profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, grade')
         .eq('id', user.id)
         .single()
       
       setUserName(profile?.full_name || 'Học sinh')
+      setStudentGrade(profile?.grade || null)
 
       // Fetch all data in parallel
       await Promise.all([
         fetchStats(user.id),
-        fetchRecentExams(),
+        fetchRecentExams(profile?.grade),
         fetchRecentAttempts(user.id),
         fetchWeakAreas(user.id),
         fetchInProgressAttempt(user.id)
@@ -141,14 +146,20 @@ export default function StudentPage() {
     }
   }
 
-  const fetchRecentExams = async () => {
-    const { data } = await supabase
+  const fetchRecentExams = async (grade?: number | null) => {
+    let query = supabase
       .from('exams')
       .select('id, title, subject, duration')
       .eq('is_published', true)
+      .eq('exam_mode', 'simulation')
       .order('created_at', { ascending: false })
       .limit(3)
 
+    if (grade) {
+      query = query.eq('grade', grade)
+    }
+
+    const { data } = await query
     setRecentExams(data || [])
   }
 
@@ -231,27 +242,35 @@ export default function StudentPage() {
   }
 
   const fetchInProgressAttempt = async (userId: string) => {
-    const { data } = await supabase
+    const { data: attempts } = await supabase
       .from('exam_attempts')
       .select(`
         id,
         exam_id,
         start_time,
-        exams!exam_id (title)
+        exams!exam_id (title, exam_mode)
       `)
       .eq('student_id', userId)
       .eq('status', 'in_progress')
       .order('start_time', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(2)
 
-    if (data) {
-      setInProgressAttempt({
-        id: data.id,
-        exam_id: data.exam_id,
-        exam_title: (data.exams as any)?.title || 'Không rõ',
-        start_time: data.start_time
-      })
+    if (attempts) {
+      for (const data of attempts) {
+        const examMode = (data.exams as any)?.exam_mode
+        const item: InProgressAttempt = {
+          id: data.id,
+          exam_id: data.exam_id,
+          exam_title: (data.exams as any)?.title || 'Không rõ',
+          start_time: data.start_time,
+          exam_mode: examMode
+        }
+        if (examMode === 'practice' && !practiceInProgress) {
+          setPracticeInProgress(item)
+        } else if (examMode !== 'practice' && !inProgressAttempt) {
+          setInProgressAttempt(item)
+        }
+      }
     }
   }
 
@@ -287,7 +306,7 @@ export default function StudentPage() {
     <div className="min-h-screen p-4 lg:p-6">
       <div className="max-w-5xl mx-auto">
         {/* Welcome Section */}
-        <div className="mb-6">
+        <div className="mb-6 animate-fade-in-up">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2">
             Xin chào, {userName}! 👋
           </h1>
@@ -298,7 +317,7 @@ export default function StudentPage() {
 
         {/* Quick Stats */}
         {stats.totalAttempts > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6 animate-list-stagger">
             <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs mb-1">
                 <FileText className="w-4 h-4" />
@@ -347,12 +366,32 @@ export default function StudentPage() {
           </div>
         )}
 
+        {/* Continue Practice */}
+        {practiceInProgress && (
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-5 mb-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-100 text-sm mb-1">📝 Tiếp tục ôn tập</p>
+                <h3 className="font-semibold text-lg">{practiceInProgress.exam_title}</h3>
+                <p className="text-amber-100 text-sm mt-1">Không giới hạn thời gian</p>
+              </div>
+              <button
+                onClick={() => router.push(`/practice/${practiceInProgress.id}`)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white text-amber-600 rounded-xl font-medium hover:bg-amber-50 transition-colors"
+              >
+                <Play className="w-4 h-4" />
+                Tiếp tục
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Continue Exam */}
         {inProgressAttempt && (
           <div className="bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl p-5 mb-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-teal-100 text-sm mb-1">📌 Tiếp tục làm bài</p>
+                <p className="text-teal-100 text-sm mb-1">📌 Tiếp tục thi thử</p>
                 <h3 className="font-semibold text-lg">{inProgressAttempt.exam_title}</h3>
                 <p className="text-teal-100 text-sm mt-1">
                   Bắt đầu lúc {new Date(inProgressAttempt.start_time).toLocaleTimeString('vi-VN')}
@@ -377,7 +416,7 @@ export default function StudentPage() {
               <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
                 <h2 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-teal-600" />
-                  Đề thi mới
+                  Đề thi thử mới
                 </h2>
                 <Link 
                   href="/student/exams"
@@ -386,7 +425,7 @@ export default function StudentPage() {
                   Xem tất cả
                 </Link>
               </div>
-              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+              <div className="divide-y divide-slate-200 dark:divide-slate-700 animate-list-stagger">
                 {recentExams.map(exam => (
                   <div 
                     key={exam.id}
@@ -406,7 +445,7 @@ export default function StudentPage() {
                     </div>
                     <button
                       onClick={() => handleStartExam(exam.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-sm font-medium btn-action-sm"
                     >
                       <Play className="w-4 h-4" />
                       Làm bài
@@ -480,7 +519,7 @@ export default function StudentPage() {
                   Xem tất cả
                 </Link>
               </div>
-              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+              <div className="divide-y divide-slate-200 dark:divide-slate-700 animate-list-stagger">
                 {recentAttempts.map(attempt => (
                   <button
                     key={attempt.id}
@@ -515,13 +554,22 @@ export default function StudentPage() {
               <p className="text-slate-300 text-sm mb-4">
                 Hoàn thành ít nhất 1 đề thi để duy trì streak!
               </p>
-              <Link
-                href="/student/exams"
-                className="flex items-center justify-center gap-2 w-full py-2.5 bg-white text-slate-800 rounded-lg font-medium hover:bg-slate-100 transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                Bắt đầu luyện tập
-              </Link>
+              <div className="space-y-2">
+                <Link
+                  href="/student/practice"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-white text-slate-800 rounded-lg font-medium hover:bg-slate-100 btn-action-sm"
+                >
+                  <PenTool className="w-4 h-4" />
+                  Ôn tập
+                </Link>
+                <Link
+                  href="/student/exams"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 btn-action-sm"
+                >
+                  <Play className="w-4 h-4" />
+                  Thi thử
+                </Link>
+              </div>
             </div>
           </div>
         </div>

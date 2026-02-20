@@ -148,14 +148,17 @@ export default function AdminSidebar({ isOpen, onToggle }: AdminSidebarProps) {
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={`
-                    flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200
+                    relative flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200
                     ${active 
-                      ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium' 
+                      ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium shadow-sm' 
                       : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`} />
+                  {active && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-teal-500 dark:bg-teal-400 rounded-r-full" />
+                  )}
+                  <Icon className={`w-5 h-5 flex-shrink-0 transition-colors duration-200 ${active ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`} />
                   <span className="text-sm sm:text-base">{item.label}</span>
                 </Link>
               </li>

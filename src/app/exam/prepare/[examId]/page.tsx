@@ -262,7 +262,7 @@ export default function ExamPreparePage() {
         </button>
 
         {/* Main Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in-up">
           {/* Header */}
           <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-6 text-white">
             <div className="flex items-center gap-3 mb-2">
@@ -286,7 +286,7 @@ export default function ExamPreparePage() {
             )}
 
             {/* Exam Info Grid */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-6 animate-list-stagger">
               <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                   <Clock className="w-4 h-4" />
@@ -339,14 +339,14 @@ export default function ExamPreparePage() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleContinueExam}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium btn-action"
                   >
                     <Play className="w-4 h-4" />
                     Tiếp tục thi
                   </button>
                   <button
                     onClick={handleCancelExam}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium btn-action"
                   >
                     <AlertTriangle className="w-4 h-4" />
                     Hủy và xem kết quả
@@ -360,7 +360,7 @@ export default function ExamPreparePage() {
               <h3 className="font-semibold text-slate-800 dark:text-white mb-3">
                 📋 Lưu ý trước khi thi
               </h3>
-              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400 animate-list-stagger">
                 <li className="flex items-start gap-2">
                   <span className="text-teal-500 mt-0.5">•</span>
                   Đảm bảo kết nối internet ổn định trong suốt bài thi
@@ -392,7 +392,7 @@ export default function ExamPreparePage() {
                 <button
                   onClick={handleStartExam}
                   disabled={starting}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white rounded-xl font-semibold transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white rounded-xl font-semibold btn-action"
                 >
                   {starting ? (
                     <>

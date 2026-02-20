@@ -30,6 +30,8 @@ interface ExamInfo {
   duration: number
   is_published: boolean
   source_exam: string | null
+  grade: number | null
+  exam_mode: string | null
   question_count: number
 }
 
@@ -245,7 +247,7 @@ export default function AdminExamDetailPage() {
     try {
       const { data, error } = await supabase
         .from('exams')
-        .select('id, title, subject, duration, is_published, source_exam')
+        .select('id, title, subject, duration, is_published, source_exam, grade, exam_mode')
         .eq('id', examId)
         .single()
 
@@ -490,7 +492,7 @@ export default function AdminExamDetailPage() {
     <div className="min-h-screen">
       <AdminHeader 
         title={examInfo.title} 
-        subtitle={`${examInfo.subject} • ${formatDuration(examInfo.duration)} • ${questions.length} câu hỏi`} 
+        subtitle={`${examInfo.subject} • ${examInfo.grade ? `Lớp ${examInfo.grade}` : 'Chưa set lớp'} • ${examInfo.exam_mode === 'practice' ? 'Ôn tập' : 'Thi thử'} • ${formatDuration(examInfo.duration)} • ${questions.length} câu hỏi`} 
       />
       
       <div className="p-4 sm:p-6 lg:p-8">

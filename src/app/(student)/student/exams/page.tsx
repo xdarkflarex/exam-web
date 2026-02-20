@@ -21,6 +21,7 @@ interface Exam {
   duration: number
   is_published: boolean
   created_at: string
+  grade: number | null
   question_count?: number
   attempt_count?: number
   best_score?: number | null
@@ -34,6 +35,7 @@ export default function ExamsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'attempted' | 'not_attempted'>('all')
+  const [studentGrade, setStudentGrade] = useState<number | null>(null)
 
   useEffect(() => {
     fetchExams()
@@ -45,12 +47,29 @@ export default function ExamsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Fetch published exams
-      const { data: examsData, error } = await supabase
+      // Fetch student grade
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('grade')
+        .eq('id', user.id)
+        .single()
+
+      const grade = profile?.grade || null
+      setStudentGrade(grade)
+
+      // Fetch published simulation exams filtered by grade
+      let query = supabase
         .from('exams')
-        .select('id, title, description, subject, duration, is_published, created_at')
+        .select('id, title, description, subject, duration, is_published, created_at, grade')
         .eq('is_published', true)
+        .eq('exam_mode', 'simulation')
         .order('created_at', { ascending: false })
+
+      if (grade) {
+        query = query.eq('grade', grade)
+      }
+
+      const { data: examsData, error } = await query
 
       if (error) {
         console.error('Fetch exams error:', error)
@@ -121,12 +140,17 @@ export default function ExamsPage() {
     <div className="min-h-screen p-4 lg:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-6 animate-fade-in-up">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-            Đề thi
+            Thi thử
           </h1>
           <p className="text-slate-500 dark:text-slate-400">
-            Chọn đề thi và bắt đầu luyện tập
+            Làm bài thi có giới hạn thời gian
+            {studentGrade && (
+              <span className="ml-2 px-2 py-0.5 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-xs rounded-full font-medium">
+                Lớp {studentGrade}
+              </span>
+            )}
           </p>
         </div>
 
@@ -164,7 +188,7 @@ export default function ExamsPage() {
         </div>
 
         {/* Exam List */}
-        <div className="space-y-3">
+        <div className="space-y-3 animate-list-stagger">
           {filteredExams.length === 0 ? (
             <div className="bg-white dark:bg-slate-800 rounded-xl p-12 text-center border border-slate-200 dark:border-slate-700">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -224,7 +248,7 @@ export default function ExamsPage() {
 
                   <button
                     onClick={() => handleStartExam(exam.id)}
-                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium transition-colors"
+                    className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium btn-action"
                   >
                     <Play className="w-4 h-4" />
                     <span className="hidden sm:inline">
