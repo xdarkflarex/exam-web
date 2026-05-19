@@ -19,8 +19,13 @@ import {
   BarChart3,
   School,
   Megaphone,
-  FileSpreadsheet
+  FileSpreadsheet,
+  PenLine,
+  Image,
+  Globe,
+  UserPlus
 } from 'lucide-react'
+import MinhMathLogo from '@/components/MinhMathLogo'
 
 const menuItems = [
   { 
@@ -64,6 +69,16 @@ const menuItems = [
     icon: FileSpreadsheet 
   },
   { 
+    label: 'Bài viết', 
+    href: '/admin/posts', 
+    icon: PenLine 
+  },
+  { 
+    label: 'Thư viện media', 
+    href: '/admin/media', 
+    icon: Image 
+  },
+  { 
     label: 'Thông báo', 
     href: '/admin/announcements', 
     icon: Megaphone 
@@ -72,6 +87,16 @@ const menuItems = [
     label: 'Góp ý', 
     href: '/admin/feedback', 
     icon: MessageSquare 
+  },
+  { 
+    label: 'Landing Page', 
+    href: '/admin/landing', 
+    icon: Globe 
+  },
+  { 
+    label: 'Đơn đăng ký học', 
+    href: '/admin/enrollments', 
+    icon: UserPlus 
   },
   { 
     label: 'Cài đặt', 
@@ -118,12 +143,12 @@ export default function AdminSidebar({ isOpen, onToggle }: AdminSidebarProps) {
       {/* Logo */}
       <div className="h-14 sm:h-16 flex items-center justify-between gap-3 px-4 sm:px-6 border-b border-slate-300 dark:border-slate-700">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-500 flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center flex-shrink-0">
+            <MinhMathLogo size={22} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-slate-800 dark:text-slate-100 text-base sm:text-lg">ExamHub</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Quản lý đề thi</p>
+            <h1 className="font-bold text-slate-800 dark:text-slate-100 text-base sm:text-lg">Minh Math</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Quản lý nội dung</p>
           </div>
         </div>
         {/* Close button for mobile */}

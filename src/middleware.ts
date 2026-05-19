@@ -317,11 +317,35 @@ export async function middleware(request: NextRequest) {
   // ============================================
   // Admin users must complete 2FA before accessing admin routes
   // Exception: /admin/verify-otp page itself
+  // Can be disabled via admin.settings -> requireAdminOTP = false
   // ============================================
   if (isAdminRoute && isAdmin(userRole)) {
     const isVerifyOtpPage = pathname === '/admin/verify-otp'
     const is2FAVerified = request.cookies.get(ADMIN_2FA_COOKIE)?.value === 'true'
-    
+
+    // Check if OTP requirement is disabled in site settings
+    let otpRequired = true
+    try {
+      const { data: settingRow } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'admin.settings')
+        .single()
+      if (settingRow?.value && settingRow.value.requireAdminOTP === false) {
+        otpRequired = false
+      }
+    } catch {
+      // On error, default to requiring OTP (fail-safe)
+    }
+
+    if (!otpRequired) {
+      // OTP disabled: skip verify-otp page entirely
+      if (isVerifyOtpPage) {
+        return NextResponse.redirect(new URL('/admin', request.url))
+      }
+      return response
+    }
+
     if (isVerifyOtpPage) {
       // Already verified - redirect to admin dashboard
       if (is2FAVerified) {

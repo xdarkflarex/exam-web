@@ -216,7 +216,7 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
           {/* Footer */}
           <div className="mt-4 text-center">
             <p className="text-xs text-slate-500 dark:text-slate-500">
-              Powered by Gemini AI 2.0
+              © 2025 Minh Math. Luyện Thi Toán - Tin Cấp 2/Cấp 3
             </p>
           </div>
         </div>

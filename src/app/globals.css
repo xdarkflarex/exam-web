@@ -10,15 +10,15 @@
    Optimized for 60-120 minute sessions
    ============================================= */
 
-/* Light Mode - Soft neutral palette */
+/* Light Mode - Soft neutral palette (reduced glare) */
 :root {
-  --background: #f1f5f9;        /* slate-100 - softer than white */
-  --background-card: #e2e8f0;   /* slate-200 - slightly raised */
-  --background-overlay: rgba(241, 245, 249, 0.9);
+  --background: #f5f7fa;        /* between slate-50 and slate-100 - less harsh */
+  --background-card: #eef2f7;   /* softer card bg - less contrast */
+  --background-overlay: rgba(245, 247, 250, 0.92);
   --foreground: #1e293b;        /* slate-800 - not pure black */
   --foreground-secondary: #475569; /* slate-600 */
   --foreground-muted: #64748b;  /* slate-500 */
-  --border: #cbd5e1;            /* slate-300 */
+  --border: #d1d9e4;            /* softer border */
   --border-strong: #94a3b8;     /* slate-400 */
   --accent: #0d9488;            /* teal-600 */
   --accent-hover: #0f766e;      /* teal-700 */
@@ -72,6 +72,11 @@ html.dark ::-webkit-scrollbar-thumb {
 
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: var(--foreground-muted);
+}
+
+/* Soften bg-white in light mode to reduce glare */
+html:not(.dark) .bg-white {
+  background-color: #fafcfe;
 }
 
 /* =============================================
@@ -600,3 +605,15 @@ html.dark .glow-teal {
     display: block !important;
   }
 }
+
+/* Enrollment modal animations */
+@keyframes enroll-fadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+@keyframes enroll-slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.97) }
+  to { opacity: 1; transform: translateY(0) scale(1) }
+}
+.enroll-fade-in { animation: enroll-fadeIn 0.2s ease-out; }
+.enroll-slide-up { animation: enroll-slideUp 0.3s ease-out; }

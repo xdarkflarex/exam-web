@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+
+function createPublicClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 import { 
   Info, AlertCircle, Sparkles, Bell, X, 
   ChevronLeft, ChevronRight, ExternalLink, Pin
@@ -50,7 +57,7 @@ const typeConfig = {
 }
 
 export default function AnnouncementBanner() {
-  const supabase = createClient()
+  const supabase = createPublicClient()
   
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)

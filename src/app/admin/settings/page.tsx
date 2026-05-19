@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Bell, Shield, Database, Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Settings, Bell, ShieldCheck, Database, Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,7 @@ interface SiteSettings {
   autoSubmitOnTimeout: boolean
   showCorrectAnswers: boolean
   emailNotifications: boolean
+  requireAdminOTP: boolean
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -20,7 +21,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   examTimeWarning: 5,
   autoSubmitOnTimeout: true,
   showCorrectAnswers: true,
-  emailNotifications: true
+  emailNotifications: true,
+  requireAdminOTP: true
 }
 
 export default function AdminSettingsPage() {
@@ -226,6 +228,44 @@ export default function AdminSettingsPage() {
               }`} />
             </button>
           </div>
+        </div>
+
+        {/* Security Settings */}
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-800 dark:text-slate-100">Bảo mật</h2>
+              <p className="text-sm text-slate-500">Cấu hình xác thực và bảo mật admin</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="font-medium text-slate-800 dark:text-slate-100">Xác thực OTP qua Gmail</p>
+              <p className="text-sm text-slate-500">Yêu cầu mã OTP gửi qua email mỗi lần đăng nhập admin (khuyến nghị bật)</p>
+            </div>
+            <button
+              onClick={() => setSettings({ ...settings, requireAdminOTP: !settings.requireAdminOTP })}
+              className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+                settings.requireAdminOTP ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                settings.requireAdminOTP ? 'left-7' : 'left-1'
+              }`} />
+            </button>
+          </div>
+
+          {!settings.requireAdminOTP && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                ⚠️ <strong>Cảnh báo:</strong> Tắt OTP làm giảm bảo mật cho tài khoản admin. Chỉ tắt khi cần thiết.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Save Button */}

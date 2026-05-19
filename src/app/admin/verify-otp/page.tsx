@@ -67,6 +67,21 @@ export default function VerifyOTPPage() {
         return
       }
 
+      // Check if OTP is disabled in settings
+      try {
+        const { data: settingRow } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('key', 'admin.settings')
+          .single()
+        if (settingRow?.value && settingRow.value.requireAdminOTP === false) {
+          router.replace('/admin')
+          return
+        }
+      } catch {
+        // On error, continue with OTP (fail-safe)
+      }
+
       setUserEmail(user.email || profile.email || '')
       setIsCheckingAuth(false)
 

@@ -75,7 +75,7 @@ export default function GlobalHeader({ title, showLogout = true }: GlobalHeaderP
               <Sigma className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+              <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                 {title || 'Luyện Thi Toán THPT'}
               </h1>
               {userRole && (
