@@ -15,6 +15,8 @@ import EnrollmentFormSection from '@/components/EnrollmentFormSection'
 import EnrollmentFloatingButton from '@/components/EnrollmentFloatingButton'
 import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Default content for landing page
  * Used when no content is found in site_settings
@@ -80,7 +82,13 @@ const DEFAULT_CONTENT = {
 function createPublicSupabaseClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        fetch: (url: any, options: any) =>
+          fetch(url, { ...options, cache: 'no-store' }),
+      },
+    }
   )
 }
 
