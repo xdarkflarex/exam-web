@@ -617,3 +617,119 @@ html.dark .glow-teal {
 }
 .enroll-fade-in { animation: enroll-fadeIn 0.2s ease-out; }
 .enroll-slide-up { animation: enroll-slideUp 0.3s ease-out; }
+
+/* =============================================
+   MINH MATH ANIMATED LOGO
+   ============================================= */
+
+.mm-logo-wrap {
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 18%;
+  padding: 0;
+  background: transparent;
+  filter: drop-shadow(0 0 2.2rem rgba(0, 231, 255, 0.18));
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mm-logo-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mm-tile-aurora {
+  fill: rgba(0, 234, 255, 0.35);
+  filter: url("#mm-tile-glow");
+}
+
+.mm-tile {
+  fill: url("#mm-tile-fill");
+}
+
+.mm-tile-edge {
+  fill: none;
+  stroke: url("#mm-tile-edge");
+  stroke-width: 10;
+}
+
+.mm-pulse-ring {
+  fill: url("#mm-pulse-ring");
+  opacity: 0;
+  transform-origin: center;
+}
+
+.mm-mark {
+  filter: url("#mm-ribbon-glow");
+}
+
+.mm-ribbon-shadow,
+.mm-rail-shadow,
+.mm-ribbon-core,
+.mm-rail-core,
+.mm-ribbon-light,
+.mm-rail-light,
+.mm-ribbon-sweep,
+.mm-transition-trace {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mm-ribbon-shadow,
+.mm-rail-shadow {
+  stroke: rgba(0, 242, 255, 0.28);
+  stroke-width: 126;
+}
+
+.mm-ribbon-core,
+.mm-rail-core {
+  stroke: url("#mm-ribbon-fill");
+  stroke-width: 96;
+}
+
+.mm-ribbon-light,
+.mm-rail-light {
+  stroke: rgba(232, 255, 255, 0.8);
+  stroke-width: 12;
+  opacity: 0.72;
+  transform: translateY(-21px);
+}
+
+.mm-ribbon-sweep {
+  stroke: #efffff;
+  stroke-width: 22;
+  opacity: 0;
+}
+
+.mm-transition-trace {
+  stroke: #dcffff;
+  stroke-width: 108;
+  opacity: 0;
+}
+
+.mm-rail-shadow,
+.mm-rail-core,
+.mm-rail-light {
+  opacity: 0.13;
+}
+
+.mm-sparkles circle {
+  fill: #f4ffff;
+  filter: url("#mm-ribbon-glow");
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-logo-wrap {
+    filter: drop-shadow(0 0 1.4rem rgba(0, 231, 255, 0.18));
+  }
+}

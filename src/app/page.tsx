@@ -239,9 +239,7 @@ export default async function LandingPage() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 dark:from-teal-400 dark:to-teal-600 flex items-center justify-center shadow-lg shadow-teal-600/25 dark:shadow-teal-500/20 group-hover:shadow-teal-600/40 dark:group-hover:shadow-teal-400/30 transition-all duration-300 group-hover:scale-105">
-                <MinhMathLogo size={24} className="text-white" />
-              </div>
+              <MinhMathLogo size={40} />
               <span className="text-xl font-bold text-slate-800 dark:text-slate-100 font-baloo">
                 {content.brand?.name || DEFAULT_CONTENT.brand.name}
               </span>
@@ -268,7 +266,7 @@ export default async function LandingPage() {
                 <ImageCarousel slides={heroSlides} interval={5000}>
                   <div className="text-center px-6 max-w-3xl">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm text-white text-sm font-medium mb-6">
-                      <MinhMathLogo size={16} className="text-white" />
+                      <MinhMathLogo size={22} />
                       {content.hero?.badge || DEFAULT_CONTENT.hero.badge}
                     </div>
                     <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6 font-baloo drop-shadow-lg">
@@ -294,7 +292,7 @@ export default async function LandingPage() {
               <section key="hero" className="py-20 sm:py-28">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-sm font-medium mb-6 slide-in-up">
-                    <MinhMathLogo size={16} className="text-teal-700 dark:text-teal-300" />
+                    <MinhMathLogo size={22} />
                     {content.hero?.badge || DEFAULT_CONTENT.hero.badge}
                   </div>
                   <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-6 font-baloo slide-in-up" style={{animationDelay: '0.1s'}}>
@@ -476,9 +474,7 @@ export default async function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                <MinhMathLogo size={16} className="text-white" />
-              </div>
+              <MinhMathLogo size={32} />
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                 {content.brand?.name || DEFAULT_CONTENT.brand.name}
               </span>

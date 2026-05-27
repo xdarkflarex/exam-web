@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { Sigma, LogIn, ArrowLeft } from 'lucide-react'
+import { LogIn, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import MinhMathLogo from '@/components/MinhMathLogo'
 
 /**
  * Google Icon SVG Component
@@ -87,8 +88,8 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
           
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white mb-4 shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20 bounce-in">
-              <Sigma className="w-8 h-8" />
+            <div className="inline-flex items-center justify-center mb-4 bounce-in">
+              <MinhMathLogo size={64} />
             </div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
               Luyện Thi Toán THPT

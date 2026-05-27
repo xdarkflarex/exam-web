@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { LogOut, Sigma } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import LogoutConfirmModal from './LogoutConfirmModal'
 import { getRoleDisplayLabel, UserRole } from '@/lib/auth/roles'
 import ThemeToggle from './ThemeToggle'
+import MinhMathLogo from '@/components/MinhMathLogo'
 
 interface GlobalHeaderProps {
   title?: string
@@ -71,9 +72,7 @@ export default function GlobalHeader({ title, showLogout = true }: GlobalHeaderP
       <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-              <Sigma className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
+            <MinhMathLogo size={40} />
             <div>
               <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                 {title || 'Luyện Thi Toán THPT'}

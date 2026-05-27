@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { GraduationCap, User, LogOut, Settings, ChevronDown, Trophy, BookOpen, Home, Award, Bookmark, Target } from 'lucide-react'
+import { User, LogOut, Settings, ChevronDown, Trophy, BookOpen, Home, Award, Bookmark, Target } from 'lucide-react'
 import Link from 'next/link'
 import ThemeToggle from '@/components/ThemeToggle'
+import MinhMathLogo from '@/components/MinhMathLogo'
 
 interface StudentHeaderProps {
   title?: string
@@ -34,9 +35,7 @@ export default function StudentHeader({
             onClick={() => router.push('/student')}
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-sm">
-              <GraduationCap className="w-4.5 h-4.5 text-white" />
-            </div>
+            <MinhMathLogo size={32} />
             {!minimal && (
               <span className="font-semibold text-slate-800 dark:text-slate-100 hidden sm:block">
                 {title}

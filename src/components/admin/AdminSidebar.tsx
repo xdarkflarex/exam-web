@@ -143,9 +143,7 @@ export default function AdminSidebar({ isOpen, onToggle }: AdminSidebarProps) {
       {/* Logo */}
       <div className="h-14 sm:h-16 flex items-center justify-between gap-3 px-4 sm:px-6 border-b border-slate-300 dark:border-slate-700">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center flex-shrink-0">
-            <MinhMathLogo size={22} className="text-white" />
-          </div>
+          <MinhMathLogo size={36} />
           <div>
             <h1 className="font-bold text-slate-800 dark:text-slate-100 text-base sm:text-lg">Minh Math</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Quản lý nội dung</p>

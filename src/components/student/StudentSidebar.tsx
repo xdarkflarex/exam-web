@@ -18,6 +18,7 @@ import {
   PenTool
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
+import MinhMathLogo from '@/components/MinhMathLogo'
 
 const menuItems = [
   { 
@@ -130,9 +131,7 @@ export default function StudentSidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-sm">📚</span>
-            </div>
+            <MinhMathLogo size={36} />
             <div>
               <h1 className="font-bold text-slate-800 dark:text-white text-sm">Luyện Thi THPT</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">Toán học</p>

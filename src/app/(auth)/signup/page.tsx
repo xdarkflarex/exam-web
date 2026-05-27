@@ -17,6 +17,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Mail, Lock, Eye, EyeOff, School, Users, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import MinhMathLogo from '@/components/MinhMathLogo'
 
 // Password strength checker
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
@@ -160,8 +161,8 @@ export default function SignupPage() {
           
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-600 dark:bg-teal-500 text-white mb-4 shadow-lg shadow-teal-600/20 dark:shadow-teal-500/20 bounce-in">
-              <User className="w-8 h-8" />
+            <div className="inline-flex items-center justify-center mb-4 bounce-in">
+              <MinhMathLogo size={64} />
             </div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
               Tạo tài khoản
