@@ -263,7 +263,7 @@ export async function middleware(request: NextRequest) {
 
   // Route protection logic
   const isAdminRoute = pathname.startsWith('/admin')
-  const isStudentRoute = pathname.startsWith('/student') || pathname.startsWith('/result')
+  const isStudentRoute = pathname.startsWith('/student') || pathname.startsWith('/result') || pathname.startsWith('/learn')
   const isExamInProgress = isExamRoute(pathname)
 
   // ============================================

@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Loader2, Download } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
 import MathContent, { MathProvider } from '@/components/MathContent'
+import { buildExBlocksOrdered, ExportQuestion } from '@/lib/export/questionToLatex'
+import { downloadTextFile } from '@/lib/export/download'
 
 interface Answer {
   id: string
@@ -19,6 +21,8 @@ interface Question {
   content: string
   question_type: string
   solution: string | null
+  tikz_code: string | null
+  part_number: number
   order_in_part: number
   answers: Answer[]
 }
@@ -67,16 +71,19 @@ export default function ExamQuestionsPage() {
       const { data: examQuestions, error: eqError } = await supabase
         .from('exam_questions')
         .select(`
+          part_number,
           order_in_part,
           question_id,
           questions!inner (
             id,
             content,
             question_type,
-            solution
+            solution,
+            tikz_code
           )
         `)
         .eq('exam_id', examId)
+        .order('part_number', { ascending: true })
         .order('order_in_part', { ascending: true })
 
       if (eqError) {
@@ -127,6 +134,8 @@ export default function ExamQuestionsPage() {
           content: q.content,
           question_type: q.question_type,
           solution: q.solution,
+          tikz_code: q.tikz_code,
+          part_number: eq.part_number,
           order_in_part: eq.order_in_part,
           answers: answersByQuestion[q.id] || []
         }
@@ -139,6 +148,26 @@ export default function ExamQuestionsPage() {
       setError('Lỗi kết nối')
       setLoading(false)
     }
+  }
+
+  const handleExportTex = () => {
+    if (questions.length === 0) return
+    const items = questions.map(q => ({
+      part_number: q.part_number,
+      question: {
+        content: q.content,
+        question_type: q.question_type,
+        tikz_code: q.tikz_code,
+        answers: q.answers.map(a => ({
+          content: a.content,
+          is_correct: a.is_correct,
+          order_index: a.order_index
+        }))
+      } as ExportQuestion
+    }))
+    const tex = buildExBlocksOrdered(items)
+    const safeTitle = (examInfo?.title || 'de-thi').replace(/[^a-zA-Z0-9-_]+/g, '-')
+    downloadTextFile(`${safeTitle}.tex`, tex)
   }
 
   const getQuestionTypeLabel = (type: string) => {
@@ -208,6 +237,15 @@ export default function ExamQuestionsPage() {
             >
               <ArrowLeft className="w-4 h-4" />
               Quay lại
+            </button>
+            <button
+              onClick={handleExportTex}
+              disabled={questions.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              title="Xuất câu hỏi của đề thi ra file .tex"
+            >
+              <Download className="w-4 h-4" />
+              Xuất .tex
             </button>
           </div>
 

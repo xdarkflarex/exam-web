@@ -23,7 +23,9 @@ import {
   PenLine,
   Image,
   Globe,
-  UserPlus
+  UserPlus,
+  BookOpen,
+  FileCode
 } from 'lucide-react'
 import MinhMathLogo from '@/components/MinhMathLogo'
 
@@ -47,6 +49,16 @@ const menuItems = [
     label: 'Câu hỏi', 
     href: '/admin/questions', 
     icon: HelpCircle 
+  },
+  { 
+    label: 'Lý thuyết', 
+    href: '/admin/theories', 
+    icon: BookOpen 
+  },
+  { 
+    label: 'Template LaTeX', 
+    href: '/admin/latex-templates', 
+    icon: FileCode 
   },
   { 
     label: 'Học sinh', 

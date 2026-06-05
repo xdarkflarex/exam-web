@@ -5,10 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { 
   HelpCircle, Search, FileText, CheckCircle, XCircle, Eye, X, 
   Filter, ChevronDown, Tag, BookOpen, Layers, MessageSquare,
-  BarChart3, Clock, Brain, Hash, AlertCircle, ChevronRight
+  BarChart3, Clock, Brain, Hash, AlertCircle, ChevronRight,
+  Download, CheckSquare, Square
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
 import MathContent from '@/components/MathContent'
+import { buildExBlocks, ExportQuestion } from '@/lib/export/questionToLatex'
+import { downloadTextFile } from '@/lib/export/download'
 
 // ==================== INTERFACES ====================
 interface Answer {
@@ -71,6 +74,7 @@ interface QuestionFull {
   source_exam: string | null
   explanation: string | null
   solution: string | null
+  tikz_code: string | null
   tikz_image_url: string | null
   solution_tikz_image_url: string | null
   solution_tikz_image_url_2: string | null
@@ -94,6 +98,7 @@ export default function AdminQuestionsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionFull | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   
   // Filter states
   const [topics, setTopics] = useState<Topic[]>([])
@@ -147,7 +152,7 @@ export default function AdminQuestionsPage() {
         .from('questions')
         .select(`
           id, content, question_type, difficulty, cognitive_level, 
-          source_exam, explanation, solution, tikz_image_url,
+          source_exam, explanation, solution, tikz_code, tikz_image_url,
           solution_tikz_image_url, solution_tikz_image_url_2,
           created_at, updated_at
         `)
@@ -339,6 +344,52 @@ export default function AdminQuestionsPage() {
   const handleViewDetail = (question: QuestionFull) => {
     setSelectedQuestion(question)
     setShowDetailModal(true)
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allFilteredSelected = filteredQuestions.length > 0 &&
+    filteredQuestions.every(q => selectedIds.has(q.id))
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredQuestions.map(q => q.id)))
+    }
+  }
+
+  const handleExportTex = () => {
+    // Export selected questions; if none selected, export all filtered.
+    // The list is sorted newest-first (created_at desc), so reverse to keep
+    // the exported order chronological (oldest first), matching expectations.
+    const source = [...(selectedIds.size > 0
+      ? filteredQuestions.filter(q => selectedIds.has(q.id))
+      : filteredQuestions)].reverse()
+
+    if (source.length === 0) return
+
+    const exportQuestions: ExportQuestion[] = source.map(q => ({
+      content: q.content,
+      question_type: q.question_type,
+      tikz_code: q.tikz_code,
+      answers: q.answers.map(a => ({
+        content: a.content,
+        is_correct: a.is_correct,
+        order_index: a.order_index
+      }))
+    }))
+
+    const tex = buildExBlocks(exportQuestions)
+    const stamp = new Date().toISOString().slice(0, 10)
+    downloadTextFile(`cau-hoi-${stamp}.tex`, tex)
   }
 
   const clearFilters = () => {
@@ -547,12 +598,34 @@ export default function AdminQuestionsPage() {
           </div>
         </div>
 
-        {/* Results count */}
-        <div className="flex items-center justify-between mb-4">
+        {/* Results count + Export toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Hiển thị <span className="font-medium text-slate-700 dark:text-slate-300">{filteredQuestions.length}</span> câu hỏi
             {hasActiveFilters && <span> (đã lọc)</span>}
+            {selectedIds.size > 0 && (
+              <span className="ml-2 text-teal-600 dark:text-teal-400">• Đã chọn {selectedIds.size}</span>
+            )}
           </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleSelectAll}
+              disabled={filteredQuestions.length === 0}
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            >
+              {allFilteredSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {allFilteredSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </button>
+            <button
+              onClick={handleExportTex}
+              disabled={filteredQuestions.length === 0}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-50"
+              title="Xuất các câu đã chọn (hoặc toàn bộ kết quả lọc) ra file .tex"
+            >
+              <Download className="w-4 h-4" />
+              Xuất .tex {selectedIds.size > 0 ? `(${selectedIds.size})` : `(${filteredQuestions.length})`}
+            </button>
+          </div>
         </div>
 
         {/* Questions List */}
@@ -584,6 +657,8 @@ export default function AdminQuestionsPage() {
                 onViewDetail={() => handleViewDetail(question)}
                 getDifficultyLabel={getDifficultyLabel}
                 formatDate={formatDate}
+                selected={selectedIds.has(question.id)}
+                onToggleSelect={() => toggleSelect(question.id)}
               />
             ))}
           </div>
@@ -609,12 +684,16 @@ function QuestionCard({
   question,
   onViewDetail,
   getDifficultyLabel,
-  formatDate
+  formatDate,
+  selected,
+  onToggleSelect
 }: {
   question: QuestionFull
   onViewDetail: () => void
   getDifficultyLabel: (level: number) => { text: string; color: string }
   formatDate: (date: string) => string
+  selected: boolean
+  onToggleSelect: () => void
 }) {
   const difficulty = getDifficultyLabel(question.difficulty)
   const pendingFeedbacks = question.feedbacks.filter(f => f.status === 'pending').length
@@ -622,6 +701,16 @@ function QuestionCard({
   return (
     <div className="bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4 hover:shadow-md hover:border-teal-200 dark:hover:border-teal-600 transition-all">
       <div className="flex items-start gap-4">
+        {/* Selection checkbox */}
+        <button
+          onClick={onToggleSelect}
+          className="flex-shrink-0 mt-0.5 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          title="Chọn câu hỏi để xuất"
+        >
+          {selected
+            ? <CheckSquare className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            : <Square className="w-5 h-5 text-slate-300 dark:text-slate-500" />}
+        </button>
         {/* Main Content */}
         <div className="flex-1 min-w-0">
           {/* Question Content with MathJax */}
