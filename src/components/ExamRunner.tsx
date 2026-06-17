@@ -10,6 +10,7 @@ import ExamSidebar from './ExamSidebar'
 import QuestionImage from './QuestionImage'
 import { useLoading } from '@/contexts/LoadingContext'
 import { useExamAntiCheat } from '@/hooks/useExamAntiCheat'
+import { updateAllMasteryForAttempt } from '@/lib/theories/actions'
 
 interface StudentAnswer {
   questionId: string
@@ -225,6 +226,9 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
         setSubmitting(false)
         return
       }
+
+      // Cập nhật mastery (tổng + theo mức nhận thức). Không chặn nếu lỗi.
+      await updateAllMasteryForAttempt(attemptId)
 
       hideLoading()
       router.push(`/result/${attemptId}`)

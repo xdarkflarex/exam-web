@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -14,10 +15,25 @@ import {
   Loader2,
   List,
   Clock,
+  Network,
+  FileText,
+  X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import MathContent from '@/components/MathContent'
-import type { Theory } from '@/types/theories'
+import { getKnowledgeGraphForTheory } from '@/lib/theories/actions'
+import { getBlockStyle } from '@/lib/theories/block-style'
+import type { Theory, KnowledgeBlock, KnowledgeBlockEdge, BlockType } from '@/types/theories'
+
+// Mindmap dùng @xyflow/react + three → chỉ load client
+const TheoryMindmap = dynamic(() => import('@/components/theories/TheoryMindmap'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[55vh] rounded-xl border border-slate-200 dark:border-slate-700">
+      <Loader2 className="w-6 h-6 text-teal-600 dark:text-teal-400 animate-spin" />
+    </div>
+  ),
+})
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -128,6 +144,12 @@ export default function TheoryReadingPage() {
   const [error, setError] = useState<string | null>(null)
   const [showToc, setShowToc] = useState(false)
 
+  /* ---- Knowledge blocks (mindmap) ---- */
+  const [blocks, setBlocks] = useState<KnowledgeBlock[]>([])
+  const [blockEdges, setBlockEdges] = useState<KnowledgeBlockEdge[]>([])
+  const [viewMode, setViewMode] = useState<'mindmap' | 'reading'>('mindmap')
+  const [selectedBlock, setSelectedBlock] = useState<KnowledgeBlock | null>(null)
+
   /* ---- Fetch theory + edges + siblings ---- */
   useEffect(() => {
     async function fetchTheory() {
@@ -180,6 +202,18 @@ export default function TheoryReadingPage() {
           .order('order_index', { ascending: true })
 
         setSiblingTheories((siblingsData || []) as Theory[])
+
+        // 4. Fetch knowledge blocks + edges (mindmap)
+        try {
+          const { blocks: kb, edges: kbEdges } = await getKnowledgeGraphForTheory(theoryId)
+          setBlocks(kb)
+          setBlockEdges(kbEdges)
+          // Nếu không có block (bài cũ) → mặc định chế độ đọc
+          if (kb.length === 0) setViewMode('reading')
+        } catch (kbErr) {
+          console.error('Failed to load knowledge blocks', kbErr)
+          setViewMode('reading')
+        }
       } catch (err: unknown) {
         console.error('Failed to load theory', err)
         setError('Có lỗi xảy ra khi tải bài lý thuyết')
@@ -397,31 +431,84 @@ export default function TheoryReadingPage() {
           </div>
         )}
 
-        {/* Main content */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 sm:p-8 mb-6">
-          {theory.content_md ? (
-            <div className="prose prose-slate dark:prose-invert max-w-none 
-              prose-headings:font-baloo prose-headings:text-slate-800 dark:prose-headings:text-white
-              prose-p:text-slate-600 dark:prose-p:text-slate-300
-              prose-a:text-teal-600 dark:prose-a:text-teal-400
-              prose-strong:text-slate-800 dark:prose-strong:text-white
-              prose-code:text-teal-600 dark:prose-code:text-teal-400
-              prose-pre:bg-slate-50 dark:prose-pre:bg-slate-900
-              prose-blockquote:border-teal-500
-              prose-img:rounded-xl
-              prose-li:text-slate-600 dark:prose-li:text-slate-300
-            ">
-              <MathContent content={theory.content_md} />
+        {/* View mode toggle (chỉ hiện khi có block) */}
+        {blocks.length > 0 && (
+          <div className="flex items-center justify-end mb-3">
+            <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <button
+                onClick={() => setViewMode('mindmap')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'mindmap'
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <Network className="w-4 h-4" /> Bản đồ tư duy
+              </button>
+              <button
+                onClick={() => setViewMode('reading')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'reading'
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Đọc tuyến tính
+              </button>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <BookOpen className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-500 dark:text-slate-400">
-                Nội dung đang được cập nhật
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Mindmap view */}
+        {blocks.length > 0 && viewMode === 'mindmap' && (
+          <div className="mb-6">
+            <TheoryMindmap
+              blocks={blocks}
+              edges={blockEdges}
+              selectedId={selectedBlock?.id}
+              onSelect={(b) => setSelectedBlock(b)}
+            />
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
+              Bấm vào một khối để xem chi tiết
+            </p>
+
+            {/* Detail card cho block đã chọn */}
+            {selectedBlock && (
+              <BlockDetailCard
+                block={selectedBlock}
+                onClose={() => setSelectedBlock(null)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Reading (linear) view */}
+        {viewMode === 'reading' && (
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 sm:p-8 mb-6">
+            {theory.content_md ? (
+              <div className="prose prose-slate dark:prose-invert max-w-none 
+                prose-headings:font-baloo prose-headings:text-slate-800 dark:prose-headings:text-white
+                prose-p:text-slate-600 dark:prose-p:text-slate-300
+                prose-a:text-teal-600 dark:prose-a:text-teal-400
+                prose-strong:text-slate-800 dark:prose-strong:text-white
+                prose-code:text-teal-600 dark:prose-code:text-teal-400
+                prose-pre:bg-slate-50 dark:prose-pre:bg-slate-900
+                prose-blockquote:border-teal-500
+                prose-img:rounded-xl
+                prose-li:text-slate-600 dark:prose-li:text-slate-300
+              ">
+                <MathContent content={theory.content_md} />
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400">
+                  Nội dung đang được cập nhật
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Related theories */}
         {relatedTheories.length > 0 && (
@@ -513,6 +600,58 @@ export default function TheoryReadingPage() {
           </div>
         </aside>
       )}
+    </div>
+  )
+}
+
+/* ================================================================== */
+/*  BLOCK DETAIL CARD                                                  */
+/* ================================================================== */
+function BlockDetailCard({
+  block,
+  onClose,
+}: {
+  block: KnowledgeBlock
+  onClose: () => void
+}) {
+  const style = getBlockStyle(block.block_type as BlockType)
+  return (
+    <div
+      className="mt-4 rounded-xl border-2 bg-white dark:bg-slate-800 shadow-md overflow-hidden"
+      style={{ borderColor: style.color }}
+    >
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ backgroundColor: style.color }}
+      >
+        <div className="flex items-center gap-2 text-white">
+          <span>{style.icon}</span>
+          <span className="text-xs font-semibold uppercase tracking-wide">
+            {style.label}
+          </span>
+          {block.title && (
+            <span className="text-sm font-medium">— {block.title}</span>
+          )}
+        </div>
+        <button
+          onClick={onClose}
+          className="text-white/80 hover:text-white transition-colors"
+          aria-label="Đóng"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="p-4 sm:p-6">
+        {block.body_md ? (
+          <div className="prose prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-300">
+            <MathContent content={block.body_md} />
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 dark:text-slate-500">
+            (Khối này chưa có nội dung)
+          </p>
+        )}
+      </div>
     </div>
   )
 }

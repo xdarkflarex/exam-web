@@ -8,6 +8,7 @@ import GlobalHeader from '@/components/GlobalHeader'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import { buildExBlocksOrdered, ExportQuestion } from '@/lib/export/questionToLatex'
 import { downloadTextFile } from '@/lib/export/download'
+import { fetchAllAnswers } from '@/lib/answers/fetchAnswers'
 
 interface Answer {
   id: string
@@ -104,22 +105,12 @@ export default function ExamQuestionsPage() {
         return
       }
 
-      // Fetch all answers for the questions
-      const { data: allAnswers, error: answersError } = await supabase
-        .from('answers')
-        .select('id, question_id, content, is_correct, order_index')
-        .in('question_id', questionIds)
-        .order('question_id')
-        .order('order_index', { ascending: true })
-
-      if (answersError) {
-        console.error('Answers fetch error:', answersError)
-        // Continue without answers if fetch fails
-      }
+      // Fetch all answers for the questions (phân trang tránh cắt 1000 dòng)
+      const allAnswers = await fetchAllAnswers(supabase, questionIds)
 
       // Build answers map
       const answersByQuestion: Record<string, Answer[]> = {}
-      for (const answer of allAnswers || []) {
+      for (const answer of allAnswers) {
         if (!answersByQuestion[answer.question_id]) {
           answersByQuestion[answer.question_id] = []
         }

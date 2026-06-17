@@ -9,6 +9,7 @@ import ConfirmModal from './ConfirmModal'
 import PracticeSidebar from './PracticeSidebar'
 import QuestionImage from './QuestionImage'
 import { useLoading } from '@/contexts/LoadingContext'
+import { updateAllMasteryForAttempt } from '@/lib/theories/actions'
 
 interface StudentAnswer {
   questionId: string
@@ -280,6 +281,9 @@ export default function PracticeRunner({ attemptId, examData, studentId, initial
         setSubmitting(false)
         return
       }
+
+      // Cập nhật mastery (tổng + theo mức nhận thức). Không chặn nếu lỗi.
+      await updateAllMasteryForAttempt(attemptId)
 
       hideLoading()
       router.push(`/result/${attemptId}`)

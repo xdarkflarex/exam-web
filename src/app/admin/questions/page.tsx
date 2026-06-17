@@ -12,6 +12,7 @@ import { AdminHeader } from '@/components/admin'
 import MathContent from '@/components/MathContent'
 import { buildExBlocks, ExportQuestion } from '@/lib/export/questionToLatex'
 import { downloadTextFile } from '@/lib/export/download'
+import { fetchAllAnswers } from '@/lib/answers/fetchAnswers'
 
 // ==================== INTERFACES ====================
 interface Answer {
@@ -172,13 +173,9 @@ export default function AdminQuestionsPage() {
       const questionIds = questionsData.map(q => q.id)
 
       // Step 2: Fetch all related data in parallel
-      const [answersRes, taxonomyRes, questionTagsRes, feedbacksRes, examCountRes] = await Promise.all([
-        // Answers
-        supabase
-          .from('answers')
-          .select('id, question_id, content, is_correct, order_index')
-          .in('question_id', questionIds)
-          .order('order_index'),
+      // Đáp án fetch riêng bằng helper phân trang để tránh bị cắt ở mốc 1000 dòng.
+      const [allAnswers, taxonomyRes, questionTagsRes, feedbacksRes, examCountRes] = await Promise.all([
+        fetchAllAnswers(supabase, questionIds),
         
         // Taxonomy with joins
         supabase
@@ -221,7 +218,7 @@ export default function AdminQuestionsPage() {
 
       // Build lookup maps
       const answersMap: Record<string, Answer[]> = {}
-      for (const a of answersRes.data || []) {
+      for (const a of allAnswers) {
         if (!answersMap[a.question_id]) answersMap[a.question_id] = []
         answersMap[a.question_id].push({
           id: a.id,
@@ -229,6 +226,10 @@ export default function AdminQuestionsPage() {
           is_correct: a.is_correct,
           order_index: a.order_index
         })
+      }
+      // Đảm bảo đáp án luôn theo đúng thứ tự order_index
+      for (const id of Object.keys(answersMap)) {
+        answersMap[id].sort((x, y) => x.order_index - y.order_index)
       }
 
       const taxonomyMap: Record<string, QuestionTaxonomy> = {}

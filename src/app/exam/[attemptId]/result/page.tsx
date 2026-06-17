@@ -12,6 +12,7 @@ import {
   RawAnswer,
   RawStudentAnswer
 } from '@/lib/attempts/attemptView'
+import { fetchAllAnswers } from '@/lib/answers/fetchAnswers'
 
 interface ExamAttempt {
   id: string
@@ -115,15 +116,7 @@ export default function ExamResultPage() {
       // Fetch all answers for correct answer lookup
       const questionIds = examQuestions.map((eq: any) => eq.questions?.id).filter(Boolean)
       
-      const { data: allAnswers, error: answersError } = await supabase
-        .from('answers')
-        .select('id, question_id, content, is_correct, order_index')
-        .in('question_id', questionIds)
-        .order('order_index', { ascending: true })
-
-      if (answersError) {
-        console.error('Answers fetch error:', answersError)
-      }
+      const allAnswers = await fetchAllAnswers(supabase, questionIds)
 
       // Use unified view model
       const rawData = prepareRawAttemptData({

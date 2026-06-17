@@ -15,6 +15,7 @@ import {
   RawAnswer,
   RawStudentAnswer
 } from '@/lib/attempts/attemptView'
+import { fetchAllAnswers } from '@/lib/answers/fetchAnswers'
 
 interface ExamAttempt {
   id: string
@@ -126,15 +127,7 @@ export default function ResultPage() {
 
       const questionIds = examQuestions.map((eq: any) => eq.questions?.id).filter(Boolean)
       
-      const { data: allAnswers, error: answersError } = await supabase
-        .from('answers')
-        .select('id, question_id, content, is_correct, order_index')
-        .in('question_id', questionIds)
-        .order('order_index', { ascending: true })
-
-      if (answersError) {
-        console.error('Answers fetch error:', answersError)
-      }
+      const allAnswers = await fetchAllAnswers(supabase, questionIds)
 
       // Use unified view model
       const rawData = prepareRawAttemptData({
@@ -278,8 +271,24 @@ export default function ResultPage() {
 
         <div className="ml-11">
           {question.isCorrect ? (
-            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-medium">
-              ✓ Bạn làm đúng
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-medium">
+                ✓ Bạn làm đúng
+              </div>
+
+              {question.explanation && (
+                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                  <div className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Giải thích:</div>
+                  <MathContent content={question.explanation} className="text-slate-700 dark:text-slate-300 text-sm" />
+                </div>
+              )}
+
+              {question.solution && (
+                <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
+                  <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">Lời giải:</div>
+                  <MathContent content={question.solution} className="text-slate-700 dark:text-slate-300 text-sm" />
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">

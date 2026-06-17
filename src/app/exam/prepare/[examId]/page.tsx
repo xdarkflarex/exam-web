@@ -94,8 +94,11 @@ export default function ExamPreparePage() {
         const startTime = new Date(inProgressAttempt.start_time)
         const now = new Date()
         const elapsedSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000)
+        // duration = 0 → không giới hạn thời gian
         const totalSeconds = examData.duration * 60
-        const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds)
+        const remainingSeconds = examData.duration > 0
+          ? Math.max(0, totalSeconds - elapsedSeconds)
+          : -1
 
         setExistingAttempt({
           id: inProgressAttempt.id,
@@ -293,7 +296,7 @@ export default function ExamPreparePage() {
                   <span className="text-sm">Thời gian</span>
                 </div>
                 <p className="text-xl font-bold text-slate-800 dark:text-white">
-                  {exam.duration} phút
+                  {exam.duration > 0 ? `${exam.duration} phút` : 'Không giới hạn'}
                 </p>
               </div>
               <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
@@ -334,7 +337,9 @@ export default function ExamPreparePage() {
                   </span>
                 </div>
                 <p className="text-sm text-amber-700 dark:text-amber-400 mb-4">
-                  Thời gian còn lại: <span className="font-bold">{formatTime(existingAttempt.remaining_seconds)}</span>
+                  {existingAttempt.remaining_seconds < 0
+                    ? 'Bạn có thể tiếp tục làm bất cứ lúc nào.'
+                    : <>Thời gian còn lại: <span className="font-bold">{formatTime(existingAttempt.remaining_seconds)}</span></>}
                 </p>
                 <div className="flex gap-3">
                   <button
@@ -365,14 +370,23 @@ export default function ExamPreparePage() {
                   <span className="text-teal-500 mt-0.5">•</span>
                   Đảm bảo kết nối internet ổn định trong suốt bài thi
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-teal-500 mt-0.5">•</span>
-                  Thời gian sẽ bắt đầu tính ngay khi bạn bấm "Bắt đầu thi"
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-teal-500 mt-0.5">•</span>
-                  Bài thi sẽ tự động nộp khi hết thời gian
-                </li>
+                {exam.duration > 0 ? (
+                  <>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-500 mt-0.5">•</span>
+                      Thời gian sẽ bắt đầu tính ngay khi bạn bấm "Bắt đầu thi"
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-teal-500 mt-0.5">•</span>
+                      Bài thi sẽ tự động nộp khi hết thời gian
+                    </li>
+                  </>
+                ) : (
+                  <li className="flex items-start gap-2">
+                    <span className="text-teal-500 mt-0.5">•</span>
+                    Không giới hạn thời gian — bạn làm thoải mái và nộp khi hoàn thành
+                  </li>
+                )}
                 <li className="flex items-start gap-2">
                   <span className="text-teal-500 mt-0.5">•</span>
                   Bạn có thể quay lại tiếp tục nếu thoát giữa chừng (thời gian vẫn tiếp tục chạy)

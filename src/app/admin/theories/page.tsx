@@ -175,7 +175,7 @@ export default function TheoriesListPage() {
               />
             </div>
             <Link
-              href="/admin/theories/new"
+              href="/admin/theories/import"
               className="px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
@@ -239,7 +239,7 @@ export default function TheoriesListPage() {
             <div className="text-center py-16">
               <BookMarked className="w-12 h-12 text-slate-400 mx-auto mb-3" />
               <p className="text-slate-600 dark:text-slate-400 mb-2">Chưa có bài lý thuyết nào</p>
-              <Link href="/admin/theories/new" className="text-teal-600 dark:text-teal-400 text-sm hover:underline">
+              <Link href="/admin/theories/import" className="text-teal-600 dark:text-teal-400 text-sm hover:underline">
                 Tạo bài lý thuyết đầu tiên →
               </Link>
             </div>

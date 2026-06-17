@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { Question, Answer, ExamData, ExamMeta } from '@/types'
+import { fetchAllAnswers } from '@/lib/answers/fetchAnswers'
 
 /**
  * Canonical function to fetch exam questions for students
@@ -69,23 +70,16 @@ export async function getExamQuestionsForStudent(examId: string): Promise<{
       return { examData: null, error: 'Dữ liệu câu hỏi không hợp lệ' }
     }
 
-    // Step 4: Fetch answers for all questions
-    const { data: allAnswers } = await supabase
-      .from('answers')
-      .select('id, question_id, content, is_correct, order_index')
-      .in('question_id', questionIds)
-      .order('question_id')
-      .order('order_index', { ascending: true })
+    // Step 4: Fetch answers for all questions (phân trang tránh cắt 1000 dòng)
+    const allAnswers = await fetchAllAnswers(supabase, questionIds)
 
     // Step 5: Group answers by question_id
     const answersByQuestion: Record<string, Answer[]> = {}
-    if (allAnswers) {
-      for (const answer of allAnswers) {
-        if (!answersByQuestion[answer.question_id]) {
-          answersByQuestion[answer.question_id] = []
-        }
-        answersByQuestion[answer.question_id].push(answer)
+    for (const answer of allAnswers) {
+      if (!answersByQuestion[answer.question_id]) {
+        answersByQuestion[answer.question_id] = []
       }
+      answersByQuestion[answer.question_id].push(answer)
     }
 
     // Step 6: Build questions with answers and group by part

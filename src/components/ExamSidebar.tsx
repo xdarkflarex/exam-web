@@ -29,11 +29,13 @@ export default function ExamSidebar({
   submitting,
   startTime
 }: ExamSidebarProps) {
+  const unlimited = !duration || duration <= 0
   const [timeLeft, setTimeLeft] = useState(duration * 60)
   const [isTimeUp, setIsTimeUp] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   useEffect(() => {
+    if (unlimited) return
     const endTime = new Date(startTime.getTime() + duration * 60 * 1000)
     
     const updateTimer = () => {
@@ -51,7 +53,7 @@ export default function ExamSidebar({
     const interval = setInterval(updateTimer, 1000)
 
     return () => clearInterval(interval)
-  }, [duration, startTime, onTimeUp, isTimeUp])
+  }, [duration, startTime, onTimeUp, isTimeUp, unlimited])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -120,9 +122,9 @@ export default function ExamSidebar({
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-200 dark:bg-slate-800 border-t border-slate-300 dark:border-slate-700 safe-area-bottom">
         <div className="flex items-center justify-between px-3 py-2">
           {/* Timer - Compact */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold ${getTimeColor()}`}>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold ${unlimited ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' : getTimeColor()}`}>
             <Clock className="w-4 h-4" />
-            {formatTime(timeLeft)}
+            {unlimited ? '∞' : formatTime(timeLeft)}
           </div>
 
           {/* Progress - Compact */}
@@ -204,16 +206,25 @@ export default function ExamSidebar({
           {/* Timer Card */}
           <div className="bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 p-4">
             <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
-              Thời gian còn lại
+              {unlimited ? 'Thời gian làm bài' : 'Thời gian còn lại'}
             </div>
-            <div className={`text-3xl font-bold rounded-lg p-3 text-center ${getTimeColor()}`}>
-              <Clock className="w-5 h-5 inline-block mr-2 -mt-1" />
-              {formatTime(timeLeft)}
-            </div>
-            {timeLeft <= 300 && timeLeft > 0 && (
-              <div className="mt-2 text-xs text-center text-red-500 dark:text-red-400 animate-pulse">
-                Sắp hết giờ!
+            {unlimited ? (
+              <div className="text-base font-bold rounded-lg p-3 text-center text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20">
+                <Clock className="w-5 h-5 inline-block mr-2 -mt-1" />
+                Không giới hạn
               </div>
+            ) : (
+              <>
+                <div className={`text-3xl font-bold rounded-lg p-3 text-center ${getTimeColor()}`}>
+                  <Clock className="w-5 h-5 inline-block mr-2 -mt-1" />
+                  {formatTime(timeLeft)}
+                </div>
+                {timeLeft <= 300 && timeLeft > 0 && (
+                  <div className="mt-2 text-xs text-center text-red-500 dark:text-red-400 animate-pulse">
+                    Sắp hết giờ!
+                  </div>
+                )}
+              </>
             )}
           </div>
 

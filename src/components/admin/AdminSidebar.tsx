@@ -25,7 +25,10 @@ import {
   Globe,
   UserPlus,
   BookOpen,
-  FileCode
+  FileCode,
+  Network,
+  FolderInput,
+  ShieldCheck
 } from 'lucide-react'
 import MinhMathLogo from '@/components/MinhMathLogo'
 
@@ -51,6 +54,16 @@ const menuItems = [
     icon: HelpCircle 
   },
   { 
+    label: 'Gom nguồn câu hỏi', 
+    href: '/admin/questions/sources', 
+    icon: FolderInput 
+  },
+  { 
+    label: 'Bài tập về nhà', 
+    href: '/admin/homework', 
+    icon: ClipboardList 
+  },
+  { 
     label: 'Lý thuyết', 
     href: '/admin/theories', 
     icon: BookOpen 
@@ -59,6 +72,11 @@ const menuItems = [
     label: 'Template LaTeX', 
     href: '/admin/latex-templates', 
     icon: FileCode 
+  },
+  { 
+    label: 'Xem kiến thức', 
+    href: '/learn', 
+    icon: Network 
   },
   { 
     label: 'Học sinh', 
@@ -74,6 +92,11 @@ const menuItems = [
     label: 'Tài khoản', 
     href: '/admin/users', 
     icon: GraduationCap 
+  },
+  { 
+    label: 'Phân quyền', 
+    href: '/admin/access', 
+    icon: ShieldCheck 
   },
   { 
     label: 'Xuất báo cáo', 

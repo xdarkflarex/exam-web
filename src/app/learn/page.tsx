@@ -14,6 +14,7 @@ import {
   FileText,
   Loader2,
   X,
+  Network,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Theory } from '@/types/theories'
@@ -254,7 +255,7 @@ export default function LearnPage() {
             </p>
           </div>
 
-          {/* Stats */}
+          {/* Stats + Graph link */}
           <div className="flex items-center gap-4 text-white/80 text-sm">
             <span className="flex items-center gap-1.5">
               <Layers className="w-4 h-4" />
@@ -264,6 +265,13 @@ export default function LearnPage() {
               <FileText className="w-4 h-4" />
               {theories.length} bài lý thuyết
             </span>
+            <Link
+              href="/learn/graph"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-medium transition-colors"
+            >
+              <Network className="w-4 h-4" />
+              Đồ thị tri thức
+            </Link>
           </div>
         </div>
       </div>

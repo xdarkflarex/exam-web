@@ -15,9 +15,16 @@ interface ClassData {
   name: string
   grade: number | null
   school: string | null
+  teacher_id: string | null
   studentCount: number
   examCount: number
   created_at: string
+}
+
+interface TeacherOption {
+  id: string
+  full_name: string | null
+  email: string | null
 }
 
 interface Student {
@@ -41,10 +48,13 @@ export default function ClassesManagementPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null)
   
+  const [teachers, setTeachers] = useState<TeacherOption[]>([])
+
   // Form states
   const [formName, setFormName] = useState('')
   const [formGrade, setFormGrade] = useState<number>(12)
   const [formSchool, setFormSchool] = useState('')
+  const [formTeacherId, setFormTeacherId] = useState('')
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -96,12 +106,21 @@ export default function ClassesManagementPage() {
         name: c.name,
         grade: c.grade,
         school: c.school,
+        teacher_id: c.teacher_id || null,
         studentCount: studentCountMap.get(c.id) || 0,
         examCount: examCountMap.get(c.id) || 0,
         created_at: c.created_at
       }))
 
       setClasses(formattedClasses)
+
+      // Fetch teachers/admins for assignment
+      const { data: teacherData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('role', ['teacher', 'admin'])
+        .order('full_name')
+      setTeachers((teacherData || []) as TeacherOption[])
 
       // Fetch all students for assignment
       const { data: allStudents } = await supabase
@@ -136,7 +155,8 @@ export default function ClassesManagementPage() {
           id: newId,
           name: formName.trim(),
           grade: formGrade,
-          school: formSchool.trim() || null
+          school: formSchool.trim() || null,
+          teacher_id: formTeacherId || null
         })
 
       if (error) {
@@ -171,6 +191,7 @@ export default function ClassesManagementPage() {
           name: formName.trim(),
           grade: formGrade,
           school: formSchool.trim() || null,
+          teacher_id: formTeacherId || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedClass.id)
@@ -249,6 +270,7 @@ export default function ClassesManagementPage() {
     setFormName(classData.name)
     setFormGrade(classData.grade || 12)
     setFormSchool(classData.school || '')
+    setFormTeacherId(classData.teacher_id || '')
     setShowEditModal(true)
   }
 
@@ -261,8 +283,15 @@ export default function ClassesManagementPage() {
     setFormName('')
     setFormGrade(12)
     setFormSchool('')
+    setFormTeacherId('')
     setFormError('')
     setSelectedClass(null)
+  }
+
+  const teacherName = (id: string | null) => {
+    if (!id) return null
+    const t = teachers.find(x => x.id === id)
+    return t?.full_name || t?.email || null
   }
 
   const filteredClasses = classes.filter(c =>
@@ -274,6 +303,10 @@ export default function ClassesManagementPage() {
   const assignedStudents = selectedClass 
     ? students.filter(s => s.class_id === selectedClass.id)
     : []
+  const otherClassStudents = selectedClass
+    ? students.filter(s => s.class_id && s.class_id !== selectedClass.id)
+    : []
+  const className = (id: string | null) => classes.find(c => c.id === id)?.name || 'Lớp khác'
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
@@ -383,6 +416,9 @@ export default function ClassesManagementPage() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       Khối {classData.grade} {classData.school && `• ${classData.school}`}
                     </p>
+                    {teacherName(classData.teacher_id) && (
+                      <p className="text-xs text-teal-600 dark:text-teal-400 mt-0.5">GV: {teacherName(classData.teacher_id)}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -471,6 +507,20 @@ export default function ClassesManagementPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Giáo viên phụ trách</label>
+                <select
+                  value={formTeacherId}
+                  onChange={(e) => setFormTeacherId(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
+                >
+                  <option value="">-- Chưa gán --</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>{t.full_name || t.email}</option>
+                  ))}
+                </select>
+              </div>
+
               {formError && (
                 <div className="flex items-center gap-2 text-red-600 text-sm">
                   <AlertCircle className="w-4 h-4" />
@@ -540,6 +590,20 @@ export default function ClassesManagementPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Giáo viên phụ trách</label>
+                <select
+                  value={formTeacherId}
+                  onChange={(e) => setFormTeacherId(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
+                >
+                  <option value="">-- Chưa gán --</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>{t.full_name || t.email}</option>
+                  ))}
+                </select>
+              </div>
+
               {formError && (
                 <div className="flex items-center gap-2 text-red-600 text-sm">
                   <AlertCircle className="w-4 h-4" />
@@ -572,7 +636,7 @@ export default function ClassesManagementPage() {
       {showAssignModal && selectedClass && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowAssignModal(false)} />
-          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col">
             <div className="p-6 border-b border-slate-200 dark:border-slate-700">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
                 Quản lý học sinh - {selectedClass.name}
@@ -580,7 +644,7 @@ export default function ClassesManagementPage() {
             </div>
             
             <div className="flex-1 overflow-auto p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Students in class */}
                 <div>
                   <h4 className="font-medium text-slate-800 dark:text-white mb-3 flex items-center gap-2">
@@ -630,6 +694,35 @@ export default function ClassesManagementPage() {
                             onClick={() => handleAssignStudent(student.id, selectedClass.id)}
                             className="p-1 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-green-600"
                             title="Thêm vào lớp"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Students in other classes - chuyển lớp */}
+                <div>
+                  <h4 className="font-medium text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-amber-600" />
+                    Lớp khác ({otherClassStudents.length})
+                  </h4>
+                  <div className="space-y-2 max-h-60 overflow-auto">
+                    {otherClassStudents.length === 0 ? (
+                      <p className="text-sm text-slate-400 py-4 text-center">Không có học sinh ở lớp khác</p>
+                    ) : (
+                      otherClassStudents.map(student => (
+                        <div key={student.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800 dark:text-white truncate">{student.full_name}</p>
+                            <p className="text-xs text-amber-600 dark:text-amber-400 truncate">{className(student.class_id)}</p>
+                          </div>
+                          <button
+                            onClick={() => handleAssignStudent(student.id, selectedClass.id)}
+                            className="p-1 hover:bg-teal-100 dark:hover:bg-teal-900/30 rounded text-teal-600 flex-shrink-0"
+                            title="Chuyển vào lớp này"
                           >
                             <Plus className="w-4 h-4" />
                           </button>

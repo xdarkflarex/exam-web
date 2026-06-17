@@ -15,37 +15,25 @@ import {
   User,
   Moon,
   Sun,
-  PenTool
+  PenTool,
+  BookOpen,
+  ClipboardList,
+  TrendingUp
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import MinhMathLogo from '@/components/MinhMathLogo'
+import { getFeatureFlags, hasFeatureAccess, FeatureFlags, FeatureKey, DEFAULT_FEATURE_FLAGS } from '@/lib/auth/access'
 
-const menuItems = [
-  { 
-    label: 'Trang chủ', 
-    href: '/student', 
-    icon: Home 
-  },
-  { 
-    label: 'Ôn tập', 
-    href: '/student/practice', 
-    icon: PenTool 
-  },
-  { 
-    label: 'Thi thử', 
-    href: '/student/exams', 
-    icon: FileText 
-  },
-  { 
-    label: 'Lịch sử', 
-    href: '/student/history', 
-    icon: BarChart3 
-  },
-  { 
-    label: 'Cài đặt', 
-    href: '/student/settings', 
-    icon: Settings 
-  },
+// feature: null => luôn hiển thị
+const menuItems: { label: string; href: string; icon: typeof Home; feature: FeatureKey | null }[] = [
+  { label: 'Trang chủ', href: '/student', icon: Home, feature: null },
+  { label: 'Ôn tập', href: '/student/practice', icon: PenTool, feature: 'practice' },
+  { label: 'Bài tập', href: '/student/homework', icon: ClipboardList, feature: 'homework' },
+  { label: 'Kiến thức', href: '/learn', icon: BookOpen, feature: 'theories' },
+  { label: 'Thi thử', href: '/student/exams', icon: FileText, feature: 'simulation' },
+  { label: 'Lịch sử', href: '/student/history', icon: BarChart3, feature: 'history' },
+  { label: 'Phân tích', href: '/student/analytics', icon: TrendingUp, feature: 'analytics' },
+  { label: 'Cài đặt', href: '/student/settings', icon: Settings, feature: null },
 ]
 
 export default function StudentSidebar() {
@@ -55,10 +43,13 @@ export default function StudentSidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [userInfo, setUserInfo] = useState<{ name: string; email: string } | null>(null)
+  const [accessTier, setAccessTier] = useState<string>('basic')
+  const [flags, setFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS)
 
   useEffect(() => {
     setMounted(true)
     fetchUserInfo()
+    getFeatureFlags().then(setFlags).catch(() => {})
   }, [])
 
   const fetchUserInfo = async () => {
@@ -66,7 +57,7 @@ export default function StudentSidebar() {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, access_tier')
         .eq('id', user.id)
         .single()
       
@@ -74,8 +65,13 @@ export default function StudentSidebar() {
         name: profile?.full_name || 'Học sinh',
         email: user.email || ''
       })
+      setAccessTier(profile?.access_tier || 'basic')
     }
   }
+
+  const visibleItems = menuItems.filter(item =>
+    item.feature === null || hasFeatureAccess(accessTier, item.feature, flags)
+  )
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -164,7 +160,7 @@ export default function StudentSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1">
-          {menuItems.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
             return (
@@ -221,7 +217,7 @@ export default function StudentSidebar() {
 
       {/* Bottom Navigation for Mobile */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 z-40 flex items-center justify-around px-2">
-        {menuItems.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
           return (

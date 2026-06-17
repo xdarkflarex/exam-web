@@ -24,6 +24,41 @@ export interface TheoryWithTaxonomy extends Theory {
   topic_name?: string
 }
 
+/** Loại khối tri thức (đồng bộ với tri-thuc.sty) */
+export type BlockType =
+  | 'dinh_nghia'
+  | 'dinh_ly'
+  | 'tinh_chat'
+  | 'he_qua'
+  | 'cong_thuc'
+  | 'phuong_phap'
+  | 'chu_y'
+  | 'vi_du'
+  | 'bai_tap'
+
+/** Khối tri thức con của một Theory */
+export interface KnowledgeBlock {
+  id: string
+  theory_id: string
+  block_type: BlockType
+  title?: string | null
+  body_md?: string | null
+  order_index: number
+  external_id?: string | null
+  cognitive_level?: 'NB' | 'TH' | 'VD' | 'VDC' | null
+  created_at: string
+  updated_at: string
+}
+
+/** Cạnh giữa các khối tri thức */
+export interface KnowledgeBlockEdge {
+  id: string
+  from_block_id: string
+  to_block_id: string
+  relation_type: EdgeRelationType
+  created_at: string
+}
+
 /** Loại quan hệ tiên quyết */
 export type EdgeRelationType = 'prerequisite' | 'related' | 'extension'
 

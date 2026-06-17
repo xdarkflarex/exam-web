@@ -10,7 +10,11 @@ import type {
   TheoryMastery,
   LatexTemplate,
   LatexTemplateFormData,
+  KnowledgeBlock,
+  KnowledgeBlockEdge,
+  BlockType,
 } from '@/types/theories'
+import { resolveCognitiveLevel, CognitiveLevel } from './cognitive'
 
 // ==============================================
 // THEORIES CRUD
@@ -176,6 +180,117 @@ export async function deleteTheoryEdge(id: string) {
     .eq('id', id)
 
   if (error) throw error
+}
+
+// ==============================================
+// KNOWLEDGE BLOCKS (Khối tri thức có kiểu)
+// ==============================================
+
+/** Lấy danh sách khối tri thức của một theory */
+export async function getKnowledgeBlocks(theoryId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('knowledge_blocks')
+    .select('*')
+    .eq('theory_id', theoryId)
+    .order('order_index', { ascending: true })
+
+  if (error) throw error
+  return data as KnowledgeBlock[]
+}
+
+/** Tạo một khối tri thức */
+export async function createKnowledgeBlock(block: {
+  theory_id: string
+  block_type: BlockType
+  title?: string | null
+  body_md?: string | null
+  order_index?: number
+  external_id?: string | null
+  cognitive_level?: CognitiveLevel | null
+}) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('knowledge_blocks')
+    .insert(block)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as KnowledgeBlock
+}
+
+/** Cập nhật khối tri thức (bao gồm cognitive_level). */
+export async function updateKnowledgeBlock(
+  id: string,
+  patch: Partial<{
+    block_type: BlockType
+    title: string | null
+    body_md: string | null
+    order_index: number
+    cognitive_level: CognitiveLevel | null
+  }>
+) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('knowledge_blocks')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as KnowledgeBlock
+}
+
+/** Tạo cạnh giữa hai khối tri thức */
+export async function createKnowledgeBlockEdge(
+  fromBlockId: string,
+  toBlockId: string,
+  relationType: EdgeRelationType
+) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('knowledge_block_edges')
+    .upsert(
+      {
+        from_block_id: fromBlockId,
+        to_block_id: toBlockId,
+        relation_type: relationType,
+      },
+      { onConflict: 'from_block_id,to_block_id,relation_type' }
+    )
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as KnowledgeBlockEdge
+}
+
+/** Lấy toàn bộ khối + cạnh của một theory (cho mindmap) */
+export async function getKnowledgeGraphForTheory(theoryId: string) {
+  const supabase = createClient()
+  const { data: blocks, error: bErr } = await supabase
+    .from('knowledge_blocks')
+    .select('*')
+    .eq('theory_id', theoryId)
+    .order('order_index', { ascending: true })
+  if (bErr) throw bErr
+
+  const blockIds = (blocks || []).map((b) => b.id)
+  let edges: KnowledgeBlockEdge[] = []
+  if (blockIds.length > 0) {
+    const { data: edgeData, error: eErr } = await supabase
+      .from('knowledge_block_edges')
+      .select('*')
+      .or(
+        `from_block_id.in.(${blockIds.join(',')}),to_block_id.in.(${blockIds.join(',')})`
+      )
+    if (eErr) throw eErr
+    edges = (edgeData || []) as KnowledgeBlockEdge[]
+  }
+
+  return { blocks: (blocks || []) as KnowledgeBlock[], edges }
 }
 
 // ==============================================
@@ -357,6 +472,128 @@ export async function updateMasteryForAttempt(attemptId: string) {
       }
     }
   }
+}
+
+// ==============================================
+// THEORY MASTERY BY COGNITIVE LEVEL (Phần 5)
+// ==============================================
+
+/** Cập nhật mastery theo mức nhận thức cho 1 (HS × theory × level). */
+export async function updateMasteryByLevelAfterAttempt(
+  studentId: string,
+  theoryId: string,
+  level: CognitiveLevel,
+  isCorrect: boolean
+) {
+  const supabase = createClient()
+
+  const { data: existing } = await supabase
+    .from('theory_mastery_by_level')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('theory_id', theoryId)
+    .eq('cognitive_level', level)
+    .maybeSingle()
+
+  if (existing) {
+    const newAttempted = existing.questions_attempted + 1
+    const newCorrect = existing.questions_correct + (isCorrect ? 1 : 0)
+    const newScore = (newCorrect / newAttempted) * 100
+    const { error } = await supabase
+      .from('theory_mastery_by_level')
+      .update({
+        questions_attempted: newAttempted,
+        questions_correct: newCorrect,
+        mastery_score: Math.round(newScore * 100) / 100,
+        last_attempt_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('theory_mastery_by_level')
+      .insert({
+        student_id: studentId,
+        theory_id: theoryId,
+        cognitive_level: level,
+        questions_attempted: 1,
+        questions_correct: isCorrect ? 1 : 0,
+        mastery_score: isCorrect ? 100 : 0,
+        last_attempt_at: new Date().toISOString(),
+      })
+    if (error) throw error
+  }
+}
+
+/**
+ * Cập nhật TOÀN BỘ mastery (tổng + theo mức) cho một attempt.
+ * Gọi sau khi nộp bài. Không throw ra ngoài để không chặn flow nộp bài.
+ */
+export async function updateAllMasteryForAttempt(attemptId: string) {
+  const supabase = createClient()
+  try {
+    const { data: attempt } = await supabase
+      .from('exam_attempts')
+      .select('student_id')
+      .eq('id', attemptId)
+      .single()
+    if (!attempt) return
+
+    const { data: answers } = await supabase
+      .from('student_answers')
+      .select('question_id, is_correct')
+      .eq('attempt_id', attemptId)
+    if (!answers || answers.length === 0) return
+
+    const questionIds = [...new Set(answers.map(a => a.question_id))]
+
+    // Lấy cognitive_level + difficulty của các câu hỏi
+    const { data: questions } = await supabase
+      .from('questions')
+      .select('id, cognitive_level, difficulty')
+      .in('id', questionIds)
+    const qMap = new Map((questions || []).map(q => [q.id, q]))
+
+    // Lấy liên kết câu hỏi ↔ theory
+    const { data: qThList } = await supabase
+      .from('question_theories')
+      .select('question_id, theory_id')
+      .in('question_id', questionIds)
+
+    const theoriesByQuestion = new Map<string, string[]>()
+    for (const qt of qThList || []) {
+      const arr = theoriesByQuestion.get(qt.question_id) || []
+      arr.push(qt.theory_id)
+      theoriesByQuestion.set(qt.question_id, arr)
+    }
+
+    for (const answer of answers) {
+      const theoryIds = theoriesByQuestion.get(answer.question_id) || []
+      if (theoryIds.length === 0) continue
+      const q = qMap.get(answer.question_id)
+      const level = resolveCognitiveLevel(q?.cognitive_level, q?.difficulty)
+      for (const theoryId of theoryIds) {
+        await updateMasteryAfterAttempt(attempt.student_id, theoryId, answer.is_correct)
+        await updateMasteryByLevelAfterAttempt(attempt.student_id, theoryId, level, answer.is_correct)
+      }
+    }
+  } catch (err) {
+    // Lỗi mastery không được chặn việc nộp bài
+    console.error('updateAllMasteryForAttempt error:', err)
+  }
+}
+
+/** Lấy mastery theo mức của 1 HS (toàn bộ hoặc theo theory). */
+export async function getMasteryByLevel(studentId: string, theoryId?: string) {
+  const supabase = createClient()
+  let query = supabase
+    .from('theory_mastery_by_level')
+    .select('*')
+    .eq('student_id', studentId)
+  if (theoryId) query = query.eq('theory_id', theoryId)
+  const { data, error } = await query
+  if (error) throw error
+  return data
 }
 
 // ==============================================

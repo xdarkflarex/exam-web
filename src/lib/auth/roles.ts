@@ -22,6 +22,14 @@ export const isStudent = (role: UserRole | null | undefined): boolean => {
 }
 
 /**
+ * Check if user is a "pure" teacher (giáo viên, not the system admin).
+ * Used to scope "học sinh của tôi đang dạy" to the teacher's own classes.
+ */
+export const isPureTeacher = (role: UserRole | null | undefined): boolean => {
+  return role === 'teacher'
+}
+
+/**
  * Get the appropriate redirect path based on user role
  */
 export const getDefaultRedirectPath = (role: UserRole | null | undefined): string => {

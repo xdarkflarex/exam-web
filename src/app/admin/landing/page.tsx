@@ -183,7 +183,7 @@ export default function LandingCMSPage() {
       ].map(u => ({ ...u, updated_at: new Date().toISOString() }))
 
       for (const update of updates) {
-        const { error } = await supabase.from('site_settings').upsert(update, { onConflict: 'key' })
+        const { error } = await supabase.from('site_settings').upsert(update as Record<string, unknown>, { onConflict: 'key' })
         if (error) throw error
       }
       setMessage({ type: 'success', text: 'Đã lưu thành công!' })

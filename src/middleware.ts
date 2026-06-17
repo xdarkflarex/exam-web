@@ -240,17 +240,37 @@ export async function middleware(request: NextRequest) {
   // Get user profile and role
   let userRole = null
   let hasProfile = false
+  let mustChangePassword = false
+
+  // Fetch role separately so missing columns don't break profile detection
   try {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    
-    userRole = profile?.role
-    hasProfile = !!profile
+
+    if (!error) {
+      userRole = profile?.role
+      hasProfile = !!profile
+    }
   } catch (error) {
     console.error('Profile fetch error in middleware:', error)
+  }
+
+  // Fetch must_change_password separately so unapplied migrations don't cause redirect loops
+  try {
+    const { data: pwdProfile, error } = await supabase
+      .from('profiles')
+      .select('must_change_password')
+      .eq('id', user.id)
+      .single()
+
+    if (!error) {
+      mustChangePassword = !!pwdProfile?.must_change_password
+    }
+  } catch (error) {
+    console.error('must_change_password fetch error in middleware:', error)
   }
 
   // ============================================
@@ -261,9 +281,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/complete-profile', request.url))
   }
 
+  // ============================================
+  // FORCE CHANGE PASSWORD - HS được tạo từ đơn đăng ký
+  // ============================================
+  if (mustChangePassword && pathname !== '/change-password') {
+    return NextResponse.redirect(new URL('/change-password', request.url))
+  }
+  // Nếu đã đổi xong mà cố vào trang change-password thì cho về dashboard
+  if (!mustChangePassword && pathname === '/change-password') {
+    return NextResponse.redirect(new URL(getDefaultRedirectPath(userRole), request.url))
+  }
+
   // Route protection logic
   const isAdminRoute = pathname.startsWith('/admin')
   const isStudentRoute = pathname.startsWith('/student') || pathname.startsWith('/result') || pathname.startsWith('/learn')
+  // /learn (kiến thức) dùng chung cho cả admin lẫn student
+  const isLearnRoute = pathname.startsWith('/learn')
   const isExamInProgress = isExamRoute(pathname)
 
   // ============================================
@@ -361,8 +394,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (isStudentRoute && !isStudent(userRole)) {
-    // Non-student trying to access student routes
+  if (isStudentRoute && !isStudent(userRole) && !(isLearnRoute && isAdmin(userRole))) {
+    // Non-student trying to access student routes (admin được phép xem /learn)
     return NextResponse.redirect(new URL('/admin', request.url))
   }
 
