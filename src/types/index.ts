@@ -6,6 +6,7 @@ export interface HistoryEntry {
 }
 
 export type ExamMode = 'practice' | 'simulation';
+export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay';
 
 export interface Exam {
   id: string;
@@ -30,7 +31,7 @@ export interface Answer {
 export interface Question {
   id: string;
   content: string;
-  question_type: 'multiple_choice' | 'true_false' | 'short_answer';
+  question_type: QuestionType;
   explanation?: string;
   answers?: Answer[];
   part_number: number;

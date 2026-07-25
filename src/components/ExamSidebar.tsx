@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Clock, Send, ChevronUp, ChevronDown, X, Menu } from 'lucide-react'
+import { Clock, Send, X, Menu } from 'lucide-react'
 import { Question } from '@/types'
 
 interface ExamSidebarProps {
@@ -18,7 +18,6 @@ interface ExamSidebarProps {
 }
 
 export default function ExamSidebar({
-  examTitle,
   duration,
   questions,
   answeredQuestions,
@@ -182,7 +181,7 @@ export default function ExamSidebar({
 
               {renderQuestionGrid(part1Questions, 'Phần 1 - Trắc nghiệm', 0, true)}
               {renderQuestionGrid(part2Questions, 'Phần 2 - Đúng/Sai', part1Questions.length, true)}
-              {renderQuestionGrid(part3Questions, 'Phần 3 - Trả lời ngắn', part1Questions.length + part2Questions.length, true)}
+              {renderQuestionGrid(part3Questions, 'Phần 3 - Trả lời ngắn & Tự luận', part1Questions.length + part2Questions.length, true)}
 
               {/* Legend */}
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
@@ -254,7 +253,7 @@ export default function ExamSidebar({
             
             {renderQuestionGrid(part1Questions, 'Phần 1 - Trắc nghiệm', 0)}
             {renderQuestionGrid(part2Questions, 'Phần 2 - Đúng/Sai', part1Questions.length)}
-            {renderQuestionGrid(part3Questions, 'Phần 3 - Trả lời ngắn', part1Questions.length + part2Questions.length)}
+            {renderQuestionGrid(part3Questions, 'Phần 3 - Trả lời ngắn & Tự luận', part1Questions.length + part2Questions.length)}
 
             {/* Legend */}
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">

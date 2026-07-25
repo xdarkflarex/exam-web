@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { 
-  User, Clock, CheckCircle, XCircle, Eye, Calendar, 
+  User, Clock, CheckCircle, XCircle, Eye,
   ArrowLeft, Users, FileText, Award
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
@@ -16,6 +16,8 @@ interface ExamAttempt {
   score: number | null
   total_questions: number | null
   correct_answers: number | null
+  grading_status: string
+  pending_grading_count: number
   start_time: string
   submit_time: string | null
   student_name: string
@@ -28,24 +30,23 @@ interface ExamInfo {
   subject: string
 }
 
+interface ProfileRelation {
+  full_name: string | null
+  email: string | null
+}
+
 export default function ExamResultsPage() {
   const router = useRouter()
   const params = useParams()
   const examId = params.examId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [examInfo, setExamInfo] = useState<ExamInfo | null>(null)
   const [attempts, setAttempts] = useState<ExamAttempt[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (examId) {
-      fetchData()
-    }
-  }, [examId])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Fetch exam info
       const { data: examData, error: examError } = await supabase
@@ -72,6 +73,8 @@ export default function ExamResultsPage() {
           score,
           total_questions,
           correct_answers,
+          grading_status,
+          pending_grading_count,
           start_time,
           submit_time,
           profiles!student_id (
@@ -86,18 +89,23 @@ export default function ExamResultsPage() {
         console.error('Fetch attempts error:', attemptsError)
       }
 
-      const formattedAttempts: ExamAttempt[] = (attemptsData || []).map((attempt: any) => ({
-        id: attempt.id,
-        student_id: attempt.student_id,
-        status: attempt.status,
-        score: attempt.score,
-        total_questions: attempt.total_questions,
-        correct_answers: attempt.correct_answers,
-        start_time: attempt.start_time,
-        submit_time: attempt.submit_time,
-        student_name: attempt.profiles?.full_name || 'Không rõ',
-        student_email: attempt.profiles?.email || ''
-      }))
+      const formattedAttempts: ExamAttempt[] = (attemptsData || []).map((attempt) => {
+        const profile = attempt.profiles as unknown as ProfileRelation | null
+        return {
+          id: attempt.id,
+          student_id: attempt.student_id,
+          status: attempt.status,
+          score: attempt.score,
+          total_questions: attempt.total_questions,
+          correct_answers: attempt.correct_answers,
+          grading_status: attempt.grading_status || 'not_required',
+          pending_grading_count: attempt.pending_grading_count || 0,
+          start_time: attempt.start_time,
+          submit_time: attempt.submit_time,
+          student_name: profile?.full_name || 'Không rõ',
+          student_email: profile?.email || ''
+        }
+      })
 
       setAttempts(formattedAttempts)
       setLoading(false)
@@ -106,7 +114,17 @@ export default function ExamResultsPage() {
       setError('Lỗi kết nối')
       setLoading(false)
     }
-  }
+  }, [examId, supabase])
+
+  useEffect(() => {
+    if (!examId) return
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchData()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [examId, fetchData])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -126,12 +144,19 @@ export default function ExamResultsPage() {
     return 'text-red-600'
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, gradingStatus: string) => {
+    if (status === 'submitted' && gradingStatus === 'pending_review') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
+          <Clock className="h-3 w-3" /> Chờ duyệt tự luận
+        </span>
+      )
+    }
     if (status === 'submitted') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
           <CheckCircle className="w-3 h-3" />
-          Đã nộp
+          Đã chấm
         </span>
       )
     }
@@ -145,10 +170,12 @@ export default function ExamResultsPage() {
 
   // Calculate stats
   const submittedAttempts = attempts.filter(a => a.status === 'submitted')
-  const avgScore = submittedAttempts.length > 0
-    ? submittedAttempts.reduce((sum, a) => sum + (a.score || 0), 0) / submittedAttempts.length
+  const gradedAttempts = submittedAttempts.filter(a => a.grading_status === 'completed' && a.score !== null)
+  const pendingReviewCount = submittedAttempts.filter(a => a.grading_status === 'pending_review').length
+  const avgScore = gradedAttempts.length > 0
+    ? gradedAttempts.reduce((sum, a) => sum + (a.score || 0), 0) / gradedAttempts.length
     : 0
-  const passCount = submittedAttempts.filter(a => (a.score || 0) >= 5).length
+  const passCount = gradedAttempts.filter(a => (a.score || 0) >= 5).length
 
   if (loading) {
     return (
@@ -217,8 +244,8 @@ export default function ExamResultsPage() {
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-800">{submittedAttempts.length}</p>
-                <p className="text-xs text-slate-500">Đã nộp</p>
+                <p className="text-2xl font-bold text-slate-800">{pendingReviewCount}</p>
+                <p className="text-xs text-slate-500">Chờ duyệt tự luận</p>
               </div>
             </div>
           </div>
@@ -240,7 +267,7 @@ export default function ExamResultsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-800">
-                  {submittedAttempts.length > 0 ? Math.round(passCount / submittedAttempts.length * 100) : 0}%
+                  {gradedAttempts.length > 0 ? Math.round(passCount / gradedAttempts.length * 100) : 0}%
                 </p>
                 <p className="text-xs text-slate-500">Tỷ lệ đạt</p>
               </div>
@@ -294,10 +321,12 @@ export default function ExamResultsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {getStatusBadge(attempt.status)}
+                        {getStatusBadge(attempt.status, attempt.grading_status)}
                       </td>
                       <td className="px-6 py-4">
-                        {attempt.score !== null ? (
+                        {attempt.grading_status === 'pending_review' ? (
+                          <span className="text-sm font-medium text-amber-600">Chờ chấm</span>
+                        ) : attempt.score !== null ? (
                           <span className={`text-lg font-semibold ${getScoreColor(attempt.score)}`}>
                             {attempt.score.toFixed(1)}
                           </span>
@@ -328,7 +357,7 @@ export default function ExamResultsPage() {
                             className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-sm font-medium hover:bg-teal-100 transition-colors"
                           >
                             <Eye className="w-4 h-4" />
-                            Chi tiết
+                            {attempt.grading_status === 'pending_review' ? 'Duyệt chấm' : 'Chi tiết'}
                           </button>
                         )}
                       </td>

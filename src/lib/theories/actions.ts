@@ -13,6 +13,11 @@ import type {
   KnowledgeBlock,
   KnowledgeBlockEdge,
   BlockType,
+  QuestionKnowledgeLink,
+  KnowledgeLinkType,
+  KnowledgeLinkSource,
+  TheoryQuestionCoverage,
+  BlockQuestionCoverage,
 } from '@/types/theories'
 import { resolveCognitiveLevel, CognitiveLevel } from './cognitive'
 
@@ -346,6 +351,184 @@ export async function unmapQuestionFromTheory(questionId: string, theoryId: stri
 }
 
 // ==============================================
+// QUESTION_KNOWLEDGE_LINKS (Phase 1 - cầu nối chi tiết)
+// ==============================================
+
+/** Lấy các liên kết tri thức của một câu hỏi */
+export async function getQuestionKnowledgeLinks(questionId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('question_knowledge_links')
+    .select(`
+      *,
+      theory:theories(id, title, section_id),
+      knowledge_block:knowledge_blocks(id, title, block_type)
+    `)
+    .eq('question_id', questionId)
+
+  if (error) throw error
+  return data
+}
+
+/** Lấy các câu hỏi đã map cho một theory (kèm option lọc theo block) */
+export async function getKnowledgeLinksForTheory(
+  theoryId: string,
+  knowledgeBlockId?: string | null
+) {
+  const supabase = createClient()
+  let query = supabase
+    .from('question_knowledge_links')
+    .select('*')
+    .eq('theory_id', theoryId)
+
+  if (knowledgeBlockId === null) {
+    query = query.is('knowledge_block_id', null)
+  } else if (knowledgeBlockId) {
+    query = query.eq('knowledge_block_id', knowledgeBlockId)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data || []) as QuestionKnowledgeLink[]
+}
+
+/**
+ * Tạo/cập nhật liên kết câu hỏi ↔ tri thức.
+ * Idempotent theo (question_id, knowledge_block_id|theory_id, link_type).
+ * Nếu link_type = 'primary' thì xóa primary cũ của câu hỏi trước (chỉ 1 primary/câu).
+ */
+export async function mapQuestionToKnowledge(params: {
+  questionId: string
+  theoryId: string
+  knowledgeBlockId?: string | null
+  linkType?: KnowledgeLinkType
+  weight?: number
+  source?: KnowledgeLinkSource
+  confidence?: number | null
+  createdBy?: string | null
+}) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('map_question_knowledge_link', {
+    p_question_id: params.questionId,
+    p_theory_id: params.theoryId,
+    p_knowledge_block_id: params.knowledgeBlockId ?? null,
+    p_link_type: params.linkType ?? 'primary',
+    p_weight: params.weight ?? 1.0,
+    p_source: params.source ?? 'manual',
+    p_confidence: params.confidence ?? null,
+    p_created_by: params.createdBy ?? null,
+  })
+
+  if (error) throw error
+  return data as QuestionKnowledgeLink
+}
+
+/** Bỏ một liên kết theo id */
+export async function unmapKnowledgeLink(linkId: string) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('question_knowledge_links')
+    .delete()
+    .eq('id', linkId)
+  if (error) throw error
+}
+
+/** Map hàng loạt câu hỏi vào một block/theory (bulk). Trả về số link đã tạo. */
+export async function bulkMapQuestionsToKnowledge(params: {
+  questionIds: string[]
+  theoryId: string
+  knowledgeBlockId?: string | null
+  linkType?: KnowledgeLinkType
+  weight?: number
+  createdBy?: string | null
+}) {
+  if (params.questionIds.length === 0) return 0
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('bulk_map_questions_to_knowledge', {
+    p_question_ids: params.questionIds,
+    p_theory_id: params.theoryId,
+    p_knowledge_block_id: params.knowledgeBlockId ?? null,
+    // Bulk mặc định supporting để không ghi đè primary có chủ đích.
+    p_link_type: params.linkType ?? 'supporting',
+    p_weight: params.weight ?? 1.0,
+    p_created_by: params.createdBy ?? null,
+  })
+  if (error) throw error
+  return Number(data || 0)
+}
+
+/** Báo cáo coverage toàn bộ theory (số câu đã map) */
+export async function getTheoryCoverage() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('v_theory_question_coverage')
+    .select('*')
+  if (error) throw error
+  return (data || []) as TheoryQuestionCoverage[]
+}
+
+/** Báo cáo coverage theo block cho một theory */
+export async function getBlockCoverage(theoryId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('v_block_question_coverage')
+    .select('*')
+    .eq('theory_id', theoryId)
+  if (error) throw error
+  return (data || []) as BlockQuestionCoverage[]
+}
+
+/** Xử lý mastery idempotent cho một student answer. */
+export async function processMasteryForAnswer(studentAnswerId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('process_mastery_for_answer', {
+    p_student_answer_id: studentAnswerId,
+  })
+  if (error) throw error
+  return Number(data || 0)
+}
+
+/** Xử lý mastery idempotent cho toàn bộ attempt. */
+export async function processMasteryForAttempt(attemptId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('process_mastery_for_attempt', {
+    p_attempt_id: attemptId,
+  })
+  if (error) throw error
+  return Number(data || 0)
+}
+
+/** Lấy mastery cấp block của một học sinh, có thể giới hạn theo theory. */
+export async function getKnowledgeBlockMastery(studentId: string, theoryId?: string) {
+  const supabase = createClient()
+  if (!theoryId) {
+    const { data, error } = await supabase
+      .from('knowledge_block_mastery')
+      .select('*')
+      .eq('student_id', studentId)
+    if (error) throw error
+    return data || []
+  }
+
+  const { data: blocks, error: blockError } = await supabase
+    .from('knowledge_blocks')
+    .select('id')
+    .eq('theory_id', theoryId)
+  if (blockError) throw blockError
+
+  const blockIds = (blocks || []).map((block) => block.id)
+  if (blockIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('knowledge_block_mastery')
+    .select('*')
+    .eq('student_id', studentId)
+    .in('knowledge_block_id', blockIds)
+  if (error) throw error
+  return data || []
+}
+
+// ==============================================
 // THEORY MASTERY (Thành thạo)
 // ==============================================
 
@@ -548,11 +731,15 @@ export async function updateAllMasteryForAttempt(attemptId: string) {
     const questionIds = [...new Set(answers.map(a => a.question_id))]
 
     // Lấy cognitive_level + difficulty của các câu hỏi
-    const { data: questions } = await supabase
-      .from('questions')
-      .select('id, cognitive_level, difficulty')
-      .in('id', questionIds)
-    const qMap = new Map((questions || []).map(q => [q.id, q]))
+    const { data: questions } = await supabase.rpc('get_my_exam_answer_metadata', {
+      p_attempt_id: attemptId,
+    })
+    const questionMetadata = (questions || []) as Array<{
+      question_id: string
+      cognitive_level: string | null
+      difficulty: number | null
+    }>
+    const qMap = new Map(questionMetadata.map(q => [q.question_id, q]))
 
     // Lấy liên kết câu hỏi ↔ theory
     const { data: qThList } = await supabase

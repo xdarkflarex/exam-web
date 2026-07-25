@@ -69,48 +69,15 @@ export default function BookmarksPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error } = await supabase
-        .from('question_bookmarks')
-        .select(`
-          id,
-          question_id,
-          note,
-          created_at,
-          question:questions(
-            id,
-            content,
-            explanation,
-            answers(id, content, is_correct, order_index),
-            taxonomy:question_taxonomy(
-              topic:topics(name),
-              category:categories(name)
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      const { data, error } = await supabase.rpc('get_my_safe_bookmarks')
 
       if (error) {
         logger.supabaseError('fetch bookmarks', error)
         return
       }
 
-      // Transform data
-      const transformed: BookmarkedQuestion[] = (data || []).map((b: any) => ({
-        id: b.id,
-        question_id: b.question_id,
-        note: b.note,
-        created_at: b.created_at,
-        question: {
-          id: b.question?.id || '',
-          content: b.question?.content || '',
-          explanation: b.question?.explanation || null,
-          answers: (b.question?.answers || []).sort((a: Answer, b: Answer) => a.order_index - b.order_index),
-          taxonomy: b.question?.taxonomy || []
-        }
-      }))
-
-      setBookmarks(transformed)
+      const rows = Array.isArray(data) ? data : []
+      setBookmarks(rows as unknown as BookmarkedQuestion[])
     } catch (err) {
       logger.error('Fetch bookmarks error', err)
     } finally {

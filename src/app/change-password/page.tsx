@@ -2,12 +2,15 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { getDefaultRedirectPath } from '@/lib/auth/roles'
 import { KeyRound, Eye, EyeOff, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
+type ChangePasswordResponse = {
+  success?: boolean
+  error?: string
+  redirectTo?: string
+}
+
 export default function ChangePasswordPage() {
-  const supabase = createClient()
   const router = useRouter()
 
   const [newPassword, setNewPassword] = useState('')
@@ -32,27 +35,33 @@ export default function ChangePasswordPage() {
     setSubmitting(true)
     setError(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword, confirmPassword }),
+      })
 
-      const { error: pwdErr } = await supabase.auth.updateUser({ password: newPassword })
-      if (pwdErr) {
-        setError(pwdErr.message || 'Không thể đổi mật khẩu.')
+      let payload: ChangePasswordResponse = {}
+      try {
+        payload = await response.json() as ChangePasswordResponse
+      } catch {
+        // The status code remains authoritative if an upstream failure returns no JSON.
+      }
+
+      if (response.status === 401) {
+        router.replace('/login')
+        router.refresh()
         return
       }
 
-      const { error: profErr } = await supabase
-        .from('profiles')
-        .update({ must_change_password: false, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
-      if (profErr) {
-        setError('Đã đổi mật khẩu nhưng không cập nhật được hồ sơ. Vui lòng tải lại.')
+      if (!response.ok || payload.success !== true || typeof payload.redirectTo !== 'string') {
+        setError(payload.error || 'Không thể đổi mật khẩu. Vui lòng thử lại.')
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles').select('role').eq('id', user.id).single()
-      router.push(getDefaultRedirectPath(profile?.role))
+      setNewPassword('')
+      setConfirmPassword('')
+      router.replace(payload.redirectTo)
       router.refresh()
     } catch {
       setError('Lỗi kết nối. Vui lòng thử lại.')
@@ -89,10 +98,19 @@ export default function ChangePasswordPage() {
                 type={showPwd ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                minLength={8}
+                maxLength={128}
+                required
                 className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
                 placeholder="Ít nhất 8 ký tự"
               />
-              <button type="button" onClick={() => setShowPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <button
+                type="button"
+                onClick={() => setShowPwd(v => !v)}
+                aria-label={showPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              >
                 {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
@@ -104,6 +122,10 @@ export default function ChangePasswordPage() {
               type={showPwd ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={128}
+              required
               className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
               placeholder="Nhập lại mật khẩu mới"
             />

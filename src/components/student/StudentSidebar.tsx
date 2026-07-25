@@ -29,7 +29,7 @@ const menuItems: { label: string; href: string; icon: typeof Home; feature: Feat
   { label: 'Trang chủ', href: '/student', icon: Home, feature: null },
   { label: 'Ôn tập', href: '/student/practice', icon: PenTool, feature: 'practice' },
   { label: 'Bài tập', href: '/student/homework', icon: ClipboardList, feature: 'homework' },
-  { label: 'Kiến thức', href: '/learn', icon: BookOpen, feature: 'theories' },
+  { label: 'Cây kỹ năng', href: '/learn/map', icon: BookOpen, feature: 'theories' },
   { label: 'Thi thử', href: '/student/exams', icon: FileText, feature: 'simulation' },
   { label: 'Lịch sử', href: '/student/history', icon: BarChart3, feature: 'history' },
   { label: 'Phân tích', href: '/student/analytics', icon: TrendingUp, feature: 'analytics' },
@@ -46,13 +46,7 @@ export default function StudentSidebar() {
   const [accessTier, setAccessTier] = useState<string>('basic')
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS)
 
-  useEffect(() => {
-    setMounted(true)
-    fetchUserInfo()
-    getFeatureFlags().then(setFlags).catch(() => {})
-  }, [])
-
-  const fetchUserInfo = async () => {
+  async function fetchUserInfo() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
@@ -68,6 +62,16 @@ export default function StudentSidebar() {
       setAccessTier(profile?.access_tier || 'basic')
     }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setMounted(true)
+      void fetchUserInfo()
+      getFeatureFlags().then(setFlags).catch(() => {})
+    }, 0)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const visibleItems = menuItems.filter(item =>
     item.feature === null || hasFeatureAccess(accessTier, item.feature, flags)

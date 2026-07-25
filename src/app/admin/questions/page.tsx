@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { 
-  HelpCircle, Search, FileText, CheckCircle, XCircle, Eye, X, 
-  Filter, ChevronDown, Tag, BookOpen, Layers, MessageSquare,
-  BarChart3, Clock, Brain, Hash, AlertCircle, ChevronRight,
-  Download, CheckSquare, Square
+  HelpCircle, Search, FileText, CheckCircle, Eye, X,
+  Filter, Tag, BookOpen, Layers, MessageSquare,
+  BarChart3, Brain, AlertCircle, ChevronRight,
+  Download, CheckSquare, Square, PenLine
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
 import MathContent from '@/components/MathContent'
@@ -91,7 +92,7 @@ interface QuestionFull {
 
 // ==================== COMPONENT ====================
 export default function AdminQuestionsPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   
   // State
   const [questions, setQuestions] = useState<QuestionFull[]>([])
@@ -116,37 +117,7 @@ export default function AdminQuestionsPage() {
   const [selectedTagId, setSelectedTagId] = useState<string>('')
 
   // ==================== FETCH DATA ====================
-  useEffect(() => {
-    fetchAllData()
-  }, [])
-
-  const fetchAllData = async () => {
-    setLoading(true)
-    try {
-      // Fetch taxonomy data in parallel
-      const [topicsRes, categoriesRes, sectionsRes, subsectionsRes, tagsRes] = await Promise.all([
-        supabase.from('topics').select('id, name').order('order_index'),
-        supabase.from('categories').select('id, name, topic_id').order('order_index'),
-        supabase.from('sections').select('id, name, category_id, topic_id').order('order_index'),
-        supabase.from('subsections').select('id, name, section_id').order('order_index'),
-        supabase.from('tags').select('id, name').order('name')
-      ])
-
-      setTopics(topicsRes.data || [])
-      setCategories(categoriesRes.data || [])
-      setSections(sectionsRes.data || [])
-      setSubsections(subsectionsRes.data || [])
-      setAllTags(tagsRes.data || [])
-
-      // Fetch questions with all related data
-      await fetchQuestions()
-    } catch (err) {
-      console.error('Error fetching data:', err)
-    }
-    setLoading(false)
-  }
-
-  const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
     try {
       // Step 1: Fetch questions
       const { data: questionsData, error: qError } = await supabase
@@ -258,7 +229,9 @@ export default function AdminQuestionsPage() {
           message: f.message,
           status: f.status,
           created_at: f.created_at,
-          student_name: (f.profiles as any)?.full_name
+          student_name: Array.isArray(f.profiles)
+            ? f.profiles[0]?.full_name
+            : (f.profiles as { full_name?: string } | null)?.full_name
         })
       }
 
@@ -282,7 +255,37 @@ export default function AdminQuestionsPage() {
     } catch (err) {
       console.error('Unexpected error:', err)
     }
-  }
+  }, [supabase])
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [topicsRes, categoriesRes, sectionsRes, subsectionsRes, tagsRes] = await Promise.all([
+        supabase.from('topics').select('id, name').order('order_index'),
+        supabase.from('categories').select('id, name, topic_id').order('order_index'),
+        supabase.from('sections').select('id, name, category_id, topic_id').order('order_index'),
+        supabase.from('subsections').select('id, name, section_id').order('order_index'),
+        supabase.from('tags').select('id, name').order('name')
+      ])
+
+      setTopics(topicsRes.data || [])
+      setCategories(categoriesRes.data || [])
+      setSections(sectionsRes.data || [])
+      setSubsections(subsectionsRes.data || [])
+      setAllTags(tagsRes.data || [])
+      await fetchQuestions()
+    } catch (err) {
+      console.error('Error fetching data:', err)
+    }
+    setLoading(false)
+  }, [fetchQuestions, supabase])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchAllData()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [fetchAllData])
 
   // ==================== FILTERED DATA ====================
   const filteredCategories = useMemo(() => {
@@ -443,6 +446,15 @@ export default function AdminQuestionsPage() {
       />
       
       <div className="p-6">
+        <div className="mb-5 flex justify-end">
+          <Link
+            href="/admin/questions/essay/new"
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+          >
+            <PenLine className="h-4 w-4" />
+            Tạo câu tự luận thử
+          </Link>
+        </div>
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
@@ -657,7 +669,6 @@ export default function AdminQuestionsPage() {
                 question={question}
                 onViewDetail={() => handleViewDetail(question)}
                 getDifficultyLabel={getDifficultyLabel}
-                formatDate={formatDate}
                 selected={selectedIds.has(question.id)}
                 onToggleSelect={() => toggleSelect(question.id)}
               />
@@ -685,14 +696,12 @@ function QuestionCard({
   question,
   onViewDetail,
   getDifficultyLabel,
-  formatDate,
   selected,
   onToggleSelect
 }: {
   question: QuestionFull
   onViewDetail: () => void
   getDifficultyLabel: (level: number) => { text: string; color: string }
-  formatDate: (date: string) => string
   selected: boolean
   onToggleSelect: () => void
 }) {

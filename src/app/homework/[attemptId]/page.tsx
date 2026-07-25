@@ -7,7 +7,42 @@ import { Loader2 } from 'lucide-react'
 import HomeworkRunner, {
   HomeworkQuestion, SavedHomeworkAnswer
 } from '@/components/HomeworkRunner'
-import { fetchAllAnswers, groupAnswersByQuestion } from '@/lib/answers/fetchAnswers'
+
+interface HomeworkQuestionRpcRow {
+  id: string
+  content: string
+  question_type: HomeworkQuestion['question_type']
+  order_index: number
+  tikz_image_url: string | null
+  explanation: string | null
+  solution: string | null
+  answers: Array<{
+    id: string
+    content: string
+    is_correct: boolean
+    order_index: number
+  }>
+  saved_answer: {
+    selected_answer: string | null
+    selected_answers: Record<string, boolean> | null
+    text_answer: string | null
+    is_correct: boolean | null
+    shown_feedback: boolean
+  } | null
+}
+
+interface HomeworkAttemptRpcPayload {
+  attempt: {
+    id: string
+    status: string
+    current_session_index: number | null
+  }
+  homework: {
+    title: string | null
+    session_size: number | null
+  }
+  questions: HomeworkQuestionRpcRow[]
+}
 
 export default function HomeworkAttemptPage() {
   const params = useParams()
@@ -17,7 +52,6 @@ export default function HomeworkAttemptPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<{
-    studentId: string
     examTitle: string
     sessionSize: number
     sessionIndex: number
@@ -25,95 +59,63 @@ export default function HomeworkAttemptPage() {
     initialAnswers: Record<string, SavedHomeworkAnswer>
   } | null>(null)
 
-  useEffect(() => {
-    if (attemptId) load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attemptId])
-
-  const load = async () => {
+  async function load() {
     try {
-      // 1. Attempt
-      const { data: attempt, error: aErr } = await supabase
-        .from('exam_attempts')
-        .select('id, exam_id, student_id, current_session_index')
-        .eq('id', attemptId)
-        .single()
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_homework_attempt_questions',
+        { p_attempt_id: attemptId }
+      )
 
-      if (aErr || !attempt) {
-        setError('Không tìm thấy bài làm')
+      if (rpcError || !rpcData) {
+        setError(rpcError?.code === '42501'
+          ? 'Bạn không có quyền mở bài làm này'
+          : 'Không tìm thấy bài làm')
         setLoading(false)
         return
       }
 
-      // 2. Exam info
-      const { data: exam } = await supabase
-        .from('exams')
-        .select('title, session_size')
-        .eq('id', attempt.exam_id)
-        .single()
-
-      // 3. Exam questions (ordered)
-      const { data: examQuestions, error: eqErr } = await supabase
-        .from('exam_questions')
-        .select(`
-          part_number, order_in_part, question_id,
-          questions ( id, content, question_type, explanation, solution, tikz_image_url )
-        `)
-        .eq('exam_id', attempt.exam_id)
-        .order('part_number', { ascending: true })
-        .order('order_in_part', { ascending: true })
-
-      if (eqErr || !examQuestions || examQuestions.length === 0) {
+      const payload = rpcData as unknown as HomeworkAttemptRpcPayload
+      if (!payload.attempt || payload.attempt.id !== attemptId || !payload.homework || !Array.isArray(payload.questions)) {
+        setError('Dữ liệu bài tập không hợp lệ')
+        setLoading(false)
+        return
+      }
+      if (payload.questions.length === 0) {
         setError('Bài tập chưa có câu hỏi')
         setLoading(false)
         return
       }
 
-      const questionIds = examQuestions.map((eq: any) => eq.question_id).filter(Boolean)
-
-      // 4. Answers (for all question types, includes is_correct)
-      const allAnswers = await fetchAllAnswers(supabase, questionIds)
-      const answersByQ = groupAnswersByQuestion(allAnswers)
-
-      const questions: HomeworkQuestion[] = []
-      for (const eq of examQuestions as any[]) {
-        const q = eq.questions
-        if (!q) continue
-        questions.push({
-          id: q.id,
-          content: q.content,
-          question_type: q.question_type,
-          explanation: q.explanation,
-          solution: q.solution,
-          tikz_image_url: q.tikz_image_url,
-          answers: (answersByQ[q.id] || []).map(a => ({
-            id: a.id, content: a.content, is_correct: a.is_correct, order_index: a.order_index
-          }))
-        })
-      }
-
-      // 5. Saved student answers (resume)
-      const { data: saved } = await supabase
-        .from('student_answers')
-        .select('question_id, selected_answer, selected_answers, text_answer, is_correct, shown_feedback')
-        .eq('attempt_id', attemptId)
+      const questions: HomeworkQuestion[] = payload.questions
+        .map((question) => ({
+          id: question.id,
+          content: question.content,
+          question_type: question.question_type,
+          order_index: question.order_index,
+          explanation: question.explanation,
+          solution: question.solution,
+          tikz_image_url: question.tikz_image_url,
+          answers: Array.isArray(question.answers) ? question.answers : []
+        }))
+        .sort((left, right) => left.order_index - right.order_index)
 
       const initialAnswers: Record<string, SavedHomeworkAnswer> = {}
-      for (const sa of saved || []) {
-        initialAnswers[sa.question_id] = {
-          selectedAnswer: sa.selected_answer,
-          selectedAnswers: sa.selected_answers as Record<string, boolean> | null,
-          textAnswer: sa.text_answer,
-          isCorrect: sa.is_correct,
-          shownFeedback: !!sa.shown_feedback
+      for (const question of payload.questions) {
+        const savedAnswer = question.saved_answer
+        if (!savedAnswer) continue
+        initialAnswers[question.id] = {
+          selectedAnswer: savedAnswer.selected_answer,
+          selectedAnswers: savedAnswer.selected_answers,
+          textAnswer: savedAnswer.text_answer,
+          isCorrect: savedAnswer.is_correct,
+          shownFeedback: savedAnswer.shown_feedback
         }
       }
 
       setData({
-        studentId: attempt.student_id,
-        examTitle: exam?.title || 'Bài tập về nhà',
-        sessionSize: exam?.session_size || 10,
-        sessionIndex: attempt.current_session_index || 0,
+        examTitle: payload.homework.title || 'Bài tập về nhà',
+        sessionSize: payload.homework.session_size || 10,
+        sessionIndex: payload.attempt.current_session_index || 0,
         questions,
         initialAnswers
       })
@@ -124,6 +126,14 @@ export default function HomeworkAttemptPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (attemptId) void load()
+    }, 0)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId])
 
   if (loading) {
     return (
@@ -150,7 +160,6 @@ export default function HomeworkAttemptPage() {
   return (
     <HomeworkRunner
       attemptId={attemptId}
-      studentId={data.studentId}
       examTitle={data.examTitle}
       questions={data.questions}
       sessionSize={data.sessionSize}

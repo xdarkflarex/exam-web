@@ -9,7 +9,6 @@ import ConfirmModal from './ConfirmModal'
 import PracticeSidebar from './PracticeSidebar'
 import QuestionImage from './QuestionImage'
 import { useLoading } from '@/contexts/LoadingContext'
-import { updateAllMasteryForAttempt } from '@/lib/theories/actions'
 
 interface StudentAnswer {
   questionId: string
@@ -26,7 +25,7 @@ interface PracticeRunnerProps {
   initialAnswers?: Record<string, StudentAnswer>
 }
 
-export default function PracticeRunner({ attemptId, examData, studentId, initialAnswers }: PracticeRunnerProps) {
+export default function PracticeRunner({ attemptId, examData, initialAnswers }: PracticeRunnerProps) {
   const router = useRouter()
   const supabase = createClient()
   const { showLoading, hideLoading } = useLoading()
@@ -67,7 +66,15 @@ export default function PracticeRunner({ attemptId, examData, studentId, initial
   const saveAnswerToDb = useCallback(async (questionId: string, answer: StudentAnswer) => {
     setSavingIndicator(true)
     try {
-      const payload: any = {
+      const payload: {
+        attempt_id: string
+        question_id: string
+        question_type: StudentAnswer['questionType']
+        answered_at: string
+        selected_answer?: string | null
+        selected_answers?: Record<string, boolean>
+        text_answer?: string | null
+      } = {
         attempt_id: attemptId,
         question_id: questionId,
         question_type: answer.questionType,
@@ -180,110 +187,29 @@ export default function PracticeRunner({ attemptId, examData, studentId, initial
     showLoading('Đang nộp bài...')
 
     try {
-      const allQuestions = [...examData.part1, ...examData.part2, ...examData.part3]
-      let correctCount = 0
-      const totalQuestions = allQuestions.length
-
-      // Calculate score from already-saved answers
-      for (const question of allQuestions) {
-        const studentAns = answers[question.id]
-
-        if (question.question_type === 'multiple_choice') {
-          const selectedAnswerId = studentAns?.selectedAnswer
-          if (selectedAnswerId && question.answers) {
-            const correctAnswer = question.answers.find(a => a.is_correct)
-            if (correctAnswer?.id === selectedAnswerId) correctCount++
-          }
+      const submissionPayload = allQuestions.map((question) => {
+        const studentAnswer = answers[question.id]
+        return {
+          question_id: question.id,
+          selected_answer: studentAnswer?.selectedAnswer || null,
+          selected_answers: studentAnswer?.selectedAnswers || null,
+          text_answer: studentAnswer?.textAnswer || null,
         }
-      }
+      })
 
-      // Ensure all answers are saved (final flush)
-      const studentAnswersToUpsert = []
-      for (const question of allQuestions) {
-        const studentAns = answers[question.id]
-        let isCorrect = false
-        let score = 0
+      const { error: submitError } = await supabase.rpc('submit_practice_attempt', {
+        p_attempt_id: attemptId,
+        p_answers: submissionPayload,
+      })
 
-        if (question.question_type === 'multiple_choice') {
-          const selectedAnswerId = studentAns?.selectedAnswer
-          if (selectedAnswerId && question.answers) {
-            const correctAnswer = question.answers.find(a => a.is_correct)
-            isCorrect = correctAnswer?.id === selectedAnswerId
-            score = isCorrect ? 1 : 0
-          }
-
-          studentAnswersToUpsert.push({
-            attempt_id: attemptId,
-            question_id: question.id,
-            question_type: question.question_type,
-            selected_answer: selectedAnswerId || null,
-            is_correct: isCorrect,
-            score: score
-          })
-        } else if (question.question_type === 'true_false') {
-          const selectedAnswers = studentAns?.selectedAnswers || {}
-          
-          studentAnswersToUpsert.push({
-            attempt_id: attemptId,
-            question_id: question.id,
-            question_type: question.question_type,
-            selected_answers: selectedAnswers,
-            is_correct: false,
-            score: 0
-          })
-        } else if (question.question_type === 'short_answer') {
-          const textAnswer = studentAns?.textAnswer || ''
-          
-          studentAnswersToUpsert.push({
-            attempt_id: attemptId,
-            question_id: question.id,
-            question_type: question.question_type,
-            text_answer: textAnswer || null,
-            is_correct: false,
-            score: 0
-          })
-        }
-      }
-
-      // Upsert all answers (final save with scoring)
-      const { error: insertError } = await supabase
-        .from('student_answers')
-        .upsert(studentAnswersToUpsert, { onConflict: 'attempt_id,question_id' })
-
-      if (insertError) {
-        console.error('Insert student answers error:', insertError)
+      if (submitError) {
+        console.error('Submit practice attempt error:', submitError)
         hideLoading()
-        setErrorMessage('Lỗi khi lưu bài làm. Vui lòng thử lại.')
+        setErrorMessage('Không thể nộp bài ôn tập. Vui lòng kiểm tra lại và thử lại.')
         setShowErrorModal(true)
         setSubmitting(false)
         return
       }
-
-      const finalScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 10 : 0
-
-      const { error: updateError } = await supabase
-        .from('exam_attempts')
-        .update({
-          status: 'submitted',
-          submit_time: new Date().toISOString(),
-          total_questions: totalQuestions,
-          correct_answers: correctCount,
-          score: Math.round(finalScore * 100) / 100
-        })
-        .eq('id', attemptId)
-        .eq('status', 'in_progress')
-
-      if (updateError) {
-        console.error('Update attempt error:', updateError)
-        hideLoading()
-        setErrorMessage('Lỗi khi cập nhật bài thi. Vui lòng thử lại.')
-        setShowErrorModal(true)
-        setSubmitting(false)
-        return
-      }
-
-      // Cập nhật mastery (tổng + theo mức nhận thức). Không chặn nếu lỗi.
-      await updateAllMasteryForAttempt(attemptId)
 
       hideLoading()
       router.push(`/result/${attemptId}`)

@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { 
-  FileText, 
   Clock, 
   Play, 
   Search,
@@ -12,6 +11,15 @@ import {
   BookOpen,
   RotateCcw
 } from 'lucide-react'
+
+type PracticeFilterStatus = 'all' | 'in_progress' | 'completed' | 'not_started'
+
+const PRACTICE_FILTERS: Array<{ key: PracticeFilterStatus; label: string }> = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'in_progress', label: 'Đang làm' },
+  { key: 'not_started', label: 'Chưa làm' },
+  { key: 'completed', label: 'Đã xong' },
+]
 
 interface PracticeExam {
   id: string
@@ -29,21 +37,26 @@ interface PracticeExam {
   in_progress_answered?: number
 }
 
+function readAttemptId(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null || !('attempt_id' in value)) {
+    return null
+  }
+
+  const attemptId = (value as { attempt_id?: unknown }).attempt_id
+  return typeof attemptId === 'string' && attemptId.length > 0 ? attemptId : null
+}
+
 export default function PracticeExamsPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   
   const [exams, setExams] = useState<PracticeExam[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed' | 'not_started'>('all')
+  const [filterStatus, setFilterStatus] = useState<PracticeFilterStatus>('all')
   const [studentGrade, setStudentGrade] = useState<number | null>(null)
 
-  useEffect(() => {
-    fetchExams()
-  }, [])
-
-  const fetchExams = async () => {
+  const fetchExams = useCallback(async () => {
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -92,7 +105,7 @@ export default function PracticeExamsPage() {
         .filter(a => a.status === 'in_progress')
         .map(a => a.id)
 
-      let answeredCounts: Record<string, number> = {}
+      const answeredCounts: Record<string, number> = {}
       if (inProgressAttemptIds.length > 0) {
         const { data: answerCounts } = await supabase
           .from('student_answers')
@@ -130,59 +143,28 @@ export default function PracticeExamsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    void fetchExams()
+  }, [fetchExams])
 
   const handleStartPractice = async (examId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Check for existing in-progress attempt
-      const { data: existing } = await supabase
-        .from('exam_attempts')
-        .select('id')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .eq('status', 'in_progress')
-        .maybeSingle()
+      const { data: attemptResult, error } = await supabase.rpc('start_exam_attempt', {
+        p_exam_id: examId,
+      })
+      const startedAttemptId = readAttemptId(attemptResult)
 
-      if (existing) {
-        // Resume existing attempt
-        router.push(`/practice/${existing.id}`)
-        return
-      }
-
-      // Get next attempt number
-      const { data: maxAttempt } = await supabase
-        .from('exam_attempts')
-        .select('attempt_number')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .order('attempt_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      const nextAttemptNumber = maxAttempt ? maxAttempt.attempt_number + 1 : 1
-
-      // Create new attempt
-      const { data: newAttempt, error } = await supabase
-        .from('exam_attempts')
-        .insert({
-          exam_id: examId,
-          student_id: user.id,
-          attempt_number: nextAttemptNumber,
-          start_time: new Date().toISOString(),
-          status: 'in_progress'
-        })
-        .select('id')
-        .single()
-
-      if (error) {
+      if (error || !startedAttemptId) {
         console.error('Create attempt error:', error)
         return
       }
 
-      router.push(`/practice/${newAttempt.id}`)
+      router.push(`/practice/${startedAttemptId}`)
     } catch (error) {
       console.error('Error starting practice:', error)
     }
@@ -248,15 +230,10 @@ export default function PracticeExamsPage() {
             />
           </div>
           <div className="flex gap-2 overflow-x-auto">
-            {[
-              { key: 'all', label: 'Tất cả' },
-              { key: 'in_progress', label: 'Đang làm' },
-              { key: 'not_started', label: 'Chưa làm' },
-              { key: 'completed', label: 'Đã xong' }
-            ].map(filter => (
+            {PRACTICE_FILTERS.map(filter => (
               <button
                 key={filter.key}
-                onClick={() => setFilterStatus(filter.key as any)}
+                onClick={() => setFilterStatus(filter.key)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
                   filterStatus === filter.key
                     ? 'bg-teal-500 text-white'

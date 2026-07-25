@@ -1,20 +1,19 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Question, ExamData } from '@/types'
+import { Question, ExamData, QuestionType } from '@/types'
 import MathContent, { MathProvider } from './MathContent'
 import ConfirmModal from './ConfirmModal'
 import ExamSidebar from './ExamSidebar'
 import QuestionImage from './QuestionImage'
 import { useLoading } from '@/contexts/LoadingContext'
 import { useExamAntiCheat } from '@/hooks/useExamAntiCheat'
-import { updateAllMasteryForAttempt } from '@/lib/theories/actions'
 
 interface StudentAnswer {
   questionId: string
-  questionType: 'multiple_choice' | 'true_false' | 'short_answer'
+  questionType: QuestionType
   selectedAnswer?: string
   selectedAnswers?: Record<string, boolean>
   textAnswer?: string
@@ -27,7 +26,7 @@ interface ExamRunnerProps {
   startTime: string
 }
 
-export default function ExamRunner({ attemptId, examData, studentId, startTime }: ExamRunnerProps) {
+export default function ExamRunner({ attemptId, examData, startTime }: ExamRunnerProps) {
   const router = useRouter()
   const supabase = createClient()
   const { showLoading, hideLoading } = useLoading()
@@ -61,7 +60,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
         answered.add(qId)
       } else if (ans.questionType === 'true_false' && ans.selectedAnswers && Object.keys(ans.selectedAnswers).length > 0) {
         answered.add(qId)
-      } else if (ans.questionType === 'short_answer' && ans.textAnswer?.trim()) {
+      } else if ((ans.questionType === 'short_answer' || ans.questionType === 'essay') && ans.textAnswer?.trim()) {
         answered.add(qId)
       }
     })
@@ -96,12 +95,12 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
     })
   }
 
-  const handleShortAnswer = (questionId: string, text: string) => {
+  const handleTextAnswer = (questionId: string, questionType: 'short_answer' | 'essay', text: string) => {
     setAnswers(prev => ({
       ...prev,
       [questionId]: {
         questionId,
-        questionType: 'short_answer',
+        questionType,
         textAnswer: text
       }
     }))
@@ -135,100 +134,33 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
     showLoading('Đang nộp bài thi...')
 
     try {
-      const allQuestions = [...examData.part1, ...examData.part2, ...examData.part3]
-      const studentAnswersToInsert = []
-      let correctCount = 0
-      const totalQuestions = allQuestions.length
-
-      for (const question of allQuestions) {
-        const studentAns = answers[question.id]
-        let isCorrect = false
-        let score = 0
-
-        if (question.question_type === 'multiple_choice') {
-          const selectedAnswerId = studentAns?.selectedAnswer
-          if (selectedAnswerId && question.answers) {
-            const correctAnswer = question.answers.find(a => a.is_correct)
-            isCorrect = correctAnswer?.id === selectedAnswerId
-            score = isCorrect ? 1 : 0
-            if (isCorrect) correctCount++
-          }
-
-          studentAnswersToInsert.push({
-            attempt_id: attemptId,
-            question_id: question.id,
-            question_type: question.question_type,
-            selected_answer: selectedAnswerId || null,
-            is_correct: isCorrect,
-            score: score
-          })
-        } else if (question.question_type === 'true_false') {
-          const selectedAnswers = studentAns?.selectedAnswers || {}
-          
-          studentAnswersToInsert.push({
-            attempt_id: attemptId,
-            question_id: question.id,
-            question_type: question.question_type,
-            selected_answers: selectedAnswers,
-            is_correct: false,
-            score: 0
-          })
-        } else if (question.question_type === 'short_answer') {
-          const textAnswer = studentAns?.textAnswer || ''
-          
-          studentAnswersToInsert.push({
-            attempt_id: attemptId,
-            question_id: question.id,
-            question_type: question.question_type,
-            text_answer: textAnswer || null,
-            is_correct: false,
-            score: 0
-          })
+      const submissionPayload = allQuestions.map((question) => {
+        const studentAnswer = answers[question.id]
+        return {
+          question_id: question.id,
+          selected_answer: studentAnswer?.selectedAnswer || null,
+          selected_answers: studentAnswer?.selectedAnswers || null,
+          text_answer: studentAnswer?.textAnswer || null,
         }
-      }
+      })
 
-      console.log('Student answers payload:', JSON.stringify(studentAnswersToInsert, null, 2))
+      const { error: submitError } = await supabase.rpc('submit_exam_attempt', {
+        p_attempt_id: attemptId,
+        p_answers: submissionPayload,
+      })
 
-      const { error: insertError } = await supabase
-        .from('student_answers')
-        .insert(studentAnswersToInsert)
-
-      if (insertError) {
-        console.error('Insert student answers error:', insertError)
-        console.error('Full error object:', JSON.stringify(insertError, null, 2))
+      if (submitError) {
+        console.error('Server-side submit error:', submitError.message)
         hideLoading()
-        setErrorMessage('Lỗi khi lưu bài làm. Vui lòng thử lại.')
+        setErrorMessage(
+          submitError.message.includes('submit_exam_attempt')
+            ? 'Chức năng chấm tự luận chưa được cài đặt trên cơ sở dữ liệu.'
+            : 'Không thể nộp bài. Vui lòng kiểm tra lại và thử lại.'
+        )
         setShowErrorModal(true)
         setSubmitting(false)
         return
       }
-
-      const finalScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 10 : 0
-
-      const { error: updateError } = await supabase
-        .from('exam_attempts')
-        .update({
-          status: 'submitted',
-          submit_time: new Date().toISOString(),
-          total_questions: totalQuestions,
-          correct_answers: correctCount,
-          score: Math.round(finalScore * 100) / 100
-        })
-        .eq('id', attemptId)
-        .eq('status', 'in_progress')
-
-      if (updateError) {
-        console.error('Update attempt error:', updateError)
-        console.error('Full error object:', JSON.stringify(updateError, null, 2))
-        hideLoading()
-        setErrorMessage('Lỗi khi cập nhật bài thi. Vui lòng thử lại.')
-        setShowErrorModal(true)
-        setSubmitting(false)
-        return
-      }
-
-      // Cập nhật mastery (tổng + theo mức nhận thức). Không chặn nếu lỗi.
-      await updateAllMasteryForAttempt(attemptId)
 
       hideLoading()
       router.push(`/result/${attemptId}`)
@@ -303,7 +235,14 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
 
         {question.question_type === 'true_false' && (
           <div className="space-y-2 sm:space-y-3 ml-0 sm:ml-10">
-            {[0, 1, 2, 3].map((statementIdx) => {
+            {(question.answers?.length ? question.answers : [0, 1, 2, 3].map((order_index) => ({
+              id: `${question.id}-${order_index}`,
+              question_id: question.id,
+              content: '',
+              is_correct: false,
+              order_index,
+            }))).map((statement, fallbackIndex) => {
+              const statementIdx = statement.order_index ?? fallbackIndex
               const currentValue = answers[question.id]?.selectedAnswers?.[statementIdx]
               
               return (
@@ -311,7 +250,11 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                   <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 w-5 sm:w-6">
                     {String.fromCharCode(97 + statementIdx)})
                   </span>
-                  <div className="flex gap-1.5 sm:gap-2">
+                  <div className="min-w-0 flex-1">
+                    {statement.content && (
+                      <MathContent content={statement.content} className="mb-2 text-sm text-slate-700 dark:text-slate-200" />
+                    )}
+                    <div className="flex gap-1.5 sm:gap-2">
                     <button
                       onClick={() => handleTrueFalseAnswer(question.id, statementIdx, true)}
                       className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
@@ -332,6 +275,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
                     >
                       Sai
                     </button>
+                    </div>
                   </div>
                 </div>
               )
@@ -344,10 +288,26 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
             <input
               type="text"
               value={answers[question.id]?.textAnswer || ''}
-              onChange={(e) => handleShortAnswer(question.id, e.target.value)}
+              onChange={(e) => handleTextAnswer(question.id, 'short_answer', e.target.value)}
               placeholder="Nhập đáp án..."
               className="w-full p-2.5 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-700 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-200 dark:focus:ring-teal-900 outline-none transition-all text-sm sm:text-base"
             />
+          </div>
+        )}
+
+        {question.question_type === 'essay' && (
+          <div className="ml-0 space-y-2 sm:ml-10">
+            <textarea
+              value={answers[question.id]?.textAnswer || ''}
+              onChange={(event) => handleTextAnswer(question.id, 'essay', event.target.value.slice(0, 20000))}
+              placeholder="Trình bày lời giải, lập luận và kết luận của bạn..."
+              rows={10}
+              className="w-full resize-y rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-800 outline-none transition-all focus:border-teal-500 focus:ring-2 focus:ring-teal-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:ring-teal-900 sm:text-base"
+            />
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Bản thử chỉ lưu khi nộp; đừng tải lại trang. AI chỉ đề xuất điểm, giáo viên sẽ duyệt.</span>
+              <span>{answers[question.id]?.textAnswer?.length || 0}/20.000</span>
+            </div>
           </div>
         )}
       </div>
@@ -427,7 +387,7 @@ export default function ExamRunner({ attemptId, examData, studentId, startTime }
               {/* Questions */}
               {renderPart(examData.part1, 1, 'Phần 1: Trắc nghiệm nhiều lựa chọn', 0)}
               {renderPart(examData.part2, 2, 'Phần 2: Đúng / Sai', examData.part1.length)}
-              {renderPart(examData.part3, 3, 'Phần 3: Trả lời ngắn', examData.part1.length + examData.part2.length)}
+              {renderPart(examData.part3, 3, 'Phần 3: Trả lời ngắn và tự luận', examData.part1.length + examData.part2.length)}
             </div>
 
             {/* Right: Sidebar */}

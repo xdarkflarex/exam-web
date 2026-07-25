@@ -12,9 +12,12 @@
 // Types
 // ============================================================================
 
-export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer'
+import type { EssayRubricCriterion } from '@/lib/essay-grading/prompt'
+
+export type QuestionType = 'multiple_choice' | 'true_false' | 'short_answer' | 'essay'
 
 export interface AttemptQuestionView {
+  studentAnswerId?: string
   questionId: string
   questionIndex: number
   content: string
@@ -25,6 +28,15 @@ export interface AttemptQuestionView {
   explanation: string | null
   solution: string | null
   tikzImageUrl?: string | null
+  score?: number | null
+  maxScore?: number | null
+  gradingStatus?: string | null
+  gradingFeedback?: string | null
+  gradingConfidence?: number | null
+  answerHash?: string | null
+  rubricVersion?: number | null
+  referenceAnswer?: string | null
+  rubric?: EssayRubricCriterion[] | null
   // For true_false questions, we need the individual statement results
   trueFalseDetails?: TrueFalseDetail[] | null
 }
@@ -72,14 +84,30 @@ export interface RawQuestion {
   solution: string | null
   tikz_image_url?: string | null
   answers?: RawAnswer[]
+  question_grading_configs?: QuestionGradingConfig | QuestionGradingConfig[] | null
+}
+
+export interface QuestionGradingConfig {
+  reference_answer: string
+  rubric: EssayRubricCriterion[]
+  rubric_version: number
+  minimum_confidence?: number
 }
 
 export interface RawStudentAnswer {
+  id?: string
   question_id: string
   selected_answer: string | null
   selected_answers: Record<string, boolean> | null
   text_answer: string | null
   is_correct: boolean | null
+  score?: number | null
+  max_score?: number | null
+  grading_status?: string | null
+  grading_feedback?: string | null
+  grading_confidence?: number | null
+  grading_rubric_version?: number | null
+  answer_hash?: string | null
 }
 
 export interface RawAttemptData {
@@ -112,9 +140,9 @@ function resolveAnswerContent(
  */
 function getCorrectAnswerContent(
   questionType: QuestionType,
-  answers: RawAnswer[],
-  solution?: string | null
+  answers: RawAnswer[]
 ): string | null {
+  if (questionType === 'essay') return null
   // All question types get correct answer from answers table
   const correctAnswer = answers.find(a => a.is_correct)
   return correctAnswer?.content ?? null
@@ -145,6 +173,7 @@ function buildStudentAnswerText(
         .join(', ')
 
     case 'short_answer':
+    case 'essay':
       return studentAnswer.text_answer ?? null
 
     default:
@@ -191,18 +220,31 @@ export function buildAttemptView(rawData: RawAttemptData): AttemptQuestionView[]
     const studentAnswer = studentAnswerMap[question.id]
 
     const questionType = question.question_type as QuestionType
+    const gradingConfig = Array.isArray(question.question_grading_configs)
+      ? question.question_grading_configs[0]
+      : question.question_grading_configs
 
     return {
+      studentAnswerId: studentAnswer?.id,
       questionId: question.id,
       questionIndex: index,
       content: question.content,
       questionType,
       studentAnswerText: buildStudentAnswerText(questionType, studentAnswer, answers),
-      correctAnswerText: getCorrectAnswerContent(questionType, answers, question.solution),
+      correctAnswerText: getCorrectAnswerContent(questionType, answers),
       isCorrect: studentAnswer?.is_correct ?? null,
       explanation: question.explanation,
       solution: question.solution,
       tikzImageUrl: question.tikz_image_url,
+      score: studentAnswer?.score ?? null,
+      maxScore: studentAnswer?.max_score ?? null,
+      gradingStatus: studentAnswer?.grading_status ?? null,
+      gradingFeedback: studentAnswer?.grading_feedback ?? null,
+      gradingConfidence: studentAnswer?.grading_confidence ?? null,
+      answerHash: studentAnswer?.answer_hash ?? null,
+      rubricVersion: studentAnswer?.grading_rubric_version ?? gradingConfig?.rubric_version ?? null,
+      referenceAnswer: gradingConfig?.reference_answer ?? null,
+      rubric: gradingConfig?.rubric ?? null,
       trueFalseDetails: questionType === 'true_false' 
         ? buildTrueFalseDetails(studentAnswer, answers) 
         : null
@@ -268,11 +310,19 @@ export function prepareRawAttemptData(queryResult: SupabaseAttemptQueryResult): 
 // ============================================================================
 
 export interface NestedStudentAnswerRow {
+  id: string
   question_id: string
   selected_answer: string | null
   selected_answers: Record<string, boolean> | null
   text_answer: string | null
   is_correct: boolean | null
+  score: number | null
+  max_score: number | null
+  grading_status: string | null
+  grading_feedback: string | null
+  grading_confidence: number | null
+  grading_rubric_version: number | null
+  answer_hash: string | null
   questions: {
     id: string
     content: string
@@ -281,6 +331,7 @@ export interface NestedStudentAnswerRow {
     solution: string | null
     tikz_image_url?: string | null
     answers: RawAnswer[]
+    question_grading_configs?: QuestionGradingConfig | QuestionGradingConfig[] | null
   }
 }
 
@@ -295,26 +346,47 @@ export function buildAttemptViewFromNestedQuery(
     const question = row.questions
     const answers = (question.answers || []).sort((a, b) => a.order_index - b.order_index)
     const questionType = question.question_type as QuestionType
+    const gradingConfig = Array.isArray(question.question_grading_configs)
+      ? question.question_grading_configs[0]
+      : question.question_grading_configs
 
     const studentAnswer: RawStudentAnswer = {
+      id: row.id,
       question_id: row.question_id,
       selected_answer: row.selected_answer,
       selected_answers: row.selected_answers,
       text_answer: row.text_answer,
-      is_correct: row.is_correct
+      is_correct: row.is_correct,
+      score: row.score,
+      max_score: row.max_score,
+      grading_status: row.grading_status,
+      grading_feedback: row.grading_feedback,
+      grading_confidence: row.grading_confidence,
+      grading_rubric_version: row.grading_rubric_version,
+      answer_hash: row.answer_hash,
     }
 
     return {
+      studentAnswerId: row.id,
       questionId: question.id,
       questionIndex: index,
       content: question.content,
       questionType,
       studentAnswerText: buildStudentAnswerText(questionType, studentAnswer, answers),
-      correctAnswerText: getCorrectAnswerContent(questionType, answers, question.solution),
+      correctAnswerText: getCorrectAnswerContent(questionType, answers),
       isCorrect: row.is_correct ?? null,
       explanation: question.explanation,
       solution: question.solution,
       tikzImageUrl: question.tikz_image_url,
+      score: row.score,
+      maxScore: row.max_score,
+      gradingStatus: row.grading_status,
+      gradingFeedback: row.grading_feedback,
+      gradingConfidence: row.grading_confidence,
+      answerHash: row.answer_hash,
+      rubricVersion: row.grading_rubric_version ?? gradingConfig?.rubric_version ?? null,
+      referenceAnswer: gradingConfig?.reference_answer ?? null,
+      rubric: gradingConfig?.rubric ?? null,
       trueFalseDetails: questionType === 'true_false'
         ? buildTrueFalseDetails(studentAnswer, answers)
         : null

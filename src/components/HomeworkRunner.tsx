@@ -24,6 +24,7 @@ export interface HomeworkQuestion {
   id: string
   content: string
   question_type: 'multiple_choice' | 'true_false' | 'short_answer'
+  order_index: number
   explanation?: string | null
   solution?: string | null
   tikz_image_url?: string | null
@@ -40,7 +41,6 @@ export interface SavedHomeworkAnswer {
 
 interface HomeworkRunnerProps {
   attemptId: string
-  studentId: string
   examTitle: string
   questions: HomeworkQuestion[]
   sessionSize: number
@@ -48,29 +48,18 @@ interface HomeworkRunnerProps {
   initialSessionIndex: number
 }
 
-// ============================================================
-// Helpers
-// ============================================================
-function normalizeText(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, ' ').replace(',', '.')
+interface HomeworkCheckResult {
+  question_id: string
+  is_correct: boolean | null
+  answers: HomeworkAnswerOption[]
+  explanation: string | null
+  solution: string | null
 }
 
-function computeCorrect(q: HomeworkQuestion, ans: SavedHomeworkAnswer): boolean {
-  if (q.question_type === 'multiple_choice') {
-    const correct = q.answers.find(a => a.is_correct)
-    return !!ans.selectedAnswer && correct?.id === ans.selectedAnswer
-  }
-  if (q.question_type === 'true_false') {
-    const sorted = [...q.answers].sort((a, b) => a.order_index - b.order_index)
-    if (sorted.length === 0) return false
-    return sorted.every((a, idx) => ans.selectedAnswers?.[String(idx)] === a.is_correct)
-  }
-  if (q.question_type === 'short_answer') {
-    const text = ans.textAnswer || ''
-    if (!text.trim()) return false
-    return q.answers.some(a => a.is_correct && normalizeText(a.content) === normalizeText(text))
-  }
-  return false
+interface HomeworkAnswerPayload {
+  selected_answer?: string | null
+  selected_answers?: Record<string, boolean>
+  text_answer?: string | null
 }
 
 function isAnswered(q: HomeworkQuestion, ans?: SavedHomeworkAnswer): boolean {
@@ -78,7 +67,9 @@ function isAnswered(q: HomeworkQuestion, ans?: SavedHomeworkAnswer): boolean {
   if (q.question_type === 'multiple_choice') return !!ans.selectedAnswer
   if (q.question_type === 'true_false') {
     const sorted = [...q.answers].sort((a, b) => a.order_index - b.order_index)
-    return sorted.length > 0 && sorted.every((_, idx) => typeof ans.selectedAnswers?.[String(idx)] === 'boolean')
+    return sorted.length > 0 && sorted.every(
+      (answer) => typeof ans.selectedAnswers?.[String(answer.order_index)] === 'boolean'
+    )
   }
   if (q.question_type === 'short_answer') return !!ans.textAnswer?.trim()
   return false
@@ -88,26 +79,30 @@ function isAnswered(q: HomeworkQuestion, ans?: SavedHomeworkAnswer): boolean {
 // Component
 // ============================================================
 export default function HomeworkRunner({
-  attemptId, studentId, examTitle, questions, sessionSize, initialAnswers, initialSessionIndex
+  attemptId, examTitle, questions, sessionSize, initialAnswers, initialSessionIndex
 }: HomeworkRunnerProps) {
   const router = useRouter()
   const supabase = createClient()
+  const [questionData, setQuestionData] = useState(questions)
 
   // Chia câu hỏi thành các session
   const sessions = useMemo(() => {
     const out: HomeworkQuestion[][] = []
     const size = Math.max(1, sessionSize)
-    for (let i = 0; i < questions.length; i += size) {
-      out.push(questions.slice(i, i + size))
+    for (let i = 0; i < questionData.length; i += size) {
+      out.push(questionData.slice(i, i + size))
     }
     return out
-  }, [questions, sessionSize])
+  }, [questionData, sessionSize])
 
   const totalSessions = sessions.length
   const [sessionIndex, setSessionIndex] = useState(
     Math.min(initialSessionIndex, Math.max(0, totalSessions - 1))
   )
-  const currentSession = sessions[sessionIndex] || []
+  const currentSession = useMemo(
+    () => sessions[sessionIndex] || [],
+    [sessions, sessionIndex]
+  )
 
   const [answers, setAnswers] = useState<Record<string, SavedHomeworkAnswer>>(initialAnswers)
   const [questionPtr, setQuestionPtr] = useState(0)
@@ -118,11 +113,12 @@ export default function HomeworkRunner({
   const currentQuestion = currentSession[questionPtr]
   const currentAns = currentQuestion ? answers[currentQuestion.id] : undefined
   const revealed = !!currentAns?.shownFeedback
+  const feedbackReleased = revealed && typeof currentAns?.isCorrect === 'boolean'
 
   // Số câu đã trả lời toàn bài
   const answeredCount = useMemo(
-    () => questions.filter(q => answers[q.id]?.shownFeedback).length,
-    [questions, answers]
+    () => questionData.filter(q => answers[q.id]?.shownFeedback).length,
+    [questionData, answers]
   )
 
   // -------- Local answer updates --------
@@ -152,17 +148,7 @@ export default function HomeworkRunner({
     if (!isAnswered(currentQuestion, ans)) return
 
     setSaving(true)
-    const correct = computeCorrect(currentQuestion, ans)
-
-    const payload: any = {
-      attempt_id: attemptId,
-      question_id: currentQuestion.id,
-      question_type: currentQuestion.question_type,
-      is_correct: correct,
-      score: correct ? 1 : 0,
-      shown_feedback: true,
-      answered_at: new Date().toISOString()
-    }
+    const payload: HomeworkAnswerPayload = {}
     if (currentQuestion.question_type === 'multiple_choice') {
       payload.selected_answer = ans.selectedAnswer || null
     } else if (currentQuestion.question_type === 'true_false') {
@@ -171,19 +157,43 @@ export default function HomeworkRunner({
       payload.text_answer = ans.textAnswer || null
     }
 
-    const { error } = await supabase
-      .from('student_answers')
-      .upsert(payload, { onConflict: 'attempt_id,question_id' })
+    const { data: rpcData, error } = await supabase.rpc('check_homework_answer', {
+      p_attempt_id: attemptId,
+      p_question_id: currentQuestion.id,
+      p_answer: payload
+    })
 
-    if (error) {
+    if (error || !rpcData) {
       console.error('Lưu đáp án lỗi:', error)
       setSaving(false)
       return
     }
 
+    const result = rpcData as unknown as HomeworkCheckResult
+    if (result.question_id !== currentQuestion.id || !Array.isArray(result.answers)) {
+      console.error('Kết quả chấm bài tập không hợp lệ')
+      setSaving(false)
+      return
+    }
+
+    setQuestionData(previous => previous.map(question => (
+      question.id === currentQuestion.id
+        ? {
+            ...question,
+            answers: result.answers,
+            explanation: result.explanation,
+            solution: result.solution
+          }
+        : question
+    )))
+
     setAnswers(prev => ({
       ...prev,
-      [currentQuestion.id]: { ...prev[currentQuestion.id], isCorrect: correct, shownFeedback: true }
+      [currentQuestion.id]: {
+        ...prev[currentQuestion.id],
+        isCorrect: result.is_correct,
+        shownFeedback: true
+      }
     }))
     setSaving(false)
   }, [currentQuestion, answers, saving, attemptId, supabase])
@@ -200,7 +210,7 @@ export default function HomeworkRunner({
   const handleNextSession = async () => {
     const nextIdx = sessionIndex + 1
     await supabase
-      .from('exam_attempts')
+      .from('homework_attempts')
       .update({ current_session_index: nextIdx })
       .eq('id', attemptId)
     setSessionIndex(nextIdx)
@@ -213,9 +223,25 @@ export default function HomeworkRunner({
     setExiting(true)
     // Lưu session hiện tại để lần sau quay lại đúng chỗ
     await supabase
-      .from('exam_attempts')
+      .from('homework_attempts')
       .update({ current_session_index: sessionIndex })
       .eq('id', attemptId)
+    router.push('/student/homework')
+  }
+
+  const handleFinishHomework = async () => {
+    if (exiting) return
+    setExiting(true)
+    const { error } = await supabase.rpc('submit_homework_attempt', {
+      p_attempt_id: attemptId
+    })
+
+    if (error) {
+      console.error('Nộp bài tập lỗi:', error)
+      setExiting(false)
+      return
+    }
+
     router.push('/student/homework')
   }
 
@@ -225,13 +251,15 @@ export default function HomeworkRunner({
   // Session summary: đúng/sai trong session
   const sessionStats = useMemo(() => {
     let correct = 0
+    let released = 0
     for (const q of currentSession) {
-      if (answers[q.id]?.isCorrect) correct++
+      if (typeof answers[q.id]?.isCorrect === 'boolean') released++
+      if (answers[q.id]?.isCorrect === true) correct++
     }
-    return { correct, total: currentSession.length }
+    return { correct, released, total: currentSession.length }
   }, [currentSession, answers])
 
-  if (questions.length === 0) {
+  if (questionData.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
         <p className="text-slate-500 dark:text-slate-400">Bài tập chưa có câu hỏi.</p>
@@ -253,7 +281,7 @@ export default function HomeworkRunner({
                 {examTitle}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Phần {sessionIndex + 1}/{totalSessions} · Đã làm {answeredCount}/{questions.length} câu
+                Phần {sessionIndex + 1}/{totalSessions} · Đã làm {answeredCount}/{questionData.length} câu
               </p>
             </div>
             <button
@@ -287,7 +315,9 @@ export default function HomeworkRunner({
                 Hoàn thành phần {sessionIndex + 1}/{totalSessions}
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mb-6">
-                Đúng {sessionStats.correct}/{sessionStats.total} câu trong phần này.
+                {sessionStats.released > 0
+                  ? `Đúng ${sessionStats.correct}/${sessionStats.released} câu đã công bố kết quả.`
+                  : `Đã ghi nhận ${sessionStats.total} câu trong phần này.`}
               </p>
               {isLastSession ? (
                 <div className="space-y-3">
@@ -295,7 +325,7 @@ export default function HomeworkRunner({
                     Bạn đã hoàn thành toàn bộ bài tập!
                   </p>
                   <button
-                    onClick={handleExit}
+                    onClick={handleFinishHomework}
                     disabled={exiting}
                     className="w-full sm:w-auto px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium transition-colors inline-flex items-center justify-center gap-2"
                   >
@@ -346,7 +376,8 @@ export default function HomeworkRunner({
                     const selected = currentAns?.selectedAnswer === opt.id
                     let cls = 'border-slate-300 dark:border-slate-600 hover:border-teal-400'
                     if (revealed) {
-                      if (opt.is_correct) cls = 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                      if (!feedbackReleased && selected) cls = 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                      else if (selected && currentAns?.isCorrect) cls = 'border-green-500 bg-green-50 dark:bg-green-900/20'
                       else if (selected) cls = 'border-red-500 bg-red-50 dark:bg-red-900/20'
                       else cls = 'border-slate-200 dark:border-slate-700 opacity-70'
                     } else if (selected) {
@@ -373,8 +404,7 @@ export default function HomeworkRunner({
               {currentQuestion.question_type === 'true_false' && (
                 <div className="space-y-2">
                   {[...currentQuestion.answers].sort((a, b) => a.order_index - b.order_index).map((opt, idx) => {
-                    const val = currentAns?.selectedAnswers?.[String(idx)]
-                    const correctVal = opt.is_correct
+                    const val = currentAns?.selectedAnswers?.[String(opt.order_index)]
                     return (
                       <div key={opt.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
                         <div className="flex items-start gap-2 mb-2">
@@ -383,32 +413,27 @@ export default function HomeworkRunner({
                         </div>
                         <div className="flex gap-2 ml-6">
                           <button
-                            onClick={() => setTF(currentQuestion.id, idx, true)}
+                            onClick={() => setTF(currentQuestion.id, opt.order_index, true)}
                             disabled={revealed}
                             className={`px-3 py-1 rounded text-sm font-medium transition-all ${
                               val === true
                                 ? 'bg-green-500 text-white'
                                 : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
-                            } ${revealed && correctVal === true ? 'ring-2 ring-green-500' : ''}`}
+                            } ${feedbackReleased && val === true && currentAns?.isCorrect ? 'ring-2 ring-green-500' : ''}`}
                           >
                             Đúng
                           </button>
                           <button
-                            onClick={() => setTF(currentQuestion.id, idx, false)}
+                            onClick={() => setTF(currentQuestion.id, opt.order_index, false)}
                             disabled={revealed}
                             className={`px-3 py-1 rounded text-sm font-medium transition-all ${
                               val === false
                                 ? 'bg-red-500 text-white'
                                 : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
-                            } ${revealed && correctVal === false ? 'ring-2 ring-green-500' : ''}`}
+                            } ${feedbackReleased && val === false && currentAns?.isCorrect ? 'ring-2 ring-green-500' : ''}`}
                           >
                             Sai
                           </button>
-                          {revealed && (
-                            <span className="text-xs text-slate-500 dark:text-slate-400 self-center ml-1">
-                              Đáp án: {correctVal ? 'Đúng' : 'Sai'}
-                            </span>
-                          )}
                         </div>
                       </div>
                     )
@@ -426,26 +451,20 @@ export default function HomeworkRunner({
                     disabled={revealed}
                     placeholder="Nhập đáp án..."
                     className={`w-full p-3 rounded-lg border outline-none transition-all text-sm dark:bg-slate-700 dark:text-white ${
-                      revealed
+                      feedbackReleased
                         ? currentAns?.isCorrect
                           ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                           : 'border-red-500 bg-red-50 dark:bg-red-900/20'
                         : 'border-slate-200 dark:border-slate-600 focus:border-teal-500'
                     }`}
                   />
-                  {revealed && (
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      Đáp án đúng: <span className="font-semibold text-green-600 dark:text-green-400">
-                        {currentQuestion.answers.find(a => a.is_correct)?.content || '—'}
-                      </span>
-                    </p>
-                  )}
                 </div>
               )}
 
               {/* Feedback box */}
               {revealed && (
                 <div className="mt-5 space-y-3">
+                  {feedbackReleased ? (
                   <div className={`flex items-center gap-2 p-3 rounded-lg font-medium ${
                     currentAns?.isCorrect
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
@@ -454,6 +473,11 @@ export default function HomeworkRunner({
                     {currentAns?.isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                     {currentAns?.isCorrect ? 'Chính xác!' : 'Chưa đúng'}
                   </div>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-lg bg-slate-100 p-3 font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                      <CheckCircle2 className="h-5 w-5" /> Đã ghi nhận câu trả lời
+                    </div>
+                  )}
 
                   {currentQuestion.explanation && (
                     <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">

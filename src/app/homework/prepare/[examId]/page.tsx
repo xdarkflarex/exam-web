@@ -4,18 +4,19 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
+import { getOrCreateHomeworkAttempt } from '@/lib/homework/actions'
 
 export default function HomeworkPreparePage() {
   const params = useParams()
   const router = useRouter()
-  const examId = params.examId as string
+  const assignmentId = params.examId as string
   const supabase = createClient()
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (examId) prepare()
+    if (assignmentId) prepare()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examId])
+  }, [assignmentId])
 
   const prepare = async () => {
     try {
@@ -25,55 +26,37 @@ export default function HomeworkPreparePage() {
         return
       }
 
-      // Verify exam exists & published
-      const { data: exam } = await supabase
-        .from('exams')
-        .select('id')
-        .eq('id', examId)
-        .eq('is_published', true)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('class_id')
+        .eq('id', user.id)
         .single()
 
-      if (!exam) {
+      const recipientFilter = profile?.class_id
+        ? `student_id.eq.${user.id},class_id.eq.${profile.class_id}`
+        : `student_id.eq.${user.id}`
+      const { data: recipient } = await supabase
+        .from('homework_assignment_recipients')
+        .select('id')
+        .eq('assignment_id', assignmentId)
+        .or(recipientFilter)
+        .limit(1)
+        .maybeSingle()
+      const { data: assignment } = await supabase
+        .from('homework_assignments')
+        .select('id, status, homeworks!inner(is_published)')
+        .eq('id', assignmentId)
+        .eq('status', 'published')
+        .eq('homeworks.is_published', true)
+        .maybeSingle()
+
+      if (!recipient || !assignment) {
         setError('Không tìm thấy bài tập')
         return
       }
 
-      // Reuse existing attempt (homework dùng 1 attempt duy nhất, làm dần)
-      const { data: existing } = await supabase
-        .from('exam_attempts')
-        .select('id')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .order('attempt_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (existing) {
-        router.replace(`/homework/${existing.id}`)
-        return
-      }
-
-      // Create new attempt
-      const { data: created, error: cErr } = await supabase
-        .from('exam_attempts')
-        .insert({
-          exam_id: examId,
-          student_id: user.id,
-          attempt_number: 1,
-          start_time: new Date().toISOString(),
-          status: 'in_progress',
-          current_session_index: 0
-        })
-        .select('id')
-        .single()
-
-      if (cErr || !created) {
-        console.error('create homework attempt', cErr)
-        setError('Không thể bắt đầu bài tập')
-        return
-      }
-
-      router.replace(`/homework/${created.id}`)
+      const attemptId = await getOrCreateHomeworkAttempt(assignmentId, user.id)
+      router.replace(`/homework/${attemptId}`)
     } catch (err) {
       console.error('prepare homework', err)
       setError('Lỗi kết nối')

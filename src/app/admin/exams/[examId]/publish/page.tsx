@@ -17,6 +17,7 @@ interface ExamConfig {
   show_results_immediately: boolean
   allow_review: boolean
   is_published: boolean
+  exam_mode: 'practice' | 'simulation'
 }
 
 export default function ExamPublishPage() {
@@ -62,7 +63,8 @@ export default function ExamPublishPage() {
           max_attempts,
           show_results_immediately,
           allow_review,
-          is_published
+          is_published,
+          exam_mode
         `)
         .eq('id', examId)
         .single()
@@ -166,7 +168,7 @@ export default function ExamPublishPage() {
       }
 
       // Auto-create announcement when publishing
-      if (newPublishState && title) {
+      if (newPublishState && title && exam?.exam_mode === 'simulation') {
         const endDate = new Date()
         endDate.setDate(endDate.getDate() + 7) // Show for 7 days
         

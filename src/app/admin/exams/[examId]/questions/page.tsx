@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, CheckCircle, XCircle, Loader2, Download } from 'lucide-react'
@@ -33,24 +33,33 @@ interface ExamInfo {
   subject: string
 }
 
+interface QuestionRelation {
+  id: string
+  content: string
+  question_type: string
+  solution: string | null
+  tikz_code: string | null
+}
+
+interface ExamQuestionRow {
+  part_number: number
+  order_in_part: number
+  question_id: string
+  questions: QuestionRelation | QuestionRelation[] | null
+}
+
 export default function ExamQuestionsPage() {
   const router = useRouter()
   const params = useParams()
   const examId = params.examId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [examInfo, setExamInfo] = useState<ExamInfo | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (examId) {
-      fetchData()
-    }
-  }, [examId])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Fetch exam info
       const { data: exam, error: examError } = await supabase
@@ -95,9 +104,10 @@ export default function ExamQuestionsPage() {
       }
 
       // Get question IDs for fetching answers
-      const questionIds = examQuestions
-        .map((eq: any) => eq.questions?.id)
-        .filter(Boolean)
+      const questionRows = examQuestions as unknown as ExamQuestionRow[]
+      const questionIds = questionRows
+        .map((eq) => Array.isArray(eq.questions) ? eq.questions[0]?.id : eq.questions?.id)
+        .filter((id): id is string => Boolean(id))
 
       if (questionIds.length === 0) {
         setQuestions([])
@@ -118,9 +128,10 @@ export default function ExamQuestionsPage() {
       }
 
       // Build questions array - PHASE B: Read-only preview data
-      const formattedQuestions: Question[] = examQuestions.map((eq: any) => {
-        const q = eq.questions
-        return {
+      const formattedQuestions: Question[] = questionRows.flatMap((eq) => {
+        const q = Array.isArray(eq.questions) ? eq.questions[0] : eq.questions
+        if (!q) return []
+        return [{
           id: q.id,
           content: q.content,
           question_type: q.question_type,
@@ -129,7 +140,7 @@ export default function ExamQuestionsPage() {
           part_number: eq.part_number,
           order_in_part: eq.order_in_part,
           answers: answersByQuestion[q.id] || []
-        }
+        }]
       })
 
       setQuestions(formattedQuestions)
@@ -139,7 +150,15 @@ export default function ExamQuestionsPage() {
       setError('Lỗi kết nối')
       setLoading(false)
     }
-  }
+  }, [examId, supabase])
+
+  useEffect(() => {
+    if (!examId) return
+    const timeoutId = window.setTimeout(() => {
+      void fetchData()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [examId, fetchData])
 
   const handleExportTex = () => {
     if (questions.length === 0) return
@@ -166,6 +185,7 @@ export default function ExamQuestionsPage() {
       case 'multiple_choice': return 'Trắc nghiệm'
       case 'true_false': return 'Đúng / Sai'
       case 'short_answer': return 'Trả lời ngắn'
+      case 'essay': return 'Tự luận'
       default: return type
     }
   }
@@ -175,6 +195,7 @@ export default function ExamQuestionsPage() {
       case 'multiple_choice': return 'bg-blue-100 text-blue-800'
       case 'true_false': return 'bg-purple-100 text-purple-800'
       case 'short_answer': return 'bg-green-100 text-green-800'
+      case 'essay': return 'bg-amber-100 text-amber-800'
       default: return 'bg-slate-100 text-slate-800'
     }
   }

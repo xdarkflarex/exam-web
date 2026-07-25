@@ -66,11 +66,13 @@ export default function ActiveExamBanner() {
           start_time,
           exams!inner (
             title,
-            duration
+            duration,
+            exam_mode
           )
         `)
         .eq('student_id', user.id)
         .eq('status', 'in_progress')
+        .eq('exams.exam_mode', 'simulation')
         .order('start_time', { ascending: false })
         .limit(1)
         .maybeSingle()

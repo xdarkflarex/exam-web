@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "exam-web",
+    "productName": "Minh Math",
+    "framework": "next-app-router",
+    "packageManager": "npm",
+    "sourceRoot": "src",
+    "tsconfig": "tsconfig.json",
+    "language": "vi"
+  },
+  "indexScope": {
+    "moduleRoots": [
+      "src"
+    ],
+    "sqlDefinitionRoots": [
+      "supabase/migrations"
+    ],
+    "referenceSqlFiles": [
+      "database/SUPABASE_SCHEMA.sql"
+    ],
+    "contextFingerprintFiles": [
+      "AGENTS.md",
+      "README.md",
+      "docs/**/*.md"
+    ],
+    "excluded": [
+      ".git/**",
+      ".next/**",
+      "node_modules/**",
+      ".ai-cache/**",
+      ".understand-anything/**",
+      ".gitnexus/**",
+      ".cocoindex*/**",
+      "database/**/*.md",
+      "latex-bai-tap-day-12/**",
+      "**/*.tsbuildinfo",
+      "**/*.png",
+      "**/*.pyc"
+    ]
+  },
+  "sourceOfTruth": {
+    "agentRules": "AGENTS.md",
+    "architecture": "docs/PROJECT_MAP.md",
+    "features": "docs/FEATURES.md",
+    "essayGrading": "docs/ESSAY_GRADING.md",
+    "dataModel": "docs/DATA_MODEL.md",
+    "runbook": "docs/RUNBOOK.md",
+    "audit": "docs/SECURITY_AND_AUDIT.md",
+    "auth": [
+      "src/middleware.ts",
+      "src/lib/auth/roles.ts",
+      "src/lib/auth/access.ts"
+    ],
+    "migrations": "supabase/migrations",
+    "schemaSnapshotReferenceOnly": "database/SUPABASE_SCHEMA.sql"
+  },
+  "knownPilots": [
+    {
+      "id": "essay-assisted-grading",
+      "scope": [
+        "simulation"
+      ],
+      "status": "source-implemented-migration-not-applied-or-live-tested",
+      "workflow": "anonymous-manual-ai-copy-paste-with-required-teacher-approval",
+      "excluded": [
+        "practice",
+        "homework",
+        "automatic-ai-provider-api"
+      ],
+      "documentation": "docs/ESSAY_GRADING.md",
+      "migration": "supabase/migrations/20260721_essay_assisted_grading.sql"
+    }
+  ],
+  "routeAccessRules": [
+    {
+      "pattern": "/",
+      "access": "public",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/login",
+      "access": "public-special",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/signup",
+      "access": "public-special",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/auth/callback",
+      "access": "public-handler",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/api/enrollments",
+      "access": "public-handler",
+      "source": "src/app/api/enrollments/route.ts"
+    },
+    {
+      "pattern": "/api/auth/signup",
+      "access": "public-handler",
+      "source": "src/app/api/auth/signup/route.ts"
+    },
+    {
+      "pattern": "/api/admin/**",
+      "access": "handler-auth-exact-admin",
+      "source": "src/app/api/admin"
+    },
+    {
+      "pattern": "/complete-profile",
+      "access": "authenticated-missing-profile-only",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/change-password",
+      "access": "authenticated-must-change-password-only",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/admin/verify-otp",
+      "access": "admin-or-teacher-otp-challenge",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/admin/**",
+      "access": "admin-or-teacher-plus-otp",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/student/**",
+      "access": "student",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/result/**",
+      "access": "student",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/learn/**",
+      "access": "student-or-admin-or-teacher",
+      "source": "src/middleware.ts"
+    },
+    {
+      "pattern": "/**",
+      "access": "authenticated-role-not-prefix-enforced",
+      "source": "src/middleware.ts"
+    }
+  ],
+  "domains": [
+    {
+      "id": "auth-access",
+      "label": "Xác thực và quyền",
+      "entrypoints": [
+        "src/middleware.ts",
+        "src/lib/auth",
+        "src/app/api/admin",
+        "src/app/(auth)"
+      ],
+      "routePrefixes": [
+        "/login",
+        "/signup",
+        "/admin",
+        "/student"
+      ],
+      "dataObjects": [
+        "profiles",
+        "classes",
+        "site_settings",
+        "admin_otp_codes"
+      ],
+      "invariants": [
+        "API handlers authenticate and authorize independently of middleware",
+        "Teacher data is class-scoped",
+        "Feature flags are enforced server-side, not only in navigation",
+        "Service-role credentials never reach the client"
+      ]
+    },
+    {
+      "id": "question-bank",
+      "label": "Ngân hàng câu hỏi",
+      "entrypoints": [
+        "src/app/admin/questions",
+        "src/app/admin/questions/essay/new/page.tsx",
+        "src/components/admin/QuestionEditor.tsx",
+        "src/lib/essay-grading/prompt.ts",
+        "src/lib/answers"
+      ],
+      "routePrefixes": [
+        "/admin/questions"
+      ],
+      "dataObjects": [
+        "questions",
+        "answers",
+        "topics",
+        "categories",
+        "sections",
+        "subsections",
+        "question_taxonomy",
+        "tags",
+        "question_tags",
+        "question_feedbacks",
+        "question_grading_configs"
+      ],
+      "invariants": [
+        "Correct answers are not exposed before feedback policy permits",
+        "All four source question types remain explicit: multiple_choice, true_false, short_answer, essay",
+        "Essay reference answers and rubrics are never student-readable"
+      ]
+    },
+    {
+      "id": "essay-grading",
+      "label": "Pilot tự luận có AI hỗ trợ",
+      "entrypoints": [
+        "docs/ESSAY_GRADING.md",
+        "src/app/admin/questions/essay/new/page.tsx",
+        "src/components/admin/EssayGradingPanel.tsx",
+        "src/lib/essay-grading/prompt.ts",
+        "src/app/admin/attempts/[attemptId]/page.tsx",
+        "supabase/migrations/20260721_essay_assisted_grading.sql"
+      ],
+      "routePrefixes": [
+        "/admin/questions/essay",
+        "/admin/attempts",
+        "/exam",
+        "/result"
+      ],
+      "dataObjects": [
+        "questions",
+        "question_grading_configs",
+        "exam_questions",
+        "exam_attempts",
+        "student_answers",
+        "essay_grading_reviews",
+        "create_essay_question",
+        "submit_exam_attempt",
+        "review_essay_answer"
+      ],
+      "invariants": [
+        "Essay pilot is simulation-only; practice and homework are excluded",
+        "AI is manual anonymous copy-paste assistance and never final authority",
+        "Every nonblank essay requires teacher approval before the attempt has a final score",
+        "Migration is not assumed applied or live-tested",
+        "Student identity is excluded from AI grading packs"
+      ]
+    },
+    {
+      "id": "exam-practice",
+      "label": "Thi thử và ôn tập",
+      "entrypoints": [
+        "src/app/exam",
+        "src/app/practice",
+        "src/components/ExamRunner.tsx",
+        "src/components/PracticeRunner.tsx",
+        "src/lib/exam"
+      ],
+      "routePrefixes": [
+        "/exam",
+        "/practice",
+        "/result",
+        "/student/exams",
+        "/student/practice"
+      ],
+      "dataObjects": [
+        "exams",
+        "exam_questions",
+        "exam_attempts",
+        "student_answers",
+        "question_grading_configs",
+        "essay_grading_reviews",
+        "anti_cheat_logs"
+      ],
+      "invariants": [
+        "Simulation and practice queries filter exam_mode",
+        "Simulation grading uses server RPC only after the essay migration is applied and verified",
+        "Practice remains baseline client grading and must not accept essay",
+        "Attempt limits and time windows are enforced atomically"
+      ]
+    },
+    {
+      "id": "homework",
+      "label": "Bài tập về nhà",
+      "entrypoints": [
+        "src/app/homework",
+        "src/app/admin/homework",
+        "src/components/HomeworkRunner.tsx",
+        "src/lib/homework"
+      ],
+      "routePrefixes": [
+        "/homework",
+        "/student/homework",
+        "/admin/homework"
+      ],
+      "dataObjects": [
+        "homeworks",
+        "homework_questions",
+        "homework_assignments",
+        "homework_assignment_recipients",
+        "homework_attempts",
+        "homework_answers",
+        "homework_knowledge_targets"
+      ],
+      "invariants": [
+        "Homework uses the dedicated homework domain",
+        "Recipients and attempts are owner/class scoped",
+        "In-progress homework does not reveal solutions by default"
+      ]
+    },
+    {
+      "id": "knowledge",
+      "label": "Kiến thức và liên kết câu hỏi",
+      "entrypoints": [
+        "src/app/learn",
+        "src/app/admin/theories",
+        "src/app/admin/knowledge-links",
+        "src/components/theories",
+        "src/lib/theories"
+      ],
+      "routePrefixes": [
+        "/learn",
+        "/admin/theories",
+        "/admin/knowledge-links"
+      ],
+      "dataObjects": [
+        "theories",
+        "theory_edges",
+        "knowledge_blocks",
+        "knowledge_block_edges",
+        "question_knowledge_links",
+        "v_theory_question_coverage",
+        "v_block_question_coverage"
+      ],
+      "invariants": [
+        "Legacy routes redirect without breaking saved links",
+        "Dropped mastery tables are not reintroduced without a new design"
+      ]
+    },
+    {
+      "id": "analytics",
+      "label": "Thống kê học tập",
+      "entrypoints": [
+        "src/lib/analytics",
+        "src/app/admin/analytics",
+        "src/app/(student)/student/analytics",
+        "src/app/admin/reports"
+      ],
+      "routePrefixes": [
+        "/admin/analytics",
+        "/admin/reports",
+        "/student/analytics",
+        "/student/history"
+      ],
+      "dataObjects": [
+        "exam_attempts",
+        "student_answers",
+        "homework_attempts",
+        "homework_answers",
+        "question_knowledge_links"
+      ],
+      "invariants": [
+        "Metrics define whether exam and homework are combined",
+        "Teacher analytics is class scoped"
+      ]
+    },
+    {
+      "id": "content-enrollment",
+      "label": "CMS, landing và tuyển sinh",
+      "entrypoints": [
+        "src/app/page.tsx",
+        "src/app/admin/posts",
+        "src/app/admin/landing",
+        "src/app/admin/enrollments",
+        "src/app/api/enrollments/route.ts"
+      ],
+      "routePrefixes": [
+        "/",
+        "/admin/posts",
+        "/admin/landing",
+        "/admin/enrollments"
+      ],
+      "dataObjects": [
+        "posts",
+        "announcements",
+        "site_settings",
+        "enrollment_registrations",
+        "Landingpage"
+      ],
+      "invariants": [
+        "Public enrollment is rate limited and validated",
+        "Storage mutations are admin authorized"
+      ]
+    }
+  ]
+}

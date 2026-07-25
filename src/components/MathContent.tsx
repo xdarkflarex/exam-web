@@ -1,9 +1,12 @@
 'use client'
 
+import { useMemo, type ReactNode } from 'react'
 import { MathJax, MathJaxContext } from 'better-react-mathjax'
 import ReactMarkdown from 'react-markdown'
+import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import dynamic from 'next/dynamic'
+import { normalizeLatexTablesForMarkdown } from '@/lib/theories/latex-normalize'
 
 // Lazy load TikzRenderer (heavy dependency)
 const TikzRenderer = dynamic(() => import('./TikzRenderer'), {
@@ -30,7 +33,7 @@ interface MathContentProps {
   className?: string
 }
 
-export function MathProvider({ children }: { children: React.ReactNode }) {
+export function MathProvider({ children }: { children: ReactNode }) {
   return (
     <MathJaxContext config={config}>
       {children}
@@ -44,8 +47,8 @@ function hasMarkdown(text: string): boolean {
 }
 
 // Custom code renderer that handles tikz blocks
-const markdownComponents = {
-  code({ className, children, ...props }: any) {
+const markdownComponents: Components = {
+  code({ className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || '')
     const language = match ? match[1] : ''
 
@@ -73,12 +76,36 @@ const markdownComponents = {
       </code>
     )
   },
+  table({ children, ...props }) {
+    return (
+      <div className="my-3 max-w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+        <table className="min-w-full border-collapse text-sm" {...props}>
+          {children}
+        </table>
+      </div>
+    )
+  },
+  th({ children, ...props }) {
+    return (
+      <th className="border border-slate-200 bg-slate-100 px-3 py-2 text-left font-semibold dark:border-slate-700 dark:bg-slate-800" {...props}>
+        {children}
+      </th>
+    )
+  },
+  td({ children, ...props }) {
+    return (
+      <td className="border border-slate-200 px-3 py-2 align-top dark:border-slate-700" {...props}>
+        {children}
+      </td>
+    )
+  },
 }
 
 export default function MathContent({ content, className = '' }: MathContentProps) {
+  const normalizedContent = useMemo(() => normalizeLatexTablesForMarkdown(content), [content])
   // Check if content contains HTML tags
-  const hasHtml = /<[^>]+>/.test(content)
-  const isMarkdown = !hasHtml && hasMarkdown(content)
+  const hasHtml = /<[^>]+>/.test(normalizedContent)
+  const isMarkdown = !hasHtml && hasMarkdown(normalizedContent)
 
   return (
     <MathJax className={className} dynamic>
@@ -88,13 +115,13 @@ export default function MathContent({ content, className = '' }: MathContentProp
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {content}
+            {normalizedContent}
           </ReactMarkdown>
         </div>
       ) : hasHtml ? (
-        <div dangerouslySetInnerHTML={{ __html: content }} />
+        <div dangerouslySetInnerHTML={{ __html: normalizedContent }} />
       ) : (
-        <span>{content}</span>
+        <span>{normalizedContent}</span>
       )}
     </MathJax>
   )

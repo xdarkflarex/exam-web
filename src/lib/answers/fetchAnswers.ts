@@ -8,6 +8,13 @@ export interface FetchedAnswer {
   order_index: number
 }
 
+export interface StudentAnswerOption {
+  id: string
+  question_id: string
+  content: string
+  order_index: number
+}
+
 // Supabase trả về tối đa 1000 dòng mỗi request (mặc định).
 // Đồng thời URL có giới hạn độ dài nên không thể đưa quá nhiều id vào .in().
 // Helper này chia nhỏ question_id theo lô và phân trang để LẤY ĐỦ tất cả đáp án,
@@ -30,7 +37,6 @@ export async function fetchAllAnswers(
 
     let from = 0
     // Phân trang trong từng lô để chắc chắn không bị cắt ở mốc 1000 dòng.
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { data, error } = await supabase
         .from('answers')
@@ -47,6 +53,39 @@ export async function fetchAllAnswers(
       const rows = (data || []) as FetchedAnswer[]
       all.push(...rows)
 
+      if (rows.length < PAGE_SIZE) break
+      from += PAGE_SIZE
+    }
+  }
+
+  return all
+}
+
+// Student-facing option loader. It intentionally never selects is_correct.
+export async function fetchStudentAnswerOptions(
+  supabase: SupabaseClient,
+  questionIds: string[]
+): Promise<StudentAnswerOption[]> {
+  const uniqueIds = Array.from(new Set(questionIds.filter(Boolean)))
+  if (uniqueIds.length === 0) return []
+
+  const all: StudentAnswerOption[] = []
+  for (let i = 0; i < uniqueIds.length; i += QUESTION_ID_CHUNK) {
+    const chunk = uniqueIds.slice(i, i + QUESTION_ID_CHUNK)
+    let from = 0
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('answers')
+        .select('id, question_id, content, order_index')
+        .in('question_id', chunk)
+        .order('question_id', { ascending: true })
+        .order('order_index', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+
+      if (error) throw new Error(`Không thể tải lựa chọn: ${error.message}`)
+      const rows = (data || []) as StudentAnswerOption[]
+      all.push(...rows)
       if (rows.length < PAGE_SIZE) break
       from += PAGE_SIZE
     }

@@ -348,12 +348,18 @@ export async function middleware(request: NextRequest) {
   // ============================================
   // ADMIN 2FA CHECK
   // ============================================
-  // Admin users must complete 2FA before accessing admin routes
+  // Only exact system admins complete 2FA. Teacher accounts may use scoped
+  // admin surfaces, but the OTP APIs intentionally reject non-admin roles.
   // Exception: /admin/verify-otp page itself
   // Can be disabled via admin.settings -> requireAdminOTP = false
   // ============================================
-  if (isAdminRoute && isAdmin(userRole)) {
-    const isVerifyOtpPage = pathname === '/admin/verify-otp'
+  const isVerifyOtpPage = pathname === '/admin/verify-otp'
+
+  if (isVerifyOtpPage && userRole !== 'admin') {
+    return NextResponse.redirect(new URL('/admin', request.url))
+  }
+
+  if (isAdminRoute && userRole === 'admin') {
     const is2FAVerified = request.cookies.get(ADMIN_2FA_COOKIE)?.value === 'true'
 
     // Check if OTP requirement is disabled in site settings

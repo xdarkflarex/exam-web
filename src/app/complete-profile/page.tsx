@@ -24,7 +24,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { User, CheckCircle, School, Users, Lock, Eye, EyeOff, Info, GraduationCap } from 'lucide-react'
+import { User, CheckCircle, School, Lock, Eye, EyeOff, Info, GraduationCap } from 'lucide-react'
 import { logger } from '@/lib/logger'
 
 // Password strength checker
@@ -50,7 +50,6 @@ export default function CompleteProfilePage() {
   // Form state
   const [fullName, setFullName] = useState('')
   const [school, setSchool] = useState('')
-  const [classId, setClassId] = useState('')
   const [grade, setGrade] = useState<number | null>(null)
   
   // Password state (optional for Google users)
@@ -208,7 +207,6 @@ export default function CompleteProfilePage() {
         role: 'student', // ALWAYS student - no user input for role
         full_name: fullName.trim(),
         school: school.trim() || null,
-        class_id: classId.trim() || null,
         grade: grade,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -326,18 +324,9 @@ export default function CompleteProfilePage() {
             </div>
 
             {/* Class - Optional */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                <Users className="w-4 h-4" />
-                Lớp <span className="text-slate-400 text-xs">(không bắt buộc)</span>
-              </label>
-              <input
-                type="text"
-                value={classId}
-                onChange={(e) => setClassId(e.target.value)}
-                placeholder="VD: 12A1"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 outline-none transition-all"
-              />
+            <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-100 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              Lớp học sẽ do giáo viên hoặc quản trị viên gán để tránh đăng ký nhầm lớp.
             </div>
 
             {/* Password Section - Optional for Google OAuth users */}

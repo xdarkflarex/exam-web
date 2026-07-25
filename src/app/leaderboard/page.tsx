@@ -1,13 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { logger } from '@/lib/logger'
 import { StudentHeader } from '@/components/student'
-import { 
-  Trophy, Medal, Crown, TrendingUp, Calendar, Filter,
-  ChevronDown, User, Target, Award, Flame, Star
-} from 'lucide-react'
+import { Trophy, Medal, Crown } from 'lucide-react'
 
 interface LeaderboardEntry {
   rank: number
@@ -20,124 +17,89 @@ interface LeaderboardEntry {
   isCurrentUser: boolean
 }
 
+interface LeaderboardRpcRow {
+  student_key: string
+  student_name: string
+  avg_score: number | string
+  total_attempts: number | string
+  best_score: number | string
+  is_current_user: boolean
+}
+
 type TimeRange = 'week' | 'month' | 'all'
 type SortBy = 'avgScore' | 'totalAttempts' | 'bestScore'
 
+function getDateRange(range: TimeRange): Date | null {
+  const now = new Date()
+  switch (range) {
+    case 'week': return new Date(now.setDate(now.getDate() - 7))
+    case 'month': return new Date(now.setDate(now.getDate() - 30))
+    default: return null
+  }
+}
+
+function toFiniteNumber(value: number | string): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 export default function LeaderboardPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   
   const [loading, setLoading] = useState(true)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUserRank, setCurrentUserRank] = useState<LeaderboardEntry | null>(null)
   const [timeRange, setTimeRange] = useState<TimeRange>('month')
   const [sortBy, setSortBy] = useState<SortBy>('avgScore')
   const [selectedExam, setSelectedExam] = useState<string>('all')
   const [exams, setExams] = useState<{ id: string; title: string }[]>([])
 
-  useEffect(() => {
-    getCurrentUser()
-    fetchExams()
-  }, [])
-
-  useEffect(() => {
-    if (currentUserId !== null) {
-      fetchLeaderboard()
-    }
-  }, [timeRange, sortBy, selectedExam, currentUserId])
-
-  const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setCurrentUserId(user?.id || null)
-  }
-
-  const fetchExams = async () => {
+  const fetchExams = useCallback(async () => {
     const { data } = await supabase
       .from('exams')
       .select('id, title')
       .eq('is_published', true)
+      .eq('exam_mode', 'simulation')
       .order('title')
     
     setExams(data || [])
-  }
+  }, [supabase])
 
-  const getDateRange = (range: TimeRange): Date | null => {
-    const now = new Date()
-    switch (range) {
-      case 'week': return new Date(now.setDate(now.getDate() - 7))
-      case 'month': return new Date(now.setDate(now.getDate() - 30))
-      default: return null
-    }
-  }
-
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('exam_attempts')
-        .select(`
-          student_id,
-          score,
-          exam_id,
-          created_at,
-          status,
-          profiles!student_id(full_name)
-        `)
-        .in('status', ['submitted', 'graded'])
-
-      // Filter by time range
       const startDate = getDateRange(timeRange)
-      if (startDate) {
-        query = query.gte('created_at', startDate.toISOString())
-      }
-
-      // Filter by exam
-      if (selectedExam !== 'all') {
-        query = query.eq('exam_id', selectedExam)
-      }
-
-      const { data: attempts, error } = await query
+      const { data, error } = await supabase.rpc('get_simulation_leaderboard', {
+        p_exam_id: selectedExam === 'all' ? null : selectedExam,
+        p_since: startDate?.toISOString() || null,
+      })
 
       if (error) {
         logger.supabaseError('fetch leaderboard', error)
+        setLeaderboard([])
+        setCurrentUserRank(null)
         return
       }
 
-      // Group by student and calculate stats
-      const studentMap = new Map<string, {
-        name: string
-        scores: number[]
-      }>()
+      const rows = (data || []) as unknown as LeaderboardRpcRow[]
+      const entries: LeaderboardEntry[] = rows
+        .filter((row) => typeof row.student_key === 'string' && row.student_key.length > 0)
+        .map((row) => {
+          const name = typeof row.student_name === 'string' && row.student_name.trim()
+            ? row.student_name.trim()
+            : 'Học sinh'
 
-      for (const attempt of attempts || []) {
-        const profile = attempt.profiles as any
-        const studentId = attempt.student_id
-        
-        if (!studentMap.has(studentId)) {
-          studentMap.set(studentId, {
-            name: profile?.full_name || 'Học sinh',
-            scores: []
-          })
-        }
-        
-        if (attempt.score !== null) {
-          studentMap.get(studentId)!.scores.push(attempt.score)
-        }
-      }
-
-      // Build leaderboard entries
-      let entries: LeaderboardEntry[] = Array.from(studentMap.entries())
-        .filter(([_, data]) => data.scores.length > 0)
-        .map(([id, data]) => ({
-          rank: 0,
-          id,
-          name: data.name,
-          avatarInitial: data.name.charAt(0).toUpperCase(),
-          avgScore: data.scores.reduce((a, b) => a + b, 0) / data.scores.length,
-          totalAttempts: data.scores.length,
-          bestScore: Math.max(...data.scores),
-          isCurrentUser: id === currentUserId
-        }))
+          return {
+            rank: 0,
+            id: row.student_key,
+            name,
+            avatarInitial: name.charAt(0).toUpperCase(),
+            avgScore: toFiniteNumber(row.avg_score),
+            totalAttempts: Math.max(0, Math.trunc(toFiniteNumber(row.total_attempts))),
+            bestScore: toFiniteNumber(row.best_score),
+            isCurrentUser: row.is_current_user === true,
+          }
+        })
 
       // Sort based on selected criteria
       entries.sort((a, b) => {
@@ -165,7 +127,15 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedExam, sortBy, supabase, timeRange])
+
+  useEffect(() => {
+    void fetchExams()
+  }, [fetchExams])
+
+  useEffect(() => {
+    void fetchLeaderboard()
+  }, [fetchLeaderboard])
 
   const getRankIcon = (rank: number) => {
     switch (rank) {

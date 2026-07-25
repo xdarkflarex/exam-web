@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Trophy, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare } from 'lucide-react'
@@ -13,27 +13,34 @@ import {
   buildAttemptView,
   prepareRawAttemptData,
   RawAnswer,
+  RawQuestion,
   RawStudentAnswer
 } from '@/lib/attempts/attemptView'
-import { fetchAllAnswers } from '@/lib/answers/fetchAnswers'
+import { getExamAttemptQuestionBundle } from '@/lib/exam/questions'
 
 interface ExamAttempt {
   id: string
-  exam_id: string
-  student_id: string
   status: string
-  total_questions: number
-  correct_answers: number
-  score: number
-  submit_time: string
+  total_questions: number | null
+  correct_answers: number | null
+  score: number | null
+  grading_status: string
+  pending_grading_count: number
+  objective_points: number | null
+  essay_points: number | null
+  earned_points: number | null
+  max_points: number | null
+  submit_time: string | null
   start_time: string
+  result_released: boolean
+  answer_key_revealed: boolean
 }
 
 export default function ResultPage() {
   const params = useParams()
   const router = useRouter()
   const attemptId = params.attemptId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
   const [questions, setQuestions] = useState<AttemptQuestionView[]>([])
@@ -52,88 +59,44 @@ export default function ResultPage() {
     isVisible: boolean
   }>({ message: '', type: 'success', isVisible: false })
 
-  useEffect(() => {
-    if (attemptId) {
-      fetchAttemptData()
-    }
-  }, [attemptId])
-
-  const fetchAttemptData = async () => {
+  const fetchAttemptData = useCallback(async () => {
     try {
-      const { data: attemptData, error: attemptError } = await supabase
-        .from('exam_attempts')
-        .select('id, exam_id, student_id, status, total_questions, correct_answers, score, submit_time, start_time')
-        .eq('id', attemptId)
-        .single()
-
-      if (attemptError) {
-        console.error('Attempt fetch error:', attemptError)
-        setError('Không tìm thấy kết quả')
+      const { bundle, error: bundleError } = await getExamAttemptQuestionBundle(attemptId)
+      if (bundleError || !bundle) {
+        console.error('Exam question bundle error:', bundleError)
+        setError('Không thể tải kết quả')
         setLoading(false)
         return
       }
 
-      if (attemptData.status !== 'submitted') {
+      if (!['submitted', 'graded'].includes(bundle.attempt.status)) {
         setError('Bài thi chưa được nộp')
         setLoading(false)
         return
       }
 
-      setAttempt(attemptData)
-
-      const { data: examInfo, error: examError } = await supabase
-        .from('exams')
-        .select('title')
-        .eq('id', attemptData.exam_id)
-        .single()
-
-      if (!examError && examInfo) {
-        setExamTitle(examInfo.title)
-      }
-
-      const { data: studentAnswers, error: saError } = await supabase
-        .from('student_answers')
-        .select('question_id, selected_answer, selected_answers, text_answer, is_correct')
-        .eq('attempt_id', attemptId)
-
-      if (saError) {
-        console.error('Student answers fetch error:', saError)
-      }
-
-      const { data: examQuestions, error: eqError } = await supabase
-        .from('exam_questions')
-        .select(`
-          part_number,
-          order_in_part,
-          questions (
-            id,
-            content,
-            question_type,
-            explanation,
-            solution,
-            tikz_image_url
-          )
-        `)
-        .eq('exam_id', attemptData.exam_id)
-        .order('part_number', { ascending: true })
-        .order('order_in_part', { ascending: true })
-
-      if (eqError) {
-        console.error('Exam questions fetch error:', eqError)
-        setError('Không thể tải câu hỏi')
-        setLoading(false)
-        return
-      }
-
-      const questionIds = examQuestions.map((eq: any) => eq.questions?.id).filter(Boolean)
-      
-      const allAnswers = await fetchAllAnswers(supabase, questionIds)
+      setAttempt(bundle.attempt)
+      setExamTitle(bundle.exam.title)
+      const examQuestions = bundle.questions.map((question) => ({
+        part_number: question.part_number,
+        order_in_part: question.order_in_part,
+        questions: {
+          id: question.id,
+          content: question.content,
+          question_type: question.question_type,
+          explanation: question.explanation,
+          solution: question.solution,
+          tikz_image_url: question.tikz_image_url,
+          answers: question.answers,
+        } satisfies RawQuestion,
+      }))
+      const allAnswers = bundle.questions.flatMap((question) => question.answers || [])
 
       // Use unified view model
       const rawData = prepareRawAttemptData({
-        examQuestions: examQuestions as any,
-        studentAnswers: (studentAnswers || []) as RawStudentAnswer[],
-        allAnswers: (allAnswers || []) as RawAnswer[]
+        examQuestions,
+        studentAnswers: bundle.student_answers as unknown as RawStudentAnswer[],
+        allAnswers: allAnswers as RawAnswer[]
       })
       
       const viewQuestions = buildAttemptView(rawData)
@@ -144,9 +107,20 @@ export default function ResultPage() {
       setError('Lỗi kết nối')
       setLoading(false)
     }
-  }
+  }, [attemptId, supabase])
 
-  const getScoreColor = (score: number) => {
+  useEffect(() => {
+    if (!attemptId) return
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchAttemptData()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [attemptId, fetchAttemptData])
+
+  const getScoreColor = (score: number | null) => {
+    if (score === null) return 'text-amber-600 dark:text-amber-400'
     if (score >= 8) return 'text-green-600 dark:text-green-400'
     if (score >= 5) return 'text-yellow-600 dark:text-yellow-400'
     return 'text-red-600 dark:text-red-400'
@@ -219,7 +193,7 @@ export default function ResultPage() {
       return <span className="text-slate-400 italic">Không trả lời</span>
     }
 
-    if (question.questionType === 'true_false' && question.trueFalseDetails) {
+    if (question.questionType === 'true_false' && question.trueFalseDetails && attempt?.answer_key_revealed) {
       return (
         <div className="space-y-1">
           {question.trueFalseDetails.map((detail, idx) => (
@@ -238,11 +212,55 @@ export default function ResultPage() {
   }
 
   const renderQuestionResult = (question: AttemptQuestionView, index: number) => {
+    const isEssay = question.questionType === 'essay'
     const questionTypeLabel = question.questionType === 'multiple_choice' 
       ? 'Trắc nghiệm' 
       : question.questionType === 'true_false' 
         ? 'Đúng / Sai' 
-        : 'Trả lời ngắn'
+        : question.questionType === 'essay' ? 'Tự luận' : 'Trả lời ngắn'
+
+    if (isEssay) {
+      const approved = attempt?.answer_key_revealed && question.gradingStatus === 'approved'
+      return (
+        <div key={question.questionId} className="mb-4 rounded-xl border border-slate-300 bg-slate-200 p-6 dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex items-start gap-3">
+            <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${approved ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'}`}>
+              {approved ? <CheckCircle2 className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 text-sm font-medium text-slate-500">Câu {index + 1} • {questionTypeLabel}</div>
+              <MathContent content={question.content} className="mb-3 text-slate-800 dark:text-slate-200" />
+              <div className="rounded-lg bg-white/70 p-3 dark:bg-slate-900/60">
+                <div className="mb-1 text-sm font-medium text-slate-600 dark:text-slate-400">Bài làm của bạn:</div>
+                {renderStudentAnswer(question)}
+              </div>
+              <div className={`mt-3 rounded-lg p-3 text-sm ${approved ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}`}>
+                {approved
+                  ? <>Giáo viên đã duyệt: <strong>{question.score ?? 0}/{question.maxScore ?? 0} điểm</strong></>
+                  : question.gradingStatus === 'pending_review'
+                    ? 'Đã ghi nhận bài tự luận. Giáo viên đang duyệt gợi ý chấm của AI.'
+                    : 'Bài tự luận đã được ghi nhận; chi tiết chấm chưa được công bố.'}
+                {approved && question.gradingFeedback && <p className="mt-2">Nhận xét: {question.gradingFeedback}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (!attempt?.answer_key_revealed) {
+      return (
+        <div key={question.questionId} className="mb-4 rounded-xl border border-slate-300 bg-slate-200 p-6 dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-2 text-sm font-medium text-slate-500">Câu {index + 1} • {questionTypeLabel}</div>
+          <MathContent content={question.content} className="mb-3 text-slate-800 dark:text-slate-200" />
+          <div className="rounded-lg bg-white/70 p-3 dark:bg-slate-900/60">
+            <div className="mb-1 text-sm font-medium text-slate-600 dark:text-slate-400">Bài làm của bạn:</div>
+            {renderStudentAnswer(question)}
+          </div>
+          <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">Đáp án và kết quả từng câu chưa được công bố.</p>
+        </div>
+      )
+    }
 
     return (
       <div key={question.questionId} className="bg-slate-200 dark:bg-slate-800 rounded-xl p-6 mb-4 border border-slate-300 dark:border-slate-700">
@@ -367,6 +385,10 @@ export default function ResultPage() {
     )
   }
 
+  const objectiveQuestions = questions.filter((question) => question.questionType !== 'essay')
+  const objectiveCorrect = objectiveQuestions.filter((question) => question.isCorrect).length
+  const essayQuestionCount = questions.length - objectiveQuestions.length
+
   return (
     <MathProvider>
       <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
@@ -393,29 +415,45 @@ export default function ResultPage() {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mb-6">{examTitle}</p>
 
-            <div className={`text-4xl sm:text-6xl font-bold mb-4 ${getScoreColor(attempt?.score || 0)}`}>
-              {attempt?.score?.toFixed(1)}
-            </div>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">trên thang điểm 10</p>
+            {attempt?.grading_status === 'pending_review' ? (
+              <>
+                <div className="mb-3 text-3xl font-bold text-amber-600 dark:text-amber-400">Đang chờ chấm tự luận</div>
+                <p className="mb-6 text-slate-500 dark:text-slate-400">
+                  Còn {attempt.pending_grading_count} câu cần giáo viên duyệt; chưa công bố điểm tổng.
+                </p>
+              </>
+            ) : !attempt?.result_released ? (
+              <div className="mb-6 text-lg font-semibold text-amber-600 dark:text-amber-400">
+                Giáo viên chưa công bố kết quả
+              </div>
+            ) : (
+              <>
+                <div className={`text-4xl sm:text-6xl font-bold mb-4 ${getScoreColor(attempt?.score ?? null)}`}>
+                  {attempt?.score?.toFixed(1)}
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 mb-6">trên thang điểm 10</p>
+              </>
+            )}
 
+            {attempt?.answer_key_revealed ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
               <div className="text-center">
                 <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
-                  {attempt?.correct_answers}
+                  {objectiveCorrect}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu đúng</div>
+                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu khách quan đúng</div>
               </div>
               <div className="text-center">
                 <div className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">
-                  {(attempt?.total_questions || 0) - (attempt?.correct_answers || 0)}
+                  {objectiveQuestions.length - objectiveCorrect}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu sai</div>
+                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu khách quan sai</div>
               </div>
               <div className="text-center">
                 <div className="text-xl sm:text-2xl font-bold text-slate-600 dark:text-slate-400">
-                  {attempt?.total_questions}
+                  {essayQuestionCount}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Tổng câu</div>
+                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu tự luận</div>
               </div>
               <div className="text-center">
                 <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
@@ -425,6 +463,11 @@ export default function ResultPage() {
                 <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Thời gian</div>
               </div>
             </div>
+            ) : (
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Chi tiết đúng/sai và lời giải chỉ hiện khi chính sách của đề cho phép.
+              </div>
+            )}
           </div>
 
           <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">

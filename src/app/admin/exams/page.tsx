@@ -48,6 +48,7 @@ export default function AdminExamsPage() {
           grade,
           exam_mode
         `)
+        .in('exam_mode', ['practice', 'simulation'])
         .order('created_at', { ascending: false })
 
       if (examsError) {

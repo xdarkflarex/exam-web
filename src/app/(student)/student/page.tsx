@@ -15,8 +15,12 @@ import {
   ChevronRight,
   Flame,
   BookOpen,
-  PenTool
+  PenTool,
+  ClipboardList,
+  BarChart3,
+  Sparkles
 } from 'lucide-react'
+import { getStudentCapabilitySummary, type StudentCapabilitySummary } from '@/lib/analytics/student-capability'
 
 interface Exam {
   id: string
@@ -47,6 +51,22 @@ interface InProgressAttempt {
   exam_mode?: string
 }
 
+function relationRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'object' && value[0] !== null
+      ? value[0] as Record<string, unknown>
+      : null
+  }
+  return typeof value === 'object' && value !== null
+    ? value as Record<string, unknown>
+    : null
+}
+
+function relationString(value: unknown, key: string, fallback = ''): string {
+  const record = relationRecord(value)
+  return typeof record?.[key] === 'string' ? record[key] : fallback
+}
+
 export default function StudentPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -65,6 +85,7 @@ export default function StudentPage() {
   const [weakAreas, setWeakAreas] = useState<WeakArea[]>([])
   const [inProgressAttempt, setInProgressAttempt] = useState<InProgressAttempt | null>(null)
   const [practiceInProgress, setPracticeInProgress] = useState<InProgressAttempt | null>(null)
+  const [capabilitySummary, setCapabilitySummary] = useState<StudentCapabilitySummary | null>(null)
   const [studentGrade, setStudentGrade] = useState<number | null>(null)
 
   useEffect(() => {
@@ -89,10 +110,11 @@ export default function StudentPage() {
 
       // Fetch all data in parallel
       await Promise.all([
+        getStudentCapabilitySummary(user.id).then(setCapabilitySummary).catch(() => setCapabilitySummary(null)),
         fetchStats(user.id),
         fetchRecentExams(profile?.grade),
         fetchRecentAttempts(user.id),
-        fetchWeakAreas(user.id),
+        fetchWeakAreas(),
         fetchInProgressAttempt(user.id)
       ])
     } catch (error) {
@@ -179,7 +201,7 @@ export default function StudentPage() {
 
     const attempts: RecentAttempt[] = (data || []).map(a => ({
       id: a.id,
-      exam_title: (a.exams as any)?.title || 'Không rõ',
+      exam_title: relationString(a.exams, 'title', 'Không rõ'),
       score: a.score || 0,
       submit_time: a.submit_time!
     }))
@@ -187,35 +209,23 @@ export default function StudentPage() {
     setRecentAttempts(attempts)
   }
 
-  const fetchWeakAreas = async (userId: string) => {
-    // Fetch student answers with taxonomy
-    const { data } = await supabase
-      .from('student_answers')
-      .select(`
-        is_correct,
-        questions!question_id (
-          question_taxonomy (
-            topics (name),
-            sections (name)
-          )
-        ),
-        exam_attempts!attempt_id (
-          student_id,
-          status
-        )
-      `)
-      .eq('exam_attempts.student_id', userId)
-      .eq('exam_attempts.status', 'submitted')
+  const fetchWeakAreas = async () => {
+    const { data } = await supabase.rpc('get_my_exam_answer_metadata', {
+      p_attempt_id: null,
+    })
 
     // Aggregate by section
     const sectionStats = new Map<string, { correct: number; total: number; topic: string }>()
 
-    ;(data || []).forEach((answer: any) => {
-      const taxonomy = answer.questions?.question_taxonomy?.[0]
-      if (!taxonomy?.sections?.name) return
+    ;((data || []) as Array<{
+      is_correct: boolean | null
+      section_name: string | null
+      topic_name: string | null
+    }>).forEach((answer) => {
+      if (!answer.section_name) return
 
-      const sectionName = taxonomy.sections.name
-      const topicName = taxonomy.topics?.name || ''
+      const sectionName = answer.section_name
+      const topicName = answer.topic_name || ''
 
       if (!sectionStats.has(sectionName)) {
         sectionStats.set(sectionName, { correct: 0, total: 0, topic: topicName })
@@ -228,7 +238,7 @@ export default function StudentPage() {
 
     // Find weak areas (below 60% accuracy, min 3 questions)
     const weak: WeakArea[] = Array.from(sectionStats.entries())
-      .filter(([_, stats]) => stats.total >= 3 && (stats.correct / stats.total) < 0.6)
+      .filter(([, stats]) => stats.total >= 3 && (stats.correct / stats.total) < 0.6)
       .map(([name, stats]) => ({
         section_name: name,
         topic_name: stats.topic,
@@ -257,17 +267,17 @@ export default function StudentPage() {
 
     if (attempts) {
       for (const data of attempts) {
-        const examMode = (data.exams as any)?.exam_mode
+        const examMode = relationString(data.exams, 'exam_mode')
         const item: InProgressAttempt = {
           id: data.id,
           exam_id: data.exam_id,
-          exam_title: (data.exams as any)?.title || 'Không rõ',
+          exam_title: relationString(data.exams, 'title', 'Không rõ'),
           start_time: data.start_time,
           exam_mode: examMode
         }
         if (examMode === 'practice' && !practiceInProgress) {
           setPracticeInProgress(item)
-        } else if (examMode !== 'practice' && !inProgressAttempt) {
+        } else if (examMode === 'simulation' && !inProgressAttempt) {
           setInProgressAttempt(item)
         }
       }
@@ -407,6 +417,8 @@ export default function StudentPage() {
             </div>
           </div>
         )}
+
+        {capabilitySummary && <CapabilityPrompt summary={capabilitySummary} />}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column */}
@@ -575,5 +587,62 @@ export default function StudentPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function CapabilityPrompt({ summary }: { summary: StudentCapabilitySummary }) {
+  const actionTone = {
+    teal: 'from-teal-600 to-cyan-600',
+    amber: 'from-amber-500 to-orange-500',
+    rose: 'from-rose-500 to-red-500',
+    slate: 'from-slate-700 to-slate-900',
+  }[summary.recommendedAction.tone]
+
+  return (
+    <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className={`animate-fade-in-up-delay-2 rounded-xl bg-gradient-to-r ${actionTone} p-5 text-white shadow-sm`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="flex items-center gap-2 text-sm text-white/75">
+              <Sparkles className="h-4 w-4" />
+              Việc nên làm tiếp theo
+            </p>
+            <h2 className="mt-1 text-xl font-semibold">{summary.recommendedAction.label}</h2>
+            <p className="mt-1 text-sm text-white/80">{summary.recommendedAction.detail}</p>
+          </div>
+          <Link
+            href={summary.recommendedAction.href}
+            className="btn-action-sm inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-800"
+          >
+            Mở ngay
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      <div className="animate-fade-in-up-delay-3 grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <div className="mb-2 flex items-center gap-2 text-xs text-slate-500">
+            <ClipboardList className="h-4 w-4 text-teal-600" />
+            Bài được giao
+          </div>
+          <p className="text-2xl font-bold text-slate-800 dark:text-white">{summary.totals.submitted}/{summary.totals.assigned}</p>
+          <p className="mt-1 text-xs text-slate-500">{summary.totals.pending} bài đang chờ</p>
+        </div>
+        <Link
+          href="/student/analytics"
+          className="rounded-xl border border-slate-200 bg-white p-4 transition-all hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800"
+        >
+          <div className="mb-2 flex items-center gap-2 text-xs text-slate-500">
+            <BarChart3 className="h-4 w-4 text-teal-600" />
+            Độ chính xác
+          </div>
+          <p className="text-2xl font-bold text-slate-800 dark:text-white">{summary.totals.accuracy}%</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {summary.student.canViewAdvancedAnalytics ? 'Xem hồ sơ năng lực' : 'Tổng quan học tập'}
+          </p>
+        </Link>
+      </div>
+    </section>
   )
 }

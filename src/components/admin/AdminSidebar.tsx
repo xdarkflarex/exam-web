@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
   LayoutDashboard, 
   FileText, 
@@ -27,6 +27,7 @@ import {
   BookOpen,
   FileCode,
   Network,
+  Link2,
   FolderInput,
   ShieldCheck
 } from 'lucide-react'
@@ -67,6 +68,11 @@ const menuItems = [
     label: 'Lý thuyết', 
     href: '/admin/theories', 
     icon: BookOpen 
+  },
+  {
+    label: 'Liên kết tri thức',
+    href: '/admin/knowledge-links',
+    icon: Link2
   },
   { 
     label: 'Template LaTeX', 
@@ -140,20 +146,10 @@ const menuItems = [
   },
 ]
 
-interface AdminSidebarProps {
-  isOpen?: boolean
-  onToggle?: () => void
-}
-
-export default function AdminSidebar({ isOpen, onToggle }: AdminSidebarProps) {
+export default function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
 
   const isActive = (href: string) => {
     if (href === '/admin') {

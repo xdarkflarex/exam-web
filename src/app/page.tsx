@@ -148,6 +148,7 @@ async function getFeaturedExams(count: number = 6) {
       .from('exams')
       .select('id, title, subject, duration')
       .eq('is_published', true)
+      .eq('exam_mode', 'simulation')
       .order('created_at', { ascending: false })
       .limit(count)
     

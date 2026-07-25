@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { 
@@ -11,8 +11,7 @@ import {
   AlertTriangle,
   CheckCircle,
   BookOpen,
-  Timer,
-  RotateCcw
+  Timer
 } from 'lucide-react'
 import { useLoading } from '@/contexts/LoadingContext'
 
@@ -31,11 +30,27 @@ interface ExistingAttempt {
   remaining_seconds: number
 }
 
+interface ExamPreparationPayload {
+  exam: ExamInfo
+  existing_attempt: { id: string; start_time: string } | null
+  attempt_count: number
+  best_score: number | null
+}
+
+function readAttemptId(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null || !('attempt_id' in value)) {
+    return null
+  }
+
+  const attemptId = (value as { attempt_id?: unknown }).attempt_id
+  return typeof attemptId === 'string' && attemptId.length > 0 ? attemptId : null
+}
+
 export default function ExamPreparePage() {
   const router = useRouter()
   const params = useParams()
   const examId = params.examId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { showLoading, hideLoading } = useLoading()
 
   const [exam, setExam] = useState<ExamInfo | null>(null)
@@ -45,11 +60,7 @@ export default function ExamPreparePage() {
   const [attemptCount, setAttemptCount] = useState(0)
   const [bestScore, setBestScore] = useState<number | null>(null)
 
-  useEffect(() => {
-    fetchExamInfo()
-  }, [examId])
-
-  const fetchExamInfo = async () => {
+  const fetchExamInfo = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -57,68 +68,34 @@ export default function ExamPreparePage() {
         return
       }
 
-      // Fetch exam info
-      const { data: examData, error: examError } = await supabase
-        .from('exams')
-        .select('id, title, description, subject, duration')
-        .eq('id', examId)
-        .eq('is_published', true)
-        .single()
+      const { data: preparationData, error: preparationError } = await supabase
+        .rpc('get_exam_preparation', { p_exam_id: examId })
+      const preparation = preparationData as unknown as ExamPreparationPayload | null
 
-      if (examError || !examData) {
+      if (preparationError || !preparation?.exam) {
         router.push('/student/exams')
         return
       }
 
-      // Count questions
-      const { count: questionCount } = await supabase
-        .from('exam_questions')
-        .select('*', { count: 'exact', head: true })
-        .eq('exam_id', examId)
+      setExam(preparation.exam)
+      setAttemptCount(preparation.attempt_count || 0)
+      setBestScore(typeof preparation.best_score === 'number' ? preparation.best_score : null)
 
-      setExam({
-        ...examData,
-        question_count: questionCount || 0
-      })
-
-      // Check for existing in-progress attempt
-      const { data: inProgressAttempt } = await supabase
-        .from('exam_attempts')
-        .select('id, start_time')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .eq('status', 'in_progress')
-        .maybeSingle()
-
-      if (inProgressAttempt) {
-        const startTime = new Date(inProgressAttempt.start_time)
+      if (preparation.existing_attempt) {
+        const startTime = new Date(preparation.existing_attempt.start_time)
         const now = new Date()
         const elapsedSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000)
         // duration = 0 → không giới hạn thời gian
-        const totalSeconds = examData.duration * 60
-        const remainingSeconds = examData.duration > 0
+        const totalSeconds = preparation.exam.duration * 60
+        const remainingSeconds = preparation.exam.duration > 0
           ? Math.max(0, totalSeconds - elapsedSeconds)
           : -1
 
         setExistingAttempt({
-          id: inProgressAttempt.id,
-          start_time: inProgressAttempt.start_time,
+          id: preparation.existing_attempt.id,
+          start_time: preparation.existing_attempt.start_time,
           remaining_seconds: remainingSeconds
         })
-      }
-
-      // Fetch attempt history
-      const { data: attempts } = await supabase
-        .from('exam_attempts')
-        .select('score, status')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .eq('status', 'submitted')
-
-      if (attempts && attempts.length > 0) {
-        setAttemptCount(attempts.length)
-        const scores = attempts.map(a => a.score || 0)
-        setBestScore(Math.max(...scores))
       }
 
     } catch (error) {
@@ -126,7 +103,14 @@ export default function ExamPreparePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [examId, router, supabase])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchExamInfo()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [fetchExamInfo])
 
   const handleStartExam = async () => {
     if (!exam) return
@@ -140,39 +124,19 @@ export default function ExamPreparePage() {
         return
       }
 
-      // Get next attempt number
-      const { data: maxAttempt } = await supabase
-        .from('exam_attempts')
-        .select('attempt_number')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .order('attempt_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const { data: attemptResult, error } = await supabase.rpc('start_exam_attempt', {
+        p_exam_id: examId,
+      })
+      const startedAttemptId = readAttemptId(attemptResult)
 
-      const nextAttemptNumber = maxAttempt ? maxAttempt.attempt_number + 1 : 1
-
-      // Create new attempt
-      const { data: newAttempt, error } = await supabase
-        .from('exam_attempts')
-        .insert({
-          exam_id: examId,
-          student_id: user.id,
-          attempt_number: nextAttemptNumber,
-          start_time: new Date().toISOString(),
-          status: 'in_progress'
-        })
-        .select('id')
-        .single()
-
-      if (error) {
+      if (error || !startedAttemptId) {
         console.error('Create attempt error:', error)
         hideLoading()
         setStarting(false)
         return
       }
 
-      router.push(`/exam/${newAttempt.id}`)
+      router.push(`/exam/${startedAttemptId}`)
     } catch (error) {
       console.error('Error starting exam:', error)
       hideLoading()
@@ -192,17 +156,11 @@ export default function ExamPreparePage() {
     showLoading('Đang hủy bài thi...')
     
     try {
-      // Submit with current answers (score 0 if no answers)
-      const { error } = await supabase
-        .from('exam_attempts')
-        .update({
-          status: 'submitted',
-          submit_time: new Date().toISOString(),
-          total_questions: exam?.question_count || 0,
-          correct_answers: 0,
-          score: 0
-        })
-        .eq('id', existingAttempt.id)
+      // Empty submission is still finalized by the trusted database RPC.
+      const { error } = await supabase.rpc('submit_exam_attempt', {
+        p_attempt_id: existingAttempt.id,
+        p_answers: [],
+      })
 
       if (error) {
         console.error('Cancel exam error:', error)
@@ -374,7 +332,7 @@ export default function ExamPreparePage() {
                   <>
                     <li className="flex items-start gap-2">
                       <span className="text-teal-500 mt-0.5">•</span>
-                      Thời gian sẽ bắt đầu tính ngay khi bạn bấm "Bắt đầu thi"
+                      Thời gian sẽ bắt đầu tính ngay khi bạn bấm “Bắt đầu thi”
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-teal-500 mt-0.5">•</span>

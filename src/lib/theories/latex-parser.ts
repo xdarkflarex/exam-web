@@ -1,3 +1,5 @@
+import { normalizeLatexTablesForMarkdown } from './latex-normalize'
+
 /**
  * LaTeX Parser: Đọc file .tex và chuyển thành cấu trúc Theory
  * 
@@ -288,7 +290,7 @@ export function blocksToMarkdown(blocks: ParsedBlock[]): string {
 export function latexToMarkdown(latex: string): string {
   if (!latex) return ''
 
-  let md = latex
+  let md = normalizeLatexTablesForMarkdown(latex)
 
   // ---- Bước 0: Bảo vệ các math blocks và TikZ ----
   const protected_blocks: string[] = []
@@ -431,12 +433,12 @@ export function markdownToTexLesson(
   title: string,
   contentMd: string
 ): string {
-  let tex = contentMd
+  const tex = contentMd
 
   // Tách phần theory và example dựa vào markers
   const theorySplit = tex.split(/---\s*\n+## 📝 Ví dụ minh họa/)
   let theoryPart = theorySplit[0] || ''
-  let examplePart = theorySplit[1] || ''
+  const examplePart = theorySplit[1] || ''
 
   // Bỏ header "📘 Kiến thức cần nhớ"
   theoryPart = theoryPart.replace(/^## 📘 Kiến thức cần nhớ\s*\n*/m, '')

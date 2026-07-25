@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, User, Clock, CheckCircle, XCircle, BookOpen } from 'lucide-react'
+import { ArrowLeft, User, Clock, CheckCircle, XCircle } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
 import MathContent, { MathProvider } from '@/components/MathContent'
+import EssayGradingPanel from '@/components/admin/EssayGradingPanel'
 import { 
   AttemptQuestionView, 
-  AttemptSummary,
   buildAttemptViewFromNestedQuery,
   NestedStudentAnswerRow
 } from '@/lib/attempts/attemptView'
@@ -21,6 +21,12 @@ interface AttemptDetail {
   score: number | null
   total_questions: number | null
   correct_answers: number | null
+  grading_status: string
+  pending_grading_count: number
+  objective_points: number
+  essay_points: number
+  earned_points: number
+  max_points: number
   start_time: string
   submit_time: string | null
   student_name: string
@@ -29,24 +35,28 @@ interface AttemptDetail {
   exam_subject: string
 }
 
+interface ProfileRelation {
+  full_name: string | null
+  email: string | null
+}
+
+interface ExamRelation {
+  title: string | null
+  subject: string | null
+}
+
 export default function AdminAttemptDetailPage() {
   const router = useRouter()
   const params = useParams()
   const attemptId = params.attemptId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   
   const [attemptDetail, setAttemptDetail] = useState<AttemptDetail | null>(null)
   const [questions, setQuestions] = useState<AttemptQuestionView[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (attemptId) {
-      Promise.all([fetchAttemptDetail(), fetchQuestions()])
-    }
-  }, [attemptId])
-
-  const fetchAttemptDetail = async () => {
+  const fetchAttemptDetail = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('exam_attempts')
@@ -58,6 +68,12 @@ export default function AdminAttemptDetailPage() {
           score,
           total_questions,
           correct_answers,
+          grading_status,
+          pending_grading_count,
+          objective_points,
+          essay_points,
+          earned_points,
+          max_points,
           start_time,
           submit_time,
           profiles!student_id (
@@ -78,6 +94,8 @@ export default function AdminAttemptDetailPage() {
         return
       }
 
+      const profile = data.profiles as unknown as ProfileRelation | null
+      const exam = data.exams as unknown as ExamRelation | null
       const formattedDetail: AttemptDetail = {
         id: data.id,
         exam_id: data.exam_id,
@@ -86,12 +104,18 @@ export default function AdminAttemptDetailPage() {
         score: data.score,
         total_questions: data.total_questions,
         correct_answers: data.correct_answers,
+        grading_status: data.grading_status || 'not_required',
+        pending_grading_count: data.pending_grading_count || 0,
+        objective_points: Number(data.objective_points) || 0,
+        essay_points: Number(data.essay_points) || 0,
+        earned_points: Number(data.earned_points) || 0,
+        max_points: Number(data.max_points) || 0,
         start_time: data.start_time,
         submit_time: data.submit_time,
-        student_name: (data.profiles as any)?.full_name || 'Không rõ',
-        student_email: (data.profiles as any)?.email || '',
-        exam_title: (data.exams as any)?.title || 'Không rõ',
-        exam_subject: (data.exams as any)?.subject || ''
+        student_name: profile?.full_name || 'Không rõ',
+        student_email: profile?.email || '',
+        exam_title: exam?.title || 'Không rõ',
+        exam_subject: exam?.subject || ''
       }
 
       setAttemptDetail(formattedDetail)
@@ -99,18 +123,26 @@ export default function AdminAttemptDetailPage() {
       console.error('Unexpected error:', err)
       setError('Lỗi kết nối')
     }
-  }
+  }, [attemptId, supabase])
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('student_answers')
         .select(`
+          id,
           question_id,
           selected_answer,
           selected_answers,
           text_answer,
           is_correct,
+          score,
+          max_score,
+          grading_status,
+          grading_feedback,
+          grading_confidence,
+          grading_rubric_version,
+          answer_hash,
           questions!question_id (
             id,
             content,
@@ -118,6 +150,12 @@ export default function AdminAttemptDetailPage() {
             explanation,
             solution,
             tikz_image_url,
+            question_grading_configs (
+              reference_answer,
+              rubric,
+              rubric_version,
+              minimum_confidence
+            ),
             answers (
               id,
               content,
@@ -145,7 +183,17 @@ export default function AdminAttemptDetailPage() {
       setError('Lỗi kết nối')
       setLoading(false)
     }
-  }
+  }, [attemptId, supabase])
+
+  useEffect(() => {
+    if (!attemptId) return
+
+    const timeoutId = window.setTimeout(() => {
+      void Promise.all([fetchAttemptDetail(), fetchQuestions()])
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [attemptId, fetchAttemptDetail, fetchQuestions])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -170,6 +218,64 @@ export default function AdminAttemptDetailPage() {
     // Admin view: ALWAYS show student answer and correct answer
     // NEVER show explanation/solution (future feature)
     
+    if (question.questionType === 'essay') {
+      if (!question.studentAnswerText?.trim()) {
+        return (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+            Học sinh bỏ trống câu tự luận; server đã chốt 0/{question.maxScore ?? 0} điểm.
+          </div>
+        )
+      }
+
+      if (!question.studentAnswerId || !question.answerHash || !question.rubricVersion || !question.referenceAnswer || !question.rubric?.length) {
+        return (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <MathContent content={question.studentAnswerText || 'Không có bài làm'} />
+            </div>
+            <p className="text-sm text-red-600">Thiếu rubric hoặc metadata chấm. Chưa thể chốt điểm câu này.</p>
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-4">
+          <div>
+            <span className="text-sm font-medium text-slate-600">Bài làm của học sinh:</span>
+            <div className="mt-1 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800">
+              <MathContent content={question.studentAnswerText || 'Không có bài làm'} />
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 text-sm font-semibold text-slate-700">Rubric</div>
+            <div className="space-y-2">
+              {question.rubric.map((criterion) => (
+                <div key={criterion.criterion_id} className="text-sm text-slate-600">
+                  <strong>{criterion.title} ({criterion.max_score} điểm):</strong> {criterion.description}
+                </div>
+              ))}
+            </div>
+          </div>
+          <EssayGradingPanel
+            studentAnswerId={question.studentAnswerId}
+            question={question.content}
+            studentAnswer={question.studentAnswerText || ''}
+            referenceAnswer={question.referenceAnswer}
+            rubric={question.rubric}
+            rubricVersion={question.rubricVersion}
+            maxScore={question.maxScore || 1}
+            answerHash={question.answerHash}
+            gradingStatus={question.gradingStatus || 'pending_review'}
+            currentScore={question.score ?? null}
+            currentFeedback={question.gradingFeedback ?? null}
+            onApproved={async () => {
+              await Promise.all([fetchAttemptDetail(), fetchQuestions()])
+            }}
+          />
+        </div>
+      )
+    }
+
     if (question.questionType === 'multiple_choice') {
       return (
         <div className="space-y-3">
@@ -359,8 +465,17 @@ export default function AdminAttemptDetailPage() {
                     </div>
                   ) : (
                     <div className="text-center p-4 bg-slate-50 rounded-lg">
-                      <div className="text-2xl font-bold text-slate-400">--</div>
-                      <div className="text-sm text-slate-500 mt-1">Chưa có điểm</div>
+                      <div className="text-2xl font-bold text-amber-600">Đang chấm</div>
+                      <div className="text-sm text-slate-500 mt-1">
+                        Còn {attemptDetail.pending_grading_count} câu tự luận chờ duyệt
+                      </div>
+                    </div>
+                  )}
+
+                  {attemptDetail.max_points > 0 && (
+                    <div className="grid grid-cols-2 gap-3 text-center text-sm">
+                      <div className="rounded-lg bg-blue-50 p-2 text-blue-700">Tự động: {attemptDetail.objective_points}</div>
+                      <div className="rounded-lg bg-indigo-50 p-2 text-indigo-700">Tự luận: {attemptDetail.essay_points}</div>
                     </div>
                   )}
                   
@@ -390,17 +505,20 @@ export default function AdminAttemptDetailPage() {
             <h2 className="text-xl font-bold text-slate-800">Chi tiết từng câu hỏi</h2>
             
             {questions.map((question, index) => {
+              const isEssay = question.questionType === 'essay'
               const questionTypeLabel = question.questionType === 'multiple_choice' 
                 ? 'Trắc nghiệm' 
                 : question.questionType === 'true_false' 
                   ? 'Đúng / Sai' 
-                  : 'Trả lời ngắn'
+                  : question.questionType === 'essay' ? 'Tự luận' : 'Trả lời ngắn'
               
               return (
                 <div key={question.questionId} className="bg-white rounded-xl p-6 shadow-lg border border-slate-100">
                   <div className="flex items-start gap-4 mb-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      question.isCorrect 
+                      isEssay
+                        ? question.gradingStatus === 'approved' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                        : question.isCorrect
                         ? 'bg-green-100 text-green-600' 
                         : 'bg-red-100 text-red-600'
                     }`}>
@@ -412,11 +530,17 @@ export default function AdminAttemptDetailPage() {
                           Câu {index + 1} • {questionTypeLabel}
                         </span>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          question.isCorrect 
+                          isEssay
+                            ? question.gradingStatus === 'approved' ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'
+                            : question.isCorrect
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {question.isCorrect ? 'Đúng' : 'Sai'}
+                          {isEssay
+                            ? question.gradingStatus === 'approved'
+                              ? `${question.score ?? 0}/${question.maxScore ?? 0} điểm`
+                              : 'Chờ duyệt'
+                            : question.isCorrect ? 'Đúng' : 'Sai'}
                         </span>
                       </div>
                       <div className="prose max-w-none mb-4">

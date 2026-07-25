@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
@@ -20,7 +20,7 @@ interface ExamAttempt {
 export default function ExamEntryPage() {
   const params = useParams()
   const attemptId = params.attemptId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { showLoading, hideLoading } = useLoading()
 
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
@@ -28,13 +28,7 @@ export default function ExamEntryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (attemptId) {
-      fetchExamData()
-    }
-  }, [attemptId])
-
-  const fetchExamData = async () => {
+  const fetchExamData = useCallback(async () => {
     showLoading('Đang tải đề thi...')
     try {
       // Debug: Log attemptId from URL
@@ -64,18 +58,35 @@ export default function ExamEntryPage() {
         return
       }
 
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || attemptData.student_id !== user.id) {
+        setError('Bạn không có quyền mở bài thi này')
+        setLoading(false)
+        hideLoading()
+        return
+      }
+
       setAttempt(attemptData)
       
-      // ONLY valid examId source: exam_attempts.exam_id
-      const examId = attemptData.exam_id
-      console.log('✅ examId from exam_attempts:', examId)
+      console.log('✅ examId from exam_attempts:', attemptData.exam_id)
 
-      // Step 2: Use canonical function to fetch exam questions
-      const { examData, error: questionsError } = await getExamQuestionsForStudent(examId)
+      // Step 2: RPC derives the exam from this owned attempt and filters private data.
+      const {
+        examData,
+        examMode,
+        error: questionsError,
+      } = await getExamQuestionsForStudent(attemptId)
 
       if (questionsError || !examData) {
         console.error('❌ Questions fetch error:', questionsError)
         setError(questionsError || 'Không thể tải câu hỏi')
+        setLoading(false)
+        hideLoading()
+        return
+      }
+
+      if (examMode !== 'simulation') {
+        setError('Bài làm này không thuộc đề thi thử')
         setLoading(false)
         hideLoading()
         return
@@ -90,7 +101,7 @@ export default function ExamEntryPage() {
       console.log('   - Total questions:', totalQuestions)
 
       if (totalQuestions === 0) {
-        console.warn('⚠️ No questions found for examId:', examId)
+        console.warn('⚠️ No questions found for attemptId:', attemptId)
         setError('Đề thi chưa có câu hỏi')
         setLoading(false)
         hideLoading()
@@ -106,7 +117,17 @@ export default function ExamEntryPage() {
       setLoading(false)
       hideLoading()
     }
-  }
+  }, [attemptId, hideLoading, showLoading, supabase])
+
+  useEffect(() => {
+    if (!attemptId) return
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchExamData()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [attemptId, fetchExamData])
 
   if (loading) {
     return (

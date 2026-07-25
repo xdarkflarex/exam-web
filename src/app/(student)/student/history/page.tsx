@@ -58,6 +58,29 @@ interface DifficultyStats {
   percentage: number
 }
 
+interface SectionAccumulator {
+  section_id: string
+  section_name: string
+  total: number
+  correct: number
+}
+
+interface CategoryAccumulator {
+  category_id: string
+  category_name: string
+  sections: Map<string, SectionAccumulator>
+  total: number
+  correct: number
+}
+
+interface TopicAccumulator {
+  topic_id: string
+  topic_name: string
+  categories: Map<string, CategoryAccumulator>
+  total: number
+  correct: number
+}
+
 export default function HistoryPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -82,8 +105,8 @@ export default function HistoryPage() {
 
       await Promise.all([
         fetchHistory(user.id),
-        fetchTaxonomyStats(user.id),
-        fetchDifficultyStats(user.id)
+        fetchTaxonomyStats(),
+        fetchDifficultyStats()
       ])
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -114,40 +137,26 @@ export default function HistoryPage() {
       return
     }
 
-    const entries: HistoryEntry[] = (data || []).map(item => ({
-      id: item.id,
-      exam_id: item.exam_id,
-      exam_title: (item.exams as any)?.title || 'Không rõ',
-      score: item.score || 0,
-      submit_time: item.submit_time!,
-      total_questions: 0,
-      correct_answers: 0
-    }))
+    const entries: HistoryEntry[] = (data || []).map(item => {
+      const exam = Array.isArray(item.exams) ? item.exams[0] : item.exams
+      return {
+        id: item.id,
+        exam_id: item.exam_id,
+        exam_title: exam?.title || 'Không rõ',
+        score: item.score || 0,
+        submit_time: item.submit_time!,
+        total_questions: 0,
+        correct_answers: 0
+      }
+    })
 
     setHistory(entries)
   }
 
-  const fetchTaxonomyStats = async (userId: string) => {
-    // Fetch all student answers with taxonomy info
-    const { data: answers, error } = await supabase
-      .from('student_answers')
-      .select(`
-        is_correct,
-        questions!question_id (
-          id,
-          question_taxonomy (
-            topics (id, name),
-            categories (id, name),
-            sections (id, name)
-          )
-        ),
-        exam_attempts!attempt_id (
-          student_id,
-          status
-        )
-      `)
-      .eq('exam_attempts.student_id', userId)
-      .eq('exam_attempts.status', 'submitted')
+  const fetchTaxonomyStats = async () => {
+    const { data: answers, error } = await supabase.rpc('get_my_exam_answer_metadata', {
+      p_attempt_id: null,
+    })
 
     if (error) {
       console.error('Fetch taxonomy stats error:', error)
@@ -155,17 +164,26 @@ export default function HistoryPage() {
     }
 
     // Process and aggregate by taxonomy
-    const statsMap = new Map<string, any>()
+    const statsMap = new Map<string, TopicAccumulator>()
 
-    ;(answers || []).forEach((answer: any) => {
-      const taxonomy = answer.questions?.question_taxonomy?.[0]
-      if (!taxonomy) return
+    ;((answers || []) as Array<{
+      is_correct: boolean | null
+      topic_id: string | null
+      topic_name: string | null
+      category_id: string | null
+      category_name: string | null
+      section_id: string | null
+      section_name: string | null
+    }>).forEach((answer) => {
+      if (!answer.topic_id || !answer.topic_name) return
 
-      const topic = taxonomy.topics
-      const category = taxonomy.categories
-      const section = taxonomy.sections
-
-      if (!topic) return
+      const topic = { id: answer.topic_id, name: answer.topic_name }
+      const category = answer.category_id && answer.category_name
+        ? { id: answer.category_id, name: answer.category_name }
+        : null
+      const section = answer.section_id && answer.section_name
+        ? { id: answer.section_id, name: answer.section_name }
+        : null
 
       // Initialize topic
       if (!statsMap.has(topic.id)) {
@@ -179,6 +197,7 @@ export default function HistoryPage() {
       }
 
       const topicStats = statsMap.get(topic.id)
+      if (!topicStats) return
       topicStats.total++
       if (answer.is_correct) topicStats.correct++
 
@@ -195,6 +214,7 @@ export default function HistoryPage() {
         }
 
         const categoryStats = topicStats.categories.get(category.id)
+        if (!categoryStats) return
         categoryStats.total++
         if (answer.is_correct) categoryStats.correct++
 
@@ -210,6 +230,7 @@ export default function HistoryPage() {
           }
 
           const sectionStats = categoryStats.sections.get(section.id)
+          if (!sectionStats) return
           sectionStats.total++
           if (answer.is_correct) sectionStats.correct++
         }
@@ -220,10 +241,10 @@ export default function HistoryPage() {
     const result: TaxonomyStats[] = Array.from(statsMap.values()).map(topic => ({
       ...topic,
       percentage: topic.total > 0 ? Math.round((topic.correct / topic.total) * 100) : 0,
-      categories: Array.from(topic.categories.values()).map((cat: any) => ({
+      categories: Array.from(topic.categories.values()).map((cat) => ({
         ...cat,
         percentage: cat.total > 0 ? Math.round((cat.correct / cat.total) * 100) : 0,
-        sections: Array.from(cat.sections.values()).map((sec: any) => ({
+        sections: Array.from(cat.sections.values()).map((sec) => ({
           ...sec,
           percentage: sec.total > 0 ? Math.round((sec.correct / sec.total) * 100) : 0
         }))
@@ -233,21 +254,10 @@ export default function HistoryPage() {
     setTaxonomyStats(result)
   }
 
-  const fetchDifficultyStats = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('student_answers')
-      .select(`
-        is_correct,
-        questions!question_id (
-          difficulty
-        ),
-        exam_attempts!attempt_id (
-          student_id,
-          status
-        )
-      `)
-      .eq('exam_attempts.student_id', userId)
-      .eq('exam_attempts.status', 'submitted')
+  const fetchDifficultyStats = async () => {
+    const { data, error } = await supabase.rpc('get_my_exam_answer_metadata', {
+      p_attempt_id: null,
+    })
 
     if (error) {
       console.error('Fetch difficulty stats error:', error)
@@ -257,8 +267,8 @@ export default function HistoryPage() {
     const difficultyMap = new Map<number, { total: number; correct: number }>()
     const difficultyNames = ['', 'Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao']
 
-    ;(data || []).forEach((answer: any) => {
-      const level = answer.questions?.difficulty || 1
+    ;((data || []) as Array<{ is_correct: boolean | null; difficulty: number | null }>).forEach((answer) => {
+      const level = answer.difficulty || 1
       if (!difficultyMap.has(level)) {
         difficultyMap.set(level, { total: 0, correct: 0 })
       }
@@ -357,14 +367,14 @@ export default function HistoryPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-slate-200 dark:bg-slate-800 p-1 rounded-xl w-fit">
-          {[
+          {([
             { key: 'overview', label: 'Tổng quan', icon: TrendingUp },
             { key: 'taxonomy', label: 'Theo chủ đề', icon: BarChart3 },
             { key: 'history', label: 'Lịch sử', icon: Calendar }
-          ].map(tab => (
+          ] as const).map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.key
                   ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm'

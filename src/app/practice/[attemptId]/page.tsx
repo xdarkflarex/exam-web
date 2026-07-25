@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
@@ -29,7 +29,7 @@ export default function PracticeAttemptPage() {
   const params = useParams()
   const router = useRouter()
   const attemptId = params.attemptId as string
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { showLoading, hideLoading } = useLoading()
 
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
@@ -38,13 +38,7 @@ export default function PracticeAttemptPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (attemptId) {
-      fetchExamData()
-    }
-  }, [attemptId])
-
-  const fetchExamData = async () => {
+  const fetchExamData = useCallback(async () => {
     showLoading('Đang tải đề ôn tập...')
     try {
       // Step 1: Fetch exam attempt
@@ -61,6 +55,14 @@ export default function PracticeAttemptPage() {
         return
       }
 
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || attemptData.student_id !== user.id) {
+        setError('Bạn không có quyền mở bài ôn tập này')
+        setLoading(false)
+        hideLoading()
+        return
+      }
+
       // If already submitted, redirect to result
       if (attemptData.status === 'submitted') {
         hideLoading()
@@ -70,13 +72,22 @@ export default function PracticeAttemptPage() {
 
       setAttempt(attemptData)
 
-      const examId = attemptData.exam_id
-
-      // Step 2: Fetch exam questions
-      const { examData, error: questionsError } = await getExamQuestionsForStudent(examId)
+      // Step 2: RPC derives the practice exam and authorized feedback from this attempt.
+      const {
+        examData,
+        examMode,
+        error: questionsError,
+      } = await getExamQuestionsForStudent(attemptId)
 
       if (questionsError || !examData) {
         setError(questionsError || 'Không thể tải câu hỏi')
+        setLoading(false)
+        hideLoading()
+        return
+      }
+
+      if (examMode !== 'practice') {
+        setError('Bài làm này không thuộc chế độ ôn tập')
         setLoading(false)
         hideLoading()
         return
@@ -99,9 +110,17 @@ export default function PracticeAttemptPage() {
       const answersMap: Record<string, StudentAnswer> = {}
       if (savedAnswers) {
         for (const sa of savedAnswers) {
+          if (
+            sa.question_type !== 'multiple_choice' &&
+            sa.question_type !== 'true_false' &&
+            sa.question_type !== 'short_answer'
+          ) {
+            continue
+          }
+
           const answer: StudentAnswer = {
             questionId: sa.question_id,
-            questionType: sa.question_type as any
+            questionType: sa.question_type
           }
           if (sa.question_type === 'multiple_choice' && sa.selected_answer) {
             answer.selectedAnswer = sa.selected_answer
@@ -124,7 +143,15 @@ export default function PracticeAttemptPage() {
       setLoading(false)
       hideLoading()
     }
-  }
+  }, [attemptId, hideLoading, router, showLoading, supabase])
+
+  useEffect(() => {
+    if (!attemptId) return
+    const timeoutId = window.setTimeout(() => {
+      void fetchExamData()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [attemptId, fetchExamData])
 
   if (loading) {
     return (
