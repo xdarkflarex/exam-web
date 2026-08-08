@@ -433,15 +433,20 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
   )
 }
 
+/**
+ * `flex-row-reverse` chứ không đảo thứ tự thẻ: `<dl>` bắt buộc `<dt>` đứng trước
+ * `<dd>` trong DOM, còn thị giác thì cần số đứng trước nhãn. Một class giải quyết
+ * cả hai, thay vì viết HTML sai để lấy đúng bố cục.
+ */
 function SummaryChip({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div
-      className={`inline-flex items-baseline gap-2 rounded-xl border px-3 py-2 ${
+      className={`inline-flex flex-row-reverse items-baseline gap-2 rounded-xl border px-3 py-2 ${
         className || 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
       }`}
     >
-      <dd className="font-baloo text-lg font-bold leading-none tabular-nums">{value}</dd>
       <dt className="text-xs font-medium">{label}</dt>
+      <dd className="font-baloo text-lg font-bold leading-none tabular-nums">{value}</dd>
     </div>
   )
 }

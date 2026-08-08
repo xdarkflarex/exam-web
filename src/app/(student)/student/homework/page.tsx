@@ -195,11 +195,13 @@ export default function StudentHomeworkPage() {
   )
 }
 
+/** `flex-row-reverse` để `<dt>` đứng trước `<dd>` trong DOM như `<dl>` yêu cầu,
+ *  mà số vẫn hiện trước nhãn. */
 function SummaryChip({ value, label, className }: { value: number; label: string; className: string }) {
   return (
-    <div className={`inline-flex items-baseline gap-2 rounded-xl border px-3 py-2 ${className}`}>
-      <dd className="font-baloo text-lg font-bold leading-none tabular-nums">{value}</dd>
+    <div className={`inline-flex flex-row-reverse items-baseline gap-2 rounded-xl border px-3 py-2 ${className}`}>
       <dt className="text-xs font-medium">{label}</dt>
+      <dd className="font-baloo text-lg font-bold leading-none tabular-nums">{value}</dd>
     </div>
   )
 }
