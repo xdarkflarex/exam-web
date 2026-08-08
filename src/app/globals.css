@@ -615,6 +615,96 @@ html.dark .bento-hover:hover {
 }
 
 /* =============================================
+   BENTO — TỪ VỰNG BỀ MẶT DÙNG CHUNG
+   Nguồn: docs/DESIGN_OVERHAUL_2026-08-09.md mục 1.
+
+   Bệnh của trang chủ không phải màu xấu mà là MỌI KHỐI CÙNG MỘT KHUÔN. Ba
+   section liên tiếp dùng đúng một công thức card, nên cuộn một mạch là gặp
+   11 khối như nhau.
+
+   Ba class dưới đây là ba CẤP bề mặt, không phải ba kiểu trang trí. Chọn theo
+   tầm quan trọng của nội dung, đừng chọn theo cái nào trông đẹp hơn:
+
+     .bento-tile        ô thường
+     .bento-tile-lead   ô dẫn dắt — đậm hơn, dành cho MỘT ô mỗi lưới
+     .bento-tile-quiet  ô phụ — chìm xuống, dùng cho thông tin nền
+
+   Đều bám vào `--background-card` / `--border` nên tự đúng ở cả light lẫn dark,
+   thay cho việc mỗi nơi hardcode một `bg-slate-200` khác nhau.
+   ============================================= */
+
+.bento-tile,
+.bento-tile-lead,
+.bento-tile-quiet {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background-color: var(--background-card);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.bento-tile {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.bento-tile-lead {
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.07);
+}
+
+html.dark .bento-tile-lead {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Ô phụ cố ý KHÔNG có shadow và nền chìm bằng nền trang: nó phải lùi lại phía
+   sau, nếu không thì "ba cấp" chỉ là ba sắc thái của cùng một cấp. */
+.bento-tile-quiet {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* Chỉ ô bấm được mới nâng lên khi hover. Ô thông tin nâng lên là hứa hẹn một
+   hành động không tồn tại. */
+a.bento-tile:hover,
+button.bento-tile:hover,
+a.bento-tile-lead:hover,
+button.bento-tile-lead:hover,
+.bento-tile-interactive:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 18px 30px -12px rgba(15, 23, 42, 0.18);
+}
+
+html.dark a.bento-tile:hover,
+html.dark button.bento-tile:hover,
+html.dark a.bento-tile-lead:hover,
+html.dark button.bento-tile-lead:hover,
+html.dark .bento-tile-interactive:hover {
+  box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Dải màu mỏng bên trái ô — cách rẻ nhất để phân loại ô mà không cần thêm
+   badge hay icon. Màu truyền qua `--rail`. */
+.bento-rail {
+  position: relative;
+  overflow: hidden;
+}
+
+.bento-rail::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: var(--rail, var(--accent));
+}
+
+/* Nền xen kẽ giữa các section. Bản cũ chỉ có "trong suốt" và
+   `bg-slate-200/50`, nên cả trang đọc thành một dải phẳng. */
+.section-alt {
+  background-color: color-mix(in srgb, var(--border) 28%, transparent);
+}
+
+/* =============================================
    GIẤY KẺ Ô
    Nguồn: docs/STUDENT_SKILL_TREE_REDESIGN.md mục 7.2 — lấy chất liệu từ chính
    môn học thay vì hiệu ứng chung chung. Dùng `repeating-linear-gradient` chứ
