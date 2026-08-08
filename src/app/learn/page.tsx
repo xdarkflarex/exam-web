@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -30,7 +30,26 @@ interface TheoryRow {
 }
 interface EdgeRow { from_theory_id: string; to_theory_id: string; relation_type: SkillTreeLink['relation'] }
 
+/**
+ * `useSearchParams()` bắt buộc phải nằm trong ranh giới `<Suspense>` — xem chú
+ * thích cùng loại ở `src/app/(auth)/login/page.tsx`. Trang này đọc query để mở
+ * sẵn một chủ đề, nên `fallback` chỉ cần một khung chờ.
+ */
 export default function LearnPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        </div>
+      }
+    >
+      <LearnPageContent />
+    </Suspense>
+  )
+}
+
+function LearnPageContent() {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const searchParams = useSearchParams()

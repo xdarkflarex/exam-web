@@ -8,14 +8,35 @@
  * when redirecting to OTP verification or OAuth flows.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LoginView from '@/components/LoginView'
 import { getDefaultRedirectPath } from '@/lib/auth/roles'
 import { clearSessionData } from '@/lib/session/utils'
 
+/**
+ * `useSearchParams()` bắt buộc phải nằm trong ranh giới `<Suspense>`.
+ *
+ * Query string chỉ có ở phía client, nên khi Next dựng sẵn trang này lúc build
+ * nó phải bỏ qua phần phụ thuộc vào query và render `fallback` trước. Không có
+ * `<Suspense>` thì build đổ với `missing-suspense-with-csr-bailout`.
+ *
+ * VÌ SAO TRƯỚC ĐÂY KHÔNG ĐỔ. `ThemeProvider` cũ trả `null` cho tới khi mount,
+ * nên toàn bộ cây con KHÔNG được render lúc prerender và `useSearchParams()`
+ * không bao giờ chạy. Bỏ chặn render (2026-08-07, để hết nháy trắng khi đổi
+ * theme) làm lỗi vốn có lộ ra. Cùng loại với hai lỗi hydration đã sửa cùng ngày:
+ * chặn SSR không phải là sửa, chỉ là giấu.
+ */
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginView onLogin={async () => {}} error="" sessionExpiredMessage="" />}>
+      <LoginPageContent />
+    </Suspense>
+  )
+}
+
+function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
