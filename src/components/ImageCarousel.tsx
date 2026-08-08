@@ -110,14 +110,14 @@ export default function ImageCarousel({
         <>
           <button
             onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white dark:bg-slate-800/20 backdrop-blur-sm hover:bg-white/40 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
             aria-label="Previous"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white dark:bg-slate-800/20 backdrop-blur-sm hover:bg-white/40 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
             aria-label="Next"
           >
             <ChevronRight className="w-5 h-5" />
@@ -134,8 +134,8 @@ export default function ImageCarousel({
               onClick={() => setCurrent(i)}
               className={`rounded-full transition-all duration-300 ${
                 i === current
-                  ? 'w-8 h-2.5 bg-white'
-                  : 'w-2.5 h-2.5 bg-white/50 hover:bg-white/70'
+                  ? 'w-8 h-2.5 bg-white dark:bg-slate-800'
+                  : 'w-2.5 h-2.5 bg-white dark:bg-slate-800/50 hover:bg-white/70'
               }`}
               aria-label={`Go to slide ${i + 1}`}
             />

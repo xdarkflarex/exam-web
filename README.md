@@ -19,7 +19,7 @@ Chi tiết theo vai trò và trạng thái triển khai nằm trong [docs/FEATUR
 
 Source có pilot câu `essay` chỉ cho **thi thử/kiểm tra `simulation`**. Học sinh nộp raw answer qua RPC; hệ thống chấm phần khách quan trên server và giữ điểm tổng ở trạng thái chờ nếu có tự luận. Giáo viên sao chép một gói chấm không kèm profile/email/lớp sang AI, dán JSON gợi ý về, kiểm tra/sửa rồi bắt buộc duyệt điểm cuối.
 
-Pilot chưa gọi AI tự động, không cần API key AI và chưa hỗ trợ `practice` hoặc `homework`. Migration [`20260721_essay_assisted_grading.sql`](supabase/migrations/20260721_essay_assisted_grading.sql) cùng backfill 6 câu essay legacy đã được áp trên Primary Database ngày 2026-07-22; hai hậu kiểm cấu trúc đều đạt toàn bộ `must_be_zero=0`. Chức năng vẫn chưa production-ready vì hardening 20260722 và negative test bằng JWT/E2E chưa hoàn tất. Đọc [quy trình chấm tự luận](docs/ESSAY_GRADING.md) trước khi rollout.
+Pilot chưa gọi AI tự động, không cần API key AI và chưa hỗ trợ `practice` hoặc `homework`. Migration [`20260721_essay_assisted_grading.sql`](supabase/migrations/20260721_essay_assisted_grading.sql) cùng backfill 6 câu essay legacy đã được áp trên Primary Database ngày 2026-07-22; hai hậu kiểm cấu trúc đều đạt toàn bộ `must_be_zero=0`. Hardening `20260722` cũng đã áp (xác minh 2026-08-06). Chức năng vẫn chưa production-ready vì negative test bằng JWT/E2E chưa hoàn tất. Đọc [quy trình chấm tự luận](docs/ESSAY_GRADING.md) trước khi rollout.
 
 ## Stack
 
@@ -66,9 +66,10 @@ Hiện trạng ngày 2026-07-19:
 - `tsc`: pass.
 - `eslint`: fail, 113 error và 192 warning.
 - `next build`: pass; còn cảnh báo convention `middleware` đã deprecated trên Next.js 16.
-- Chưa có test runner, test suite hoặc CI.
+- Test runner: `npm test` (`node --experimental-strip-types --test "src/**/*.test.ts"`). Chưa có CI.
 - Bộ migration hiện tại chưa đủ để dựng database trắng; không chạy reset/migration production chỉ dựa vào tài liệu này.
-- Schema/RPC pilot tự luận và backfill legacy đã live với hậu kiểm cấu trúc đạt; hardening 20260722, deploy đồng bộ source và JWT/E2E vẫn chưa hoàn tất.
+- Schema/RPC pilot tự luận, backfill legacy và hardening `20260722` đều đã live với hậu kiểm cấu trúc đạt; JWT/E2E vẫn chưa hoàn tất.
+- Thang điểm theo Bộ GD&ĐT áp cho **đề thi thử** (trắc nghiệm 0,25 — Đúng/Sai 1,0 — trả lời ngắn 0,5 — tự luận bằng tổng rubric) đã xong trong source; đề thi học kì, ôn tập và bài tập về nhà là đề giáo viên tự đặt trọng số. Migration `20260806_moet_scoring_scale.sql` **đã áp ngày 2026-08-05** (postflight 30/30), nên trang tạo đề hết đứt. Hành vi chấm live thì **chưa xác minh**: phép thử 3/4 ý ra 0,5 chưa chạy. Xem [docs/SCORING.md](docs/SCORING.md).
 
 Quy trình đầy đủ: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
@@ -82,7 +83,16 @@ node scripts/ai-context.mjs --table homework_attempts
 node scripts/ai-context.mjs --changed
 ```
 
-`ai-context` tự làm mới index; truy vấn `--table` ưu tiên cả migration/schema định nghĩa bảng rồi mới tới call-site TypeScript. Output nằm trong `.ai-cache/` và không commit. Không cần cài CocoIndex/GitNexus cho quy mô source hiện tại; nếu thử công cụ ngoài, chỉ giữ cache ngoài Git và không cho công cụ ghi đè `AGENTS.md`.
+Với yêu cầu rộng hoặc mô tả theo ngôn ngữ tự nhiên, có thể dùng semantic RAG hoàn toàn cục bộ trước rồi mới tạo context pack theo file đã chọn:
+
+```powershell
+ollama pull nomic-embed-text
+node scripts/ai-rag.mjs index
+node scripts/ai-rag.mjs query "phân tích kết quả homework theo lớp" --top 6 --max-bytes 60000
+node scripts/ai-context.mjs --file src/path/duoc-chon.tsx --max-bytes 120000
+```
+
+`ai-context` tự làm mới index; truy vấn `--table` ưu tiên cả migration/schema định nghĩa bảng rồi mới tới call-site TypeScript. `ai-rag` dùng Ollama qua loopback, không gửi source ra ngoài; vector và mọi output nằm trong `.ai-cache/` và không commit. Không cần cài CocoIndex/GitNexus; nếu thử công cụ ngoài, chỉ giữ cache ngoài Git và không cho công cụ ghi đè `AGENTS.md`.
 
 ## Tài liệu chuẩn
 
@@ -93,6 +103,7 @@ node scripts/ai-context.mjs --changed
 | [docs/FEATURES.md](docs/FEATURES.md) | Toàn bộ chức năng theo vai trò và mode |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Bảng/view/RPC, migration, RLS và nguồn sự thật |
 | [docs/ESSAY_GRADING.md](docs/ESSAY_GRADING.md) | Phạm vi, state machine, copy/paste AI, giáo viên duyệt và checklist pilot tự luận |
+| [docs/AI_RAG_REDESIGN_AND_ESSAY_OCR_PLAN.md](docs/AI_RAG_REDESIGN_AND_ESSAY_OCR_PLAN.md) | Kế hoạch RAG cục bộ, định hướng UI mới và pilot tự luận bằng ảnh/OCR/AI |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Setup, debug, verify, deploy, MCP |
 | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | UI tiếng Việt, màu sắc, responsive, math content |
 | [docs/SECURITY_AND_AUDIT.md](docs/SECURITY_AND_AUDIT.md) | Baseline chất lượng, rủi ro đã xác nhận, thứ tự fix |

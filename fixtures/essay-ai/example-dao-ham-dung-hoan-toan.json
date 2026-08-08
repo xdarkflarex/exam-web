@@ -1,0 +1,23 @@
+{
+  "question": "Cho hàm số $f(x) = x^3 - 3x^2 + 2$. Tính $f'(x)$ và tìm các điểm cực trị của hàm số.",
+  "reference_answer": "Ta có $f'(x) = 3x^2 - 6x$. Cho $f'(x) = 0 \\Leftrightarrow 3x(x-2) = 0 \\Leftrightarrow x = 0$ hoặc $x = 2$. Bảng xét dấu $f'(x)$: $f'(x) > 0$ khi $x < 0$ hoặc $x > 2$, $f'(x) < 0$ khi $0 < x < 2$. Vậy hàm số đạt cực đại tại $x = 0$ với $f(0) = 2$, đạt cực tiểu tại $x = 2$ với $f(2) = -2$.",
+  "student_answer": "$f'(x) = 3x^2 - 6x$\n$f'(x) = 0 \\Leftrightarrow 3x(x - 2) = 0 \\Leftrightarrow x = 0$ hoặc $x = 2$\nXét dấu $f'(x)$: khi $x < 0$ thì $f'(x) > 0$, khi $0 < x < 2$ thì $f'(x) < 0$, khi $x > 2$ thì $f'(x) > 0$.\nVậy hàm số đạt cực đại tại $x = 0$, giá trị cực đại $f(0) = 2$.\nHàm số đạt cực tiểu tại $x = 2$, giá trị cực tiểu $f(2) = 8 - 12 + 2 = -2$.",
+  "max_score": 2,
+  "rubric": [
+    {
+      "criterion_id": "c1",
+      "title": "Tính đạo hàm",
+      "description": "Cho đủ 1 điểm khi đạo hàm đúng hoàn toàn. Trừ hết nếu sai hệ số hoặc sai bậc.",
+      "max_score": 1
+    },
+    {
+      "criterion_id": "c2",
+      "title": "Xét dấu và kết luận cực trị",
+      "description": "Cho 0,5 điểm khi xét dấu đúng trên cả ba khoảng. Cho thêm 0,5 điểm khi kết luận đúng cả điểm cực đại và điểm cực tiểu kèm giá trị.",
+      "max_score": 1
+    }
+  ],
+  "expected_score": 2,
+  "human_scores": [2, 2],
+  "note": "Fixture MẪU, dữ liệu tự soạn. Bài làm đúng hoàn toàn — kiểm AI không trừ điểm vô cớ khi trình bày gọn hơn đáp án tham chiếu."
+}

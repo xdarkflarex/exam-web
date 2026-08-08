@@ -23,8 +23,19 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-// Anti-cheat event types
+// Anti-cheat event types.
+// Phải là tập con của CHECK constraint trên `anti_cheat_logs.event_type`:
+// dev_tools_opened | tab_switch | window_blur | right_click | copy_paste
+// | network_request | suspicious_timing
+// Gửi giá trị ngoài danh sách này khiến insert trả HTTP 400.
 type AntiCheatEventType = 'tab_switch' | 'window_blur' | 'suspicious_timing'
+
+// `anti_cheat_logs.severity` chỉ nhận low | medium | high.
+const EVENT_SEVERITY: Record<AntiCheatEventType, 'low' | 'medium' | 'high'> = {
+  tab_switch: 'medium',
+  window_blur: 'low',
+  suspicious_timing: 'low',
+}
 
 // Suspicious timing threshold: no interaction for this duration triggers a log
 const SUSPICIOUS_INACTIVITY_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
@@ -88,16 +99,22 @@ export function useExamAntiCheat({
     eventCountsRef.current[eventType]++
     
     try {
-      await supabase.from('anti_cheat_logs').insert({
+      // Cột trên bảng là `details` (jsonb), không phải `metadata`.
+      const { error } = await supabase.from('anti_cheat_logs').insert({
         attempt_id: attemptId,
         event_type: eventType,
-        created_at: new Date().toISOString(),
-        metadata: {
+        severity: EVENT_SEVERITY[eventType],
+        details: {
           ...metadata,
           event_count: eventCountsRef.current[eventType],
           timestamp_ms: now,
         },
       })
+
+      // supabase-js trả lỗi trong payload thay vì throw, nên phải kiểm tra tường minh.
+      if (error) {
+        console.warn('Anti-cheat log rejected:', error.message)
+      }
     } catch (error) {
       // Silent fail - anti-cheat logging should never break the exam
       console.warn('Anti-cheat log failed:', error)
@@ -193,33 +210,15 @@ export function useExamAntiCheat({
   }, [enabled, updateActivity, checkSuspiciousInactivity])
 
   /**
-   * Log when exam starts (for analytics)
+   * Ghi chú: trước đây hook insert một bản ghi `event_type: 'exam_session_start'`
+   * kèm user agent/kích thước màn hình. Giá trị đó KHÔNG nằm trong CHECK
+   * constraint của `anti_cheat_logs.event_type`, nên mọi lần vào phòng thi đều
+   * tạo một HTTP 400 trong console. Đã bỏ vì không có event type hợp lệ tương ứng.
+   *
+   * Nếu muốn khôi phục telemetry phiên thi, cần một migration mở rộng CHECK
+   * constraint (thêm `exam_session_start`) trước, rồi mới bật lại insert ở đây.
+   * Không gửi giá trị chưa được constraint chấp nhận.
    */
-  useEffect(() => {
-    if (!enabled || !attemptId) return
-
-    // Log exam session start
-    const logSessionStart = async () => {
-      try {
-        await supabase.from('anti_cheat_logs').insert({
-          attempt_id: attemptId,
-          event_type: 'exam_session_start',
-          created_at: new Date().toISOString(),
-          metadata: {
-            user_agent: navigator.userAgent,
-            screen_width: window.screen.width,
-            screen_height: window.screen.height,
-            window_width: window.innerWidth,
-            window_height: window.innerHeight,
-          },
-        })
-      } catch (error) {
-        console.warn('Anti-cheat session start log failed:', error)
-      }
-    }
-
-    logSessionStart()
-  }, [attemptId, enabled, supabase])
 
   // Return utilities for manual event logging if needed
   return {

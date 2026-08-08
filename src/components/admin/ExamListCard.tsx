@@ -30,8 +30,8 @@ const statusConfig = {
   },
   archived: {
     label: 'Đã lưu trữ',
-    bg: 'bg-slate-100',
-    text: 'text-slate-600',
+    bg: 'bg-slate-100 dark:bg-slate-700',
+    text: 'text-slate-600 dark:text-slate-300',
     dot: 'bg-slate-400'
   }
 }
@@ -42,7 +42,7 @@ export default function ExamListCard({ exam }: ExamListCardProps) {
   return (
     <Link 
       href={`/admin/exams/${exam.id}`}
-      className="block bg-white rounded-xl border border-slate-100 p-5 hover:shadow-md hover:border-teal-200 transition-all group"
+      className="block bg-white dark:bg-slate-800 rounded-xl border border-slate-100 p-5 hover:shadow-md hover:border-teal-200 transition-all group"
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
@@ -50,10 +50,10 @@ export default function ExamListCard({ exam }: ExamListCardProps) {
             <FileText className="w-6 h-6 text-teal-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-slate-800 group-hover:text-teal-700 transition-colors">
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-teal-700 transition-colors">
               {exam.title}
             </h3>
-            <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+            <div className="flex items-center gap-4 mt-2 text-sm text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1">
                 <FileText className="w-4 h-4" />
                 {exam.questionCount} câu

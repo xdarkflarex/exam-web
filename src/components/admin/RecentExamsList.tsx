@@ -18,10 +18,20 @@ export default function RecentExamsList({ exams }: RecentExamsListProps) {
   if (exams.length === 0) {
     return (
       <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 p-6">
-        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Đề thi gần đây</h3>
-        <div className="text-center py-8">
-          <div className="w-12 h-12 bg-slate-300 dark:bg-slate-700 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <FileText className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Đề thi gần đây</h3>
+          {/* Trạng thái rỗng là lời mời hành động, không phải thông báo suông. */}
+          <Link
+            href="/admin/exams/create"
+            className="flex items-center gap-1 text-sm text-teal-700 hover:underline dark:text-teal-400"
+          >
+            Tạo đề đầu tiên
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="py-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-300 dark:bg-slate-700">
+            <FileText className="h-6 w-6 text-slate-400 dark:text-slate-500" />
           </div>
           <p className="text-slate-500 dark:text-slate-400">Chưa có đề thi nào</p>
         </div>

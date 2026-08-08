@@ -211,7 +211,7 @@ export default function ExamPublishPage() {
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-            <p className="text-slate-500">Đang tải cấu hình...</p>
+            <p className="text-slate-500 dark:text-slate-400">Đang tải cấu hình...</p>
           </div>
         </div>
       </div>
@@ -223,12 +223,12 @@ export default function ExamPublishPage() {
       <div className="min-h-screen bg-sky-50">
         <GlobalHeader title="Cấu hình bài thi" />
         <div className="flex items-center justify-center py-20">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <XCircle className="w-8 h-8 text-red-600" />
             </div>
-            <h1 className="text-xl font-bold text-slate-800 mb-2">Lỗi</h1>
-            <p className="text-slate-500">{error}</p>
+            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Lỗi</h1>
+            <p className="text-slate-500 dark:text-slate-400">{error}</p>
           </div>
         </div>
       </div>
@@ -243,12 +243,12 @@ export default function ExamPublishPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Cấu hình & Xuất bản</h1>
-            <p className="text-slate-600">{exam?.title}</p>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Cấu hình & Xuất bản</h1>
+            <p className="text-slate-600 dark:text-slate-300">{exam?.title}</p>
           </div>
           <button
             onClick={() => router.push(`/admin/exams/${examId}`)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại
@@ -268,33 +268,33 @@ export default function ExamPublishPage() {
         )}
 
         {/* Configuration Form */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 space-y-8">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 space-y-8">
           
           {/* Basic Info */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Thông tin cơ bản</h2>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Thông tin cơ bản</h2>
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Tên bài thi <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Nhập tên bài thi"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Mô tả bài thi
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Mô tả chi tiết về bài thi (tùy chọn)"
                 />
               </div>
@@ -303,10 +303,10 @@ export default function ExamPublishPage() {
 
           {/* Time Settings */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Cài đặt thời gian</h2>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Cài đặt thời gian</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Thời gian làm bài (phút)
                 </label>
                 <input
@@ -315,43 +315,43 @@ export default function ExamPublishPage() {
                   onChange={(e) => setDuration(parseInt(e.target.value) || 90)}
                   min={10}
                   max={300}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">{formatDuration(duration)}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{formatDuration(duration)}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Thời gian bắt đầu
                 </label>
                 <input
                   type="datetime-local"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">Để trống = không giới hạn</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Để trống = không giới hạn</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Thời gian kết thúc
                 </label>
                 <input
                   type="datetime-local"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">Để trống = không giới hạn</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Để trống = không giới hạn</p>
               </div>
             </div>
           </div>
 
           {/* Attempt & Result Rules */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Quy tắc làm bài & kết quả</h2>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Quy tắc làm bài & kết quả</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Số lần làm tối đa
                 </label>
                 <input
@@ -360,7 +360,7 @@ export default function ExamPublishPage() {
                   onChange={(e) => setMaxAttempts(parseInt(e.target.value) || 1)}
                   min={1}
                   max={10}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div className="flex flex-col justify-center">
@@ -369,11 +369,11 @@ export default function ExamPublishPage() {
                     type="checkbox"
                     checked={showResultsImmediately}
                     onChange={(e) => setShowResultsImmediately(e.target.checked)}
-                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                    className="w-5 h-5 text-indigo-600 border-slate-300 dark:border-slate-600 rounded focus:ring-indigo-500"
                   />
                   <div>
-                    <span className="text-sm font-medium text-slate-700">Hiện kết quả ngay</span>
-                    <p className="text-xs text-slate-500">Học sinh thấy điểm sau khi nộp bài</p>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Hiện kết quả ngay</span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Học sinh thấy điểm sau khi nộp bài</p>
                   </div>
                 </label>
               </div>
@@ -383,11 +383,11 @@ export default function ExamPublishPage() {
                     type="checkbox"
                     checked={allowReview}
                     onChange={(e) => setAllowReview(e.target.checked)}
-                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                    className="w-5 h-5 text-indigo-600 border-slate-300 dark:border-slate-600 rounded focus:ring-indigo-500"
                   />
                   <div>
-                    <span className="text-sm font-medium text-slate-700">Cho phép xem lại</span>
-                    <p className="text-xs text-slate-500">Học sinh có thể xem lại bài làm</p>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Cho phép xem lại</span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Học sinh có thể xem lại bài làm</p>
                   </div>
                 </label>
               </div>
@@ -395,11 +395,11 @@ export default function ExamPublishPage() {
           </div>
 
           {/* Publish Section */}
-          <div className="pt-6 border-t border-slate-200">
+          <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">Trạng thái xuất bản</h2>
-                <p className="text-sm text-slate-600">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Trạng thái xuất bản</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
                   {isPublished ? 'Bài thi đã được xuất bản và học sinh có thể làm bài' : 'Bài thi đang ở trạng thái nháp'}
                 </p>
               </div>
@@ -425,7 +425,7 @@ export default function ExamPublishPage() {
           </div>
 
           {/* Save Button */}
-          <div className="pt-6 border-t border-slate-200">
+          <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
             <button
               onClick={handleSave}
               disabled={saving}

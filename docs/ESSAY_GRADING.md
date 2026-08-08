@@ -103,7 +103,7 @@ Parser từ chối JSON sai bài, rubric cũ, tiêu chí lạ, điểm vượt g
 
 ## Cách tính điểm
 
-- `exam_questions.score` là điểm tối đa thô của từng câu; essay lấy từ `questions.essay_max_score`, các câu cũ mặc định 1.
+- `exam_questions.score` là điểm tối đa thô của từng câu. Câu essay lấy **tổng `max_score` của các tiêu chí rubric** trong `question_grading_configs`, **không** lấy `questions.essay_max_score` — lệch quá 0,0001 thì `submit_exam_attempt` raise `ESSAY_RUBRIC_SCORE_MISMATCH`. Trọng số ba loại câu còn lại phụ thuộc `exams.scoring_profile`; xem [`SCORING.md`](SCORING.md).
 - `student_answers.score` là điểm thô nhận được.
 - Khi mọi essay đã được duyệt:
 

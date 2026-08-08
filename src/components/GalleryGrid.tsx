@@ -40,7 +40,7 @@ export default function GalleryGrid({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Heading */}
           <div className="text-center mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
               {title}
             </h2>
             <p className="text-slate-600 dark:text-slate-400">
@@ -72,7 +72,7 @@ export default function GalleryGrid({
             {filtered.map((item, i) => (
               <div
                 key={`${activeTab}-${i}`}
-                className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 hover:shadow-xl animate-in fade-in zoom-in-95 duration-300"
+                className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 soft-shadow hover:shadow-xl animate-in fade-in zoom-in-95 duration-300"
                 style={{ animationDelay: `${i * 50}ms` }}
                 onClick={() => setLightbox(item)}
               >

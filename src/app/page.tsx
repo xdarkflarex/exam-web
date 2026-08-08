@@ -1,15 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { BookOpen, Target, TrendingUp, Clock, Award, ArrowRight, CheckCircle, LogIn, UserPlus, Sparkles, Newspaper } from 'lucide-react'
+import { BookOpen, Target, TrendingUp, Clock, Award, ArrowRight, CheckCircle, Sparkles, ListOrdered } from 'lucide-react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
 import AnnouncementBanner from '@/components/AnnouncementBanner'
-import ThemeToggle from '@/components/ThemeToggle'
 import MinhMathLogo from '@/components/MinhMathLogo'
 import ImageCarousel from '@/components/ImageCarousel'
 import EnrollmentCarousel from '@/components/EnrollmentCarousel'
 import GalleryGrid from '@/components/GalleryGrid'
 import VideoSection from '@/components/VideoSection'
-import AuthHeaderClient from '@/components/AuthHeaderClient'
+import LandingHeader from '@/components/landing/LandingHeader'
+import LandingFooter from '@/components/landing/LandingFooter'
+import StatsStrip, { type LandingStats } from '@/components/landing/StatsStrip'
+import QuickAccessGrid from '@/components/landing/QuickAccessGrid'
+import KnowledgeTopicsGrid from '@/components/landing/KnowledgeTopicsGrid'
 import PostsSection from '@/components/PostsSection'
 import EnrollmentFormSection from '@/components/EnrollmentFormSection'
 import EnrollmentFloatingButton from '@/components/EnrollmentFloatingButton'
@@ -93,6 +98,41 @@ function createPublicSupabaseClient() {
 }
 
 /**
+ * Kiểm tra người dùng hiện tại đã đăng nhập chưa.
+ *
+ * Dùng `createServerClient` (@supabase/ssr) để đọc cookie session — khác với
+ * `createPublicSupabaseClient()` ở trên vốn luôn ở mức anon. Chỉ cần biết
+ * "có session hay không" để bỏ nhãn "Cần đăng nhập" ở lưới truy cập nhanh;
+ * KHÔNG đọc profile/email/lớp của học sinh và không dùng để nới quyền dữ liệu.
+ *
+ * Trang này đã `force-dynamic` nên việc đọc cookie không làm mất cache.
+ */
+async function getIsAuthenticated() {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          // Landing page là Server Component: không được ghi cookie ở đây.
+          // Việc refresh session do middleware lo.
+          set() {},
+          remove() {},
+        },
+      }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    return Boolean(user)
+  } catch {
+    return false
+  }
+}
+
+/**
  * Fetch landing page content from site_settings
  * Uses public client - no authentication required
  */
@@ -139,11 +179,15 @@ async function getLandingContent() {
 /**
  * Fetch featured exams (published only, no question data)
  * Uses public client - no authentication required
+ *
+ * Kèm `question_count` để card đề hiển thị số câu thật. Đếm bằng
+ * `count: 'exact', head: true` nên không tải nội dung câu hỏi nào về client.
+ * Nếu anon không đọc được `exam_questions` (RLS) thì count = 0 và card ẩn dòng đó.
  */
 async function getFeaturedExams(count: number = 6) {
   try {
     const supabase = createPublicSupabaseClient()
-    
+
     const { data: exams } = await supabase
       .from('exams')
       .select('id, title, subject, duration')
@@ -151,8 +195,22 @@ async function getFeaturedExams(count: number = 6) {
       .eq('exam_mode', 'simulation')
       .order('created_at', { ascending: false })
       .limit(count)
-    
-    return exams || []
+
+    if (!exams || exams.length === 0) return []
+
+    return await Promise.all(
+      exams.map(async exam => {
+        try {
+          const { count: questionCount } = await supabase
+            .from('exam_questions')
+            .select('id', { count: 'exact', head: true })
+            .eq('exam_id', exam.id)
+          return { ...exam, question_count: questionCount || 0 }
+        } catch {
+          return { ...exam, question_count: 0 }
+        }
+      })
+    )
   } catch (error) {
     console.error('Error fetching featured exams:', error)
     return []
@@ -170,6 +228,68 @@ async function getRecentPosts(count: number = 6) {
       .select('id, title, slug, excerpt, cover_image, category, published_at')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
+      .limit(count)
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Đếm số liệu công khai cho dải thống kê dưới hero.
+ *
+ * Dùng `head: true` + `count: 'exact'` nên chỉ lấy con số, không tải hàng nào về.
+ * Bảng nào anon không đọc được (RLS) thì trả 0 và ô đó tự bị ẩn ở `StatsStrip`
+ * — không hiển thị số bịa.
+ */
+async function getLandingStats(): Promise<LandingStats> {
+  const empty: LandingStats = { exams: 0, theories: 0, posts: 0, topics: 0 }
+  try {
+    const supabase = createPublicSupabaseClient()
+
+    /** Điều kiện "đã công khai" của từng bảng; bảng không có cột thì bỏ trống. */
+    const publishedFilter: Record<string, { column: string; value: unknown } | null> = {
+      exams: { column: 'is_published', value: true },
+      theories: { column: 'is_published', value: true },
+      posts: { column: 'status', value: 'published' },
+      topics: null,
+    }
+
+    const countOf = async (table: keyof typeof publishedFilter) => {
+      try {
+        let query = supabase.from(table).select('id', { count: 'exact', head: true })
+        const filter = publishedFilter[table]
+        if (filter) query = query.eq(filter.column, filter.value)
+        const { count } = await query
+        return count || 0
+      } catch {
+        return 0
+      }
+    }
+
+    const [exams, theories, posts, topics] = await Promise.all([
+      countOf('exams'),
+      countOf('theories'),
+      countOf('posts'),
+      countOf('topics'),
+    ])
+    return { exams, theories, posts, topics }
+  } catch {
+    return empty
+  }
+}
+
+/**
+ * Danh sách chuyên mục kiến thức công khai (bảng `topics`).
+ * Rỗng khi anon không có quyền đọc — section sẽ tự ẩn.
+ */
+async function getKnowledgeTopics(count: number = 12) {
+  try {
+    const supabase = createPublicSupabaseClient()
+    const { data } = await supabase
+      .from('topics')
+      .select('id, name')
+      .order('order_index')
       .limit(count)
     return data || []
   } catch {
@@ -204,11 +324,34 @@ function BenefitIcon({ icon, className }: { icon: string; className?: string }) 
  * Always accessible without authentication.
  * Content can be edited by admin via /admin/settings/landing
  */
-export default async function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q } = await searchParams
+  const query = (q || '').trim()
+
   const content = await getLandingContent() as any
   const showExams = content.config?.show_featured_exams ?? true
-  const exams = showExams ? await getFeaturedExams(content.config?.featured_exams_count || 6) : []
-  const recentPosts = await getRecentPosts(6)
+  const [allExams, recentPosts, stats, knowledgeTopics, isAuthenticated] = await Promise.all([
+    showExams ? getFeaturedExams(content.config?.featured_exams_count || 6) : Promise.resolve([]),
+    getRecentPosts(6),
+    getLandingStats(),
+    getKnowledgeTopics(12),
+    getIsAuthenticated(),
+  ])
+
+  // Lọc phía client-render trên đúng danh sách đề public đã lấy về.
+  // Không mở route search mới nên không thêm bề mặt dữ liệu nào.
+  const normalize = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd')
+  const needle = normalize(query)
+  const exams = needle
+    ? allExams.filter(e =>
+        normalize(`${e.title || ''} ${e.subject || ''}`).includes(needle)
+      )
+    : allExams
 
   const heroSlides = content.hero_slides || []
   const enrollment = content.enrollment || []
@@ -217,7 +360,10 @@ export default async function LandingPage() {
 
   const defaultSectionsOrder = [
     { id: 'hero', label: 'Hero Carousel', visible: true },
+    { id: 'stats', label: 'Số liệu nền tảng', visible: true },
+    { id: 'quick_access', label: 'Truy cập nhanh', visible: true },
     { id: 'exams', label: 'Đề thi nổi bật', visible: true },
+    { id: 'knowledge_topics', label: 'Chuyên mục kiến thức', visible: true },
     { id: 'gallery', label: 'Thư viện ảnh', visible: true },
     { id: 'enrollment', label: 'Tuyển sinh & Lịch khai giảng', visible: true },
     { id: 'posts', label: 'Bài viết mới nhất', visible: true },
@@ -227,33 +373,35 @@ export default async function LandingPage() {
     { id: 'cta', label: 'Kêu gọi hành động', visible: true },
   ]
   const rawConfig = content.sections_config || defaultSectionsOrder
+  // Config admin đã lưu có thể thiếu section mới. Chèn section thiếu vào ngay
+  // sau "người láng giềng đứng trước" của nó trong thứ tự mặc định, thay vì dồn
+  // hết xuống cuối trang. Thứ tự admin đã tự sắp cho các section cũ giữ nguyên.
   const presentIds = new Set(rawConfig.map((s: any) => s.id))
-  const missingSections = defaultSectionsOrder.filter(s => !presentIds.has(s.id))
-  const sectionsConfig = [...rawConfig, ...missingSections]
+  const sectionsConfig = [...rawConfig]
+  for (const missing of defaultSectionsOrder) {
+    if (presentIds.has(missing.id)) continue
+    const defaultIndex = defaultSectionsOrder.findIndex(s => s.id === missing.id)
+    let insertAt = sectionsConfig.length
+    for (let i = defaultIndex - 1; i >= 0; i--) {
+      const anchor = sectionsConfig.findIndex(s => s.id === defaultSectionsOrder[i].id)
+      if (anchor !== -1) {
+        insertAt = anchor + 1
+        break
+      }
+    }
+    sectionsConfig.splice(insertAt, 0, { ...missing })
+    presentIds.add(missing.id)
+  }
   const visibleSections = sectionsConfig.filter((s: any) => s.visible)
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass-strong shadow-sm fade-in">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <MinhMathLogo size={40} />
-              <span className="text-xl font-bold text-slate-800 dark:text-slate-100 font-baloo">
-                {content.brand?.name || DEFAULT_CONTENT.brand.name}
-              </span>
-            </Link>
-            
-            {/* Navigation */}
-            <nav className="flex items-center gap-2 sm:gap-3">
-              <ThemeToggle />
-              <AuthHeaderClient />
-            </nav>
-          </div>
-        </div>
-      </header>
+      <LandingHeader
+        brandName={content.brand?.name || DEFAULT_CONTENT.brand.name}
+        hotline={content.brand?.hotline}
+        initialQuery={query}
+      />
 
       {/* Announcement Banner */}
       <AnnouncementBanner />
@@ -290,9 +438,21 @@ export default async function LandingPage() {
                 </ImageCarousel>
               </section>
             ) : (
-              <section key="hero" className="py-20 sm:py-28">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-sm font-medium mb-6 slide-in-up">
+              <section key="hero" className="relative overflow-hidden hero-gradient py-20 sm:py-28">
+                {/* Trang trí: ký hiệu toán trôi chậm + quầng sáng mờ.
+                    aria-hidden + pointer-events-none để không lọt vào a11y tree
+                    hay chắn click. Chuyển động bị tắt bởi prefers-reduced-motion. */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+                  <span className="absolute top-[18%] left-[8%] text-6xl sm:text-8xl font-serif text-teal-600/15 dark:text-teal-400/15 float-slow">∫</span>
+                  <span className="absolute top-[30%] right-[12%] text-5xl sm:text-7xl font-serif text-teal-600/10 dark:text-teal-400/10 float-slow-delay-1">π</span>
+                  <span className="absolute bottom-[18%] left-[20%] text-5xl sm:text-7xl font-serif text-amber-500/10 float-slow-delay-2">∑</span>
+                  <span className="absolute top-[50%] right-[26%] text-6xl sm:text-8xl font-serif text-teal-600/10 dark:text-teal-400/10 float-slow">√</span>
+                  <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-teal-400/15 dark:bg-teal-500/10 blur-3xl" />
+                  <div className="absolute -bottom-32 -left-24 w-96 h-96 rounded-full bg-amber-400/10 blur-3xl" />
+                </div>
+                <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium mb-6 slide-in-up">
+                    <span className="flex w-2 h-2 rounded-full bg-teal-500 animate-pulse" aria-hidden="true" />
                     <MinhMathLogo size={22} />
                     {content.hero?.badge || DEFAULT_CONTENT.hero.badge}
                   </div>
@@ -316,13 +476,22 @@ export default async function LandingPage() {
               </section>
             )
 
+          case 'stats':
+            return <StatsStrip key="stats" stats={stats} />
+
+          case 'quick_access':
+            return <QuickAccessGrid key="quick_access" isAuthenticated={isAuthenticated} />
+
+          case 'knowledge_topics':
+            return <KnowledgeTopicsGrid key="knowledge_topics" items={knowledgeTopics} />
+
           case 'exams':
             return (
-              <section key="exams" className="py-16 bg-slate-200/50 dark:bg-slate-800/50">
+              <section key="exams" id="exams" className="scroll-mt-32 py-16 bg-slate-200/50 dark:bg-slate-800/50">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ScrollRevealClient>
                     <div className="text-center mb-12">
-                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
                         {content.exams_section?.title || DEFAULT_CONTENT.exams_section.title}
                       </h2>
                       <p className="text-slate-600 dark:text-slate-400">
@@ -334,24 +503,61 @@ export default async function LandingPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {exams.map((exam, index) => (
                         <ScrollRevealClient key={exam.id} delay={index * 80}>
-                          <Link href="/login" className="group block bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                          {/*
+                            Đã đăng nhập thì vào thẳng trang chuẩn bị làm bài; chưa thì qua
+                            /login. Trước đây luôn trỏ /login, nên học sinh đang có session
+                            bấm "Làm bài ngay" sẽ bị middleware đẩy về /student (xem
+                            src/middleware.ts:149) và không bao giờ tới được đề vừa bấm.
+                          */}
+                          <Link href={isAuthenticated ? `/exam/prepare/${exam.id}` : '/login'} className="group flex h-full flex-col bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 soft-shadow hover:shadow-xl hover:-translate-y-1">
+                            <div className="flex items-start justify-between gap-3 mb-4">
+                              <div className="w-12 h-12 shrink-0 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                                 <BookOpen className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                               </div>
-                              <span className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {exam.duration} phút
+                              {/* Chip môn học — thay cho dòng text nhỏ ở dưới, theo style card mới */}
+                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-600 text-white dark:bg-teal-500">
+                                {exam.subject || 'Toán học'}
                               </span>
                             </div>
-                            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{exam.title}</h3>
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm text-slate-500 dark:text-slate-400">{exam.subject || 'Toán học'}</p>
-                              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-1 transition-all duration-200" />
+                            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 line-clamp-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{exam.title}</h3>
+                            {/* Dải thông tin: chỉ hiện dữ liệu thật đang có trong bảng `exams` */}
+                            <div className="grid grid-cols-2 gap-3 mb-5 mt-auto">
+                              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                                <Clock className="w-4 h-4 shrink-0" />
+                                {exam.duration} phút
+                              </div>
+                              {exam.question_count > 0 && (
+                                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                                  <ListOrdered className="w-4 h-4 shrink-0" />
+                                  {exam.question_count} câu
+                                </div>
+                              )}
                             </div>
+                            <span className="flex w-full items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 transition-colors duration-300 group-hover:bg-teal-600 group-hover:text-white dark:group-hover:bg-teal-500">
+                              Làm bài ngay
+                              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
+                            </span>
                           </Link>
                         </ScrollRevealClient>
                       ))}
+                    </div>
+                  ) : query ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center mx-auto mb-4">
+                        <BookOpen className="w-8 h-8 text-slate-500 dark:text-slate-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Không tìm thấy đề thi phù hợp
+                      </h3>
+                      <p className="text-slate-500 dark:text-slate-400 mb-6">
+                        Không có đề nào khớp với &ldquo;{query}&rdquo; trong danh sách đề nổi bật.
+                      </p>
+                      <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/30 hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors"
+                      >
+                        Xem tất cả đề thi
+                      </Link>
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -392,11 +598,11 @@ export default async function LandingPage() {
 
           case 'benefits':
             return (
-              <section key="benefits" className="py-20">
+              <section key="benefits" id="benefits" className="scroll-mt-32 py-20">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ScrollRevealClient>
                     <div className="text-center mb-12">
-                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
                         {content.benefits_section?.title || DEFAULT_CONTENT.benefits_section.title}
                       </h2>
                       <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
@@ -407,7 +613,7 @@ export default async function LandingPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {(content.benefits || DEFAULT_CONTENT.benefits).map((benefit: any, index: number) => (
                       <ScrollRevealClient key={index} delay={index * 100}>
-                        <div className="group bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 h-full hover:border-teal-500/40 dark:hover:border-teal-400/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                        <div className="group flex h-full flex-col bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500/40 dark:hover:border-teal-400/40 transition-all duration-300 soft-shadow hover:shadow-lg hover:-translate-y-1">
                           <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-teal-200 dark:group-hover:bg-teal-900/50 transition-all duration-300">
                             <BenefitIcon icon={benefit.icon} className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                           </div>
@@ -450,7 +656,7 @@ export default async function LandingPage() {
                       <Sparkles className="w-4 h-4" />
                       {content.cta?.badge || DEFAULT_CONTENT.cta.badge}
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4 font-baloo">
                       {content.cta?.title || DEFAULT_CONTENT.cta.title}
                     </h2>
                     <p className="text-slate-600 dark:text-slate-400 mb-8">
@@ -471,41 +677,13 @@ export default async function LandingPage() {
       })}
 
       {/* Footer */}
-      <footer className="py-8 border-t border-slate-300/50 dark:border-slate-700/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-2 group">
-              <MinhMathLogo size={32} />
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                {content.brand?.name || DEFAULT_CONTENT.brand.name}
-              </span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <a
-                href="https://www.facebook.com/minhmath"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
-                title="Facebook"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </a>
-              <a
-                href="https://www.facebook.com/minhmath"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
-                title="Fanpage"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z"/></svg>
-              </a>
-            </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {content.brand?.copyright || DEFAULT_CONTENT.brand.copyright}
-            </p>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter
+        brandName={content.brand?.name || DEFAULT_CONTENT.brand.name}
+        copyright={content.brand?.copyright || DEFAULT_CONTENT.brand.copyright}
+        hotline={content.brand?.hotline}
+        email={content.brand?.email}
+        address={content.brand?.address}
+      />
 
       {/* Floating enrollment button + modal */}
       <EnrollmentFloatingButton />

@@ -71,6 +71,24 @@ Luôn kèm icon/text cho đúng-sai, không truyền đạt trạng thái chỉ 
 - Progress phải clamp `0..100`, mẫu số không được là 0 và phải nói rõ “phiên” hay “toàn bài”.
 - Auto-save cần trạng thái `Đang lưu / Đã lưu / Lỗi lưu`, không chỉ console.
 
+## Theme: một nguồn sự thật, đặt trước lượt vẽ đầu (2026-08-07)
+
+- **Class `dark` trên `<html>` là nguồn sự thật duy nhất.** Nó được đặt bởi script inline trong `src/app/layout.tsx`, **trước** khi trình duyệt vẽ khung hình đầu tiên. Không thêm nơi thứ hai quyết định theme (media query `prefers-color-scheme` trong CSS, biến riêng, state khác) — hai nơi cùng quyết định là hai nơi lệch nhau, và triệu chứng của lệch là "bật light mode nhưng chữ vẫn trắng".
+- **Không đặt màu nền/chữ trên `<body>` bằng utility.** Trước đây `body` mang `bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200` trong khi `globals.css` cũng đặt `html, body { background-color: var(--background) }`. Utility thắng selector `html, body`, nên toàn bộ bảng màu "chống mỏi mắt" khai báo bằng biến **không bao giờ có tác dụng**. Màu nền/chữ toàn cục chỉ do biến `--background` / `--foreground` quyết định.
+- **`ThemeProvider` không được chặn render.** Bản cũ `return null` cho tới khi effect chạy xong: trang trắng ở lượt vẽ đầu và HTML server render bị vứt đi. Có script inline rồi thì không còn lý do chặn.
+- **Đổi theme phải đặt cả `style.colorScheme`.** Thiếu nó thì scrollbar, ô nhập và control mặc định của trình duyệt vẫn giữ màu chế độ cũ — một trong những chỗ "không đồng nhất" dễ thấy nhất mà lại hay bị bỏ qua.
+
+## Tương phản: sửa ở một chỗ, không sửa 600 chỗ
+
+Đo ngày 2026-08-07 trên trang chủ (script tính tỉ số WCAG trên từng phần tử chữ): **27 lỗi ở light mode**. Ba khuôn mẫu lặp lại ~600 lần trong ~100 file, nên sửa từng chỗ là không khả thi.
+
+Cách đã dùng, ghi ở đầu `globals.css`: ghi đè chính các class dưới tiền tố `html:not(.dark)`. Kết quả **27 → 15** ở light mode; dark mode 12.
+
+- **Đã thử và KHÔNG chạy:** ghi đè token `--color-teal-600` trong `:root`. Tailwind v4 ở dự án này biên dịch utility thành giá trị màu cứng, không phải `var(--color-*)`. Kiểm bằng cách đặt `--color-slate-400: red` lúc chạy — màu chữ không đổi. Đừng thử lại cách này.
+- **Gradient cần override riêng.** `.bg-teal-600` không chạm nút gradient vì màu nằm ở `background-image`. Ghi đè `--tw-gradient-from` thì được, vì Tailwind v4 dựng `--tw-gradient-stops` từ nó.
+- **Đánh đổi phải biết:** trong light mode, `teal-600` không còn đúng là teal-600 của Tailwind. Ai tra bảng màu gốc sẽ thấy lệch.
+- **Còn nợ, đã đo:** chữ phụ `text-slate-500` đạt ~3.9:1, vẫn dưới 4.5 cho chữ nhỏ. Đẩy lên `slate-600` sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ chính/phụ — đó là quyết định thiết kế, không phải việc sửa máy móc.
+
 ## Checklist UI
 
 - [ ] Tiếng Việt nhất quán, có dấu.

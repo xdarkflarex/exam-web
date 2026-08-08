@@ -4,7 +4,9 @@
 
 Repo hiện **không có migration baseline đầy đủ** để dựng database trắng. `supabase/migrations/**` là các migration gia tăng; `database/SUPABASE_SCHEMA.sql` tự ghi là file context và đang lệch với migration homework/mastery/essay mới. Không chạy `supabase db reset` hoặc áp snapshot vào production cho đến khi baseline được chuẩn hóa và kiểm thử trên database tạm.
 
-`20260721_essay_assisted_grading.sql` và backfill cấu hình 6 câu essay legacy đã được áp trên Primary Database ngày 2026-07-22; các hậu kiểm cấu trúc đều trả `must_be_zero=0`. `20260722_runtime_security_hardening.sql` chưa được áp. Các object hardening capability/ownership bên dưới vẫn là **runtime expectation sau cutover 20260722 cùng source tương ứng**, không phải bằng chứng database live đã có đủ bảo vệ.
+`20260721_essay_assisted_grading.sql` và backfill cấu hình 6 câu essay legacy đã được áp trên Primary Database ngày 2026-07-22; các hậu kiểm cấu trúc đều trả `must_be_zero=0`. `20260722_runtime_security_hardening.sql` **cũng đã được áp** (xác minh live 2026-08-06 qua `to_regprocedure`). Nhưng "đã áp" chỉ nói object tồn tại: chưa có postflight live cho parent policy/grant và chưa có JWT negative test, nên đừng coi các mô tả capability/ownership bên dưới là bằng chứng database live đã chặn đủ.
+
+`20260806_moet_scoring_scale.sql` (thang điểm Bộ GD&ĐT cho đề thi thử) **đã được áp** ngày 2026-08-05, postflight 30/30 `must_be_zero=0`. Nó thêm cột `exams.scoring_profile`, `CREATE OR REPLACE` ba hàm chấm và backfill `exam_questions.score`; thang điểm, phạm vi theo loại đề và quy trình ở [`SCORING.md`](SCORING.md). Như hai migration trên, "đã áp" mới là xác minh cấu trúc — phép thử 3/4 ý ra 0,5 ([`RUNBOOK.md`](RUNBOOK.md) mục 8 bước 6) chưa chạy.
 
 ## Nguồn sự thật
 
@@ -45,7 +47,7 @@ Role model trong code là `student | teacher | admin`, nhưng snapshot/policy/AP
 | `question_feedbacks` | Phản hồi/lỗi câu hỏi |
 | `question_grading_configs` | Đáp án tham chiếu/rubric riêng cho chấm `essay`; chỉ xuất hiện sau migration pilot |
 
-Hardening 20260722 dự kiến thêm `questions.created_by`. Backfill chỉ gán owner khi mọi exam/homework đang liên kết câu đó suy ra đúng **một** owner; câu không suy ra được hoặc có nhiều owner giữ `NULL` để admin xử lý. Teacher chỉ tạo/quản lý câu của mình và chỉ gắn câu được phép vào parent draft; admin hệ thống có quyền ngân hàng câu hỏi toàn cục.
+Hardening 20260722 đã thêm `questions.created_by`. Backfill chỉ gán owner khi mọi exam/homework đang liên kết câu đó suy ra đúng **một** owner; câu không suy ra được hoặc có nhiều owner giữ `NULL` để admin xử lý. Teacher chỉ tạo/quản lý câu của mình và chỉ gắn câu được phép vào parent draft; admin hệ thống có quyền ngân hàng câu hỏi toàn cục.
 
 `answers.is_correct` là dữ liệu nhạy cảm trong lúc làm bài; không cấp select cho luồng student trước khi policy feedback cho phép.
 
@@ -53,7 +55,7 @@ Hardening 20260722 dự kiến thêm `questions.created_by`. Backfill chỉ gán
 
 | Object | Vai trò |
 |---|---|
-| `exams` | Metadata, `exam_mode`, publish/rule/time |
+| `exams` | Metadata, `exam_mode`, `scoring_profile`, publish/rule/time |
 | `exam_questions` | Snapshot/thứ tự câu theo part |
 | `exam_attempts` | Attempt của học sinh |
 | `student_answers` | Câu trả lời, trạng thái chấm và điểm |
@@ -64,6 +66,8 @@ Hardening 20260722 dự kiến thêm `questions.created_by`. Backfill chỉ gán
 
 `simulation` và `practice` dùng domain này nhưng mọi query bề mặt phải filter đúng mode.
 
+`exams.scoring_profile` (`moet_standard` | `custom`, DEFAULT `custom`) là cột **độc lập** với `exam_mode`: đề thi thử và đề thi học kì cùng `exam_mode = 'simulation'` nhưng khác hồ sơ điểm, nên không được suy hồ sơ điểm từ mode. Client được `INSERT` cột này nhưng **không** được `UPDATE` — đổi hồ sơ điểm của đề đã tồn tại phải làm bằng SQL/service_role có chủ ý. Xem [`SCORING.md`](SCORING.md).
+
 ### Pilot chấm tự luận simulation
 
 `essay` là question type thứ tư, dùng `student_answers.text_answer` cho raw answer và chỉ được bật trong source cho `exam_mode='simulation'`. Practice bị chặn khi source đề có essay; homework chưa tích hợp.
@@ -72,7 +76,7 @@ Migration pilot dự kiến thêm:
 
 | Object/cột | Ý nghĩa |
 |---|---|
-| `questions.essay_max_score` | Điểm tối đa mặc định khi đưa essay vào đề |
+| `questions.essay_max_score` | Điểm tối đa mặc định của câu essay. **Không phải nguồn trọng số khi vào đề** — trọng số lấy từ tổng thang điểm rubric trong `question_grading_configs`, xem [`SCORING.md`](SCORING.md) |
 | `question_grading_configs` | `reference_answer`, rubric JSON, version, confidence threshold và metadata quản trị |
 | `student_answers.max_score` | Trọng số snapshot từ `exam_questions.score` lúc submit |
 | `student_answers.grading_status` | `not_required`, `auto_graded`, `pending_review`, `approved`, `failed` |
@@ -92,6 +96,10 @@ attempt còn essay chờ: submitted + pending_review + score NULL
 attempt đủ điểm: submitted + completed + score = earned_points/max_points*10
 ```
 
+`max_points` là `SUM(exam_questions.score)` tính tại thời điểm nộp, **không phải** `exams.total_score`.
+
+Trọng số từng câu phụ thuộc `exams.scoring_profile`. Chỉ đề **thi thử** (`moet_standard`) dùng thang Bộ GD&ĐT: trắc nghiệm 0,25 — Đúng/Sai 1,0 — trả lời ngắn 0,5. Đề thi học kì, đề ôn tập và bài tập về nhà là `custom`: giáo viên tự đặt, khởi tạo 1 điểm mỗi câu. Trọng số câu tự luận bằng tổng rubric ở **mọi** hồ sơ điểm, và bậc thang Đúng/Sai (1,0/0,5/0,25/0,1/0 theo số ý đúng) cũng áp cho mọi hồ sơ. Chi tiết ở [`SCORING.md`](SCORING.md).
+
 Ba RPC mới:
 
 - `create_essay_question`: role `admin|teacher`, validate nội dung, rubric và tổng điểm rồi tạo question/config trong một transaction.
@@ -102,7 +110,7 @@ AI không gọi database hoặc tự chốt điểm. Source chỉ tạo gói ch�
 
 ### Hardening runtime 20260722
 
-Migration kế tiếp phụ thuộc 20260721 và dự kiến chuyển trust boundary của ba luồng làm bài sang server:
+Migration này phụ thuộc 20260721 và đã chuyển trust boundary của ba luồng làm bài sang server:
 
 | Nhóm | Object/RPC chính | Bất biến |
 |---|---|---|
@@ -177,7 +185,12 @@ RPC được source gọi:
 | `20260621_cleanup_mastery.sql` | Archive/drop mastery cũ |
 | `20260621_separate_homework_domain.sql` | Homework domain riêng, migrate legacy, RLS |
 | `20260721_essay_assisted_grading.sql` | Pilot essay simulation, RPC submit/review, trigger bảo vệ grading và audit; đã apply ngày 2026-07-22, postflight cấu trúc đạt, chưa JWT/E2E |
-| `20260722_runtime_security_hardening.sql` | Ownership question, closed RLS/grant gồm cả parent trust anchors và RPC server-side cho simulation/practice/homework; chưa apply/test live, phụ thuộc preflight và postflight/JWT tests |
+| `20260722_runtime_security_hardening.sql` | Ownership question, closed RLS/grant gồm cả parent trust anchors và RPC server-side cho simulation/practice/homework; đã apply (xác minh 2026-08-06), chưa postflight live/JWT tests. **RENAME** `submit_exam_attempt` thành `submit_exam_attempt_trusted_internal` rồi bọc lại — sửa hàm chấm phải sửa hàm `_trusted_internal` |
+| `20260804_essay_ai_auto_grading.sql` | Đường ghi điểm cho AI tự chấm tự luận (`ai_finalize_essay_answer`, `grading_status='ai_graded'`); đã apply, không tự bật tính năng — cờ `ESSAY_AI_ENABLED`/`ESSAY_AI_AUTO_FINALIZE` điều khiển |
+| `20260805_essay_ai_usage.sql` | Nhật ký chi phí `essay_ai_usage` + `essay_ai_month_to_date_cost()`; đã apply |
+| `20260806_moet_scoring_scale.sql` | Thang điểm Bộ GD&ĐT cho đề thi thử: cột `exams.scoring_profile` (`moet_standard`/`custom`, DEFAULT `custom`), hàm bậc thang `moet_true_false_score()`, `CREATE OR REPLACE` ba hàm chấm, trigger 4 ý **chỉ áp cho `moet_standard`**, backfill `exam_questions.score` + `exams.total_score`; **đã apply 2026-08-05**, postflight 30/30. Mọi sửa hàm chấm sau này rebase trên file này, xem [`SCORING.md`](SCORING.md) |
+| `20260807_essay_ocr_snapshots.sql` | Bảng `essay_ocr_snapshots`: chất lượng nhận dạng mỗi lần học sinh chụp ảnh bài tự luận (confidence, cảnh báo, hash, provider/model). Khoá tra cứu `(attempt_id, question_id)` vì lúc OCR chạy thì `student_answers` chưa có dòng. RLS bật + FORCE, không policy, chỉ `service_role` SELECT/INSERT. Chỉ tạo mới, không đụng migration nào khác; **đã apply 2026-08-07**, postflight báo `service_role_thua_quyen_sua = 2` — quyền UPDATE/DELETE **không** bị chặn như file tuyên bố, sửa bằng `20260808`. Đóng fail-open ở cổng OCR của `auto-finalize.ts` |
+| `20260808_essay_ocr_snapshots_lock_append_only.sql` | Sửa lỗi quyền của `20260807`: `REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER` khỏi `service_role` để `essay_ocr_snapshots` thật sự append-only. Nguyên nhân gốc là `ALTER DEFAULT PRIVILEGES ... GRANT ALL ON TABLES TO ... service_role` của Supabase — **bảng mới trong `public` sinh ra đã có ALL**, nên "không grant UPDATE" ≠ "không có UPDATE", và `REVOKE` của `20260807` không liệt kê `service_role`. Chỉ đổi ACL, tự kiểm trong transaction trước COMMIT, chạy lại vô hại; **chưa apply**. Không chạm default privileges cấp schema — bẫy vẫn còn cho bảng mới, xem `supabase/preflight/20260808_default_privileges_audit.sql` và quy ước ở [`RUNBOOK.md`](RUNBOOK.md) |
 
 Chuỗi này tham chiếu các bảng nền và function như `update_updated_at_column()` nhưng không tự tạo đầy đủ. Snapshot lại thiếu các bảng homework/essay mới và còn object đã drop.
 
@@ -189,7 +202,7 @@ Chuỗi này tham chiếu các bảng nền và function như `update_updated_at
 - Không dùng service role từ client. Route server dùng service role phải tự auth/authorize trước khi bypass RLS.
 - Submit/grading/tạo exam/import theory nhiều bước phải vào transaction/RPC idempotent; không để trạng thái nửa chừng.
 - Pilot simulation dùng trigger để chặn student ghi/sửa/xóa trực tiếp answer và sửa trường định danh/trạng thái/điểm attempt; RPC `submit_exam_attempt`/`review_essay_answer` là trusted mutation. Điều này chưa thay thế việc kiểm thử RLS/trigger trên database thật.
-- Hardening 20260722 dự kiến rebuild policy của `profiles`, question/key, link, attempt/answer và bookmark từ closed baseline; revoke quyền nhạy cảm của `PUBLIC`/`anon`, rồi chỉ grant operation cần thiết cho `authenticated` qua RLS/RPC. Không coi thiết kế này là live cho đến khi cutover hoàn tất.
+- Hardening 20260722 đã rebuild policy của `profiles`, question/key, link, attempt/answer và bookmark từ closed baseline; revoke quyền nhạy cảm của `PUBLIC`/`anon`, rồi chỉ grant operation cần thiết cho `authenticated` qua RLS/RPC. Migration đã áp, nhưng chưa có postflight live/JWT test nên đừng kết luận thiết kế này đã chặn đủ trên runtime.
 - `question_grading_configs.reference_answer` và rubric không được cấp SELECT cho student; review của teacher phải scope theo người tạo đề hoặc `classes.teacher_id`.
 
 ## Quy trình tạo baseline chuẩn

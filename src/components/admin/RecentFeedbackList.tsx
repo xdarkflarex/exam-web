@@ -67,9 +67,13 @@ export default function RecentFeedbackList({ feedbacks }: RecentFeedbackListProp
         {feedbacks.map((feedback) => {
           const status = statusConfig[feedback.status]
           return (
-            <div
+            /* Mỗi góp ý là `Link`, không phải `div`. Trước đây danh sách này có
+               cùng layout với danh sách đề thi nhưng không bấm được — người dùng
+               bấm vào và không có gì xảy ra. */
+            <Link
               key={feedback.id}
-              className="p-4 rounded-xl bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
+              href="/admin/feedback"
+              className="block rounded-xl border border-slate-300 bg-slate-100 p-4 transition-colors hover:border-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:border-slate-600 dark:bg-slate-700/50 dark:hover:border-teal-600"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -92,7 +96,7 @@ export default function RecentFeedbackList({ feedbacks }: RecentFeedbackListProp
                 <Clock className="w-3 h-3" />
                 {feedback.createdAt}
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>

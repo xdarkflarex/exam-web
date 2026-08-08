@@ -36,6 +36,7 @@ const tabs: Array<{ id: TabKey; label: string; icon: typeof BarChart3 }> = [
 
 const statusTone: Record<CapabilityStatus, string> = {
   no_data: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+  collecting: 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300',
   needs_work: 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300',
   building: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
   stable: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
@@ -44,6 +45,7 @@ const statusTone: Record<CapabilityStatus, string> = {
 
 const barTone: Record<CapabilityStatus, string> = {
   no_data: 'bg-slate-300',
+  collecting: 'bg-violet-400',
   needs_work: 'bg-rose-500',
   building: 'bg-amber-500',
   stable: 'bg-blue-500',

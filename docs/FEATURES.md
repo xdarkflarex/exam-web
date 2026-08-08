@@ -33,7 +33,8 @@ Access tier của học sinh:
 
 ### Dashboard và hồ sơ
 
-- `/student`: tổng quan thi, hoạt động và CTA học tập.
+- `/student`: workspace “Hôm nay”, ưu tiên attempt đang làm, bài còn hạn và
+  phản hồi đã được công bố; không hiển thị điểm tự luận đang chờ duyệt như 0.
 - `/student/exams`: danh sách đề thi thử.
 - `/student/practice`: danh sách ôn tập.
 - `/student/homework`: bài tập được giao và trạng thái.
@@ -74,7 +75,7 @@ Access tier của học sinh:
 | Homework | `/admin/homework`, create, detail, assign, results, knowledge targets |
 | Kiến thức | `/admin/theories`, new/edit/import/export/edges, `/admin/knowledge-links` |
 | Người học | `/admin/students`, detail, `/admin/users`, `/admin/classes` |
-| Analytics | `/admin/analytics`, `/admin/reports`, attempt detail |
+| Analytics | `/admin/analytics` là workspace kết quả lớp cho `simulation/practice` (không gộp homework), có điểm trung vị, hàng chờ tự luận và drill-down; `/admin/reports`, attempt detail |
 | Nội dung | posts, calendar, announcements, landing sections, media |
 | Tuyển sinh | `/admin/enrollments`, duyệt và tạo tài khoản tạm |
 | Hệ thống | settings, feature access, OTP admin, LaTeX templates, feedback |
@@ -85,22 +86,42 @@ Giáo viên theo thiết kế phải chỉ thấy học sinh thuộc lớp có `
 
 ### Bốn dạng câu hỏi trong source
 
-| `question_type` | Ý nghĩa | Chấm dự kiến |
-|---|---|---|
-| `multiple_choice` | Một lựa chọn đúng | So answer id/đáp án chuẩn |
-| `true_false` | Nhiều mệnh đề đúng/sai | So từng mệnh đề, cần định nghĩa điểm từng ý |
-| `short_answer` | Trả lời ngắn | Chuẩn hóa chuỗi/số và so đáp án cho phép |
-| `essay` | Tự luận dài bằng văn bản/LaTeX | Pilot simulation: AI chỉ gợi ý theo rubric; giáo viên duyệt/chốt bắt buộc |
+Cột trọng số dưới đây là của đề **thi thử** (`exams.scoring_profile = 'moet_standard'`). Đề thi
+học kì, đề ôn tập và bài tập về nhà là `custom`: khởi tạo 1 điểm mỗi câu, giáo viên tự đặt lại.
+Bậc thang Đúng/Sai thì áp cho **mọi** loại đề.
+
+| `question_type` | Ý nghĩa | Trọng số đề thi thử | Cách chấm |
+|---|---|---:|---|
+| `multiple_choice` | Một lựa chọn đúng | 0,25 | So answer id/đáp án chuẩn |
+| `true_false` | Bốn mệnh đề đúng/sai | 1,00 | **Bậc thang theo số ý đúng**: 4 ý → 1,0 · 3 ý → 0,5 · 2 ý → 0,25 · 1 ý → 0,1 · 0 ý → 0. Đề thi thử bắt buộc đúng 4 ý; đề custom cho 2–3 ý và chấm theo tỷ lệ |
+| `short_answer` | Trả lời ngắn | 0,50 | Chuẩn hóa chuỗi/số và so đáp án cho phép |
+| `essay` | Tự luận dài bằng văn bản/LaTeX | **tổng thang điểm rubric** | Pilot simulation: AI chỉ gợi ý theo rubric; giáo viên duyệt/chốt bắt buộc. Ràng buộc tổng rubric áp cho mọi loại đề |
+
+Điểm hiển thị cho học sinh là thang 10: `round(earned_points / max_points * 10, 2)`, với `max_points = SUM(exam_questions.score)` tại thời điểm nộp. Đề thi thử chuẩn 12 trắc nghiệm + 4 Đúng/Sai + 6 trả lời ngắn cộng đúng 10,0. Nguồn duy nhất cho thang điểm: [`SCORING.md`](SCORING.md) — đọc trước khi chạm bất cứ đường tính điểm nào, đặc biệt mục "Thang Bộ áp cho loại đề nào". Thang này áp từ `20260806_moet_scoring_scale.sql`, **migration đã áp ngày 2026-08-05** (postflight 30/30, chuỗi gọi và bảng giá trị bậc thang đã xác minh); còn phép thử end-to-end bước 6 chưa chạy.
+
+### Ba loại đề
+
+Giáo viên chọn một trong ba khi tạo đề, và lựa chọn đó ghi xuống **hai cột độc lập**:
+
+| Loại đề | `exam_mode` | `scoring_profile` | Trọng số |
+|---|---|---|---|
+| Thi thử | `simulation` | `moet_standard` | thang Bộ, cố định |
+| Thi học kì | `simulation` | `custom` | giáo viên tự đặt |
+| Ôn tập | `practice` | `custom` | giáo viên tự đặt |
+
+Thi thử và thi học kì **cùng** `exam_mode`, nên không được suy hồ sơ điểm từ mode — phải đọc
+`scoring_profile`. Bài tập về nhà không có cột này, luôn tự do cấu hình.
 
 ### Pilot tự luận có AI hỗ trợ
 
 - Chỉ hỗ trợ `simulation`; create exam chặn source có essay khi chọn `practice`. Homework chưa hỗ trợ.
 - Admin/teacher tạo câu tại `/admin/questions/essay/new`, gồm đáp án tham chiếu, điểm tối đa và rubric có tổng điểm khớp.
+- Trọng số câu tự luận trong đề là **tổng `max_score` của các tiêu chí rubric**, không phải `questions.essay_max_score`. Lệch quá 0,0001 thì `submit_exam_attempt` raise `ESSAY_RUBRIC_SCORE_MISMATCH`; trang cấu hình điểm chặn từ lúc cấu hình.
 - Học sinh nhập tối đa 20.000 ký tự. Non-empty essay chuyển `pending_review`; blank essay được server chốt 0.
 - Màn hình chi tiết attempt cho phép copy gói chấm không kèm profile/email/lớp sang AI, paste JSON `essay-grade-result.v1`, kiểm tra từng criterion rồi sửa/chốt.
-- Không có API AI, worker hoặc API key trong pilot; giáo viên có thể bỏ qua AI và chấm tay.
+- Từ 2026-08-04 có thêm luồng tự động song song (`src/lib/essay-ai/`). `ESSAY_AI_AUTO_FINALIZE` đã bật từ 2026-08-06, nhưng auto-chốt chỉ thực sự chạy sau khi có 20 bài AI chấm được giáo viên duyệt lại (cổng `override-guard.ts`).
 - `review_essay_answer` ghi audit, xác minh answer hash/rubric version và tính lại tổng điểm trên server.
-- Migration `20260721_essay_assisted_grading.sql` chưa apply/test live, nên đây là bề mặt trong source chứ chưa phải chức năng production đã xác nhận.
+- Migration `20260721_essay_assisted_grading.sql` đã apply ngày 2026-07-22 với hậu kiểm cấu trúc đạt, nhưng chưa test bằng JWT/E2E — chưa phải chức năng production đã xác nhận.
 
 Quy trình và giới hạn đầy đủ: [`ESSAY_GRADING.md`](ESSAY_GRADING.md).
 
@@ -124,10 +145,11 @@ Quy trình và giới hạn đầy đủ: [`ESSAY_GRADING.md`](ESSAY_GRADING.md)
 
 ## Những phần đang dở hoặc gây hiểu nhầm
 
-- Lint toàn repo chưa sạch và chưa có test tự động.
-- Simulation source đã có RPC submit/chấm server-side và không tải answer key trong lúc làm, nhưng chỉ có hiệu lực sau migration chưa được test live.
-- Practice và homework vẫn còn chấm điểm/đáp án chuẩn phía client; không suy rộng pilot simulation thành trust boundary hoàn chỉnh.
-- AI tự luận hiện là copy/paste thủ công và giáo viên duyệt, chưa có automation, retry, model policy hoặc cost/rate control.
+- Lint toàn repo chưa sạch. Có test runner (`npm test`) nhưng phạm vi mới ở vài module thuần, chưa có CI.
+- Simulation, practice và homework đều đã chấm ở RPC server-side (`20260721` + `20260722`, cả hai đã live), nhưng chưa có JWT/E2E chứng minh đường ghi trực tiếp đã bị khóa.
+- **Thang Bộ đã vào database.** `20260806_moet_scoring_scale.sql` đã áp ngày 2026-08-05 với postflight 30/30 `must_be_zero=0`, và chuỗi gọi đã xác minh đủ (wrapper → `_trusted_internal` → hàm bậc thang, không còn tàn dư công thức tuyến tính, bảng giá trị bậc thang gọi thật ra đúng `0 / 0,1 / 0,25 / 0,5 / 1,0`). Phần chưa phủ là cách đếm số ý đúng trong vòng lặp plpgsql — phép thử end-to-end ([`RUNBOOK.md`](RUNBOOK.md) mục 8 bước 6) chưa chạy, rủi ro thấp. Bước 5 (rà đề học kì bị nâng nhầm lên `moet_standard`) cũng chưa làm. Xem [`SCORING.md`](SCORING.md).
+- Điểm của attempt nộp trước 2026-08-06 **không được tính lại**, nên hai attempt cùng một đề có thể khác điểm. Đó là quyết định có ý thức, không phải bug.
+- AI tự luận có luồng tự động từ 2026-08-04; `ESSAY_AI_AUTO_FINALIZE` bật từ 2026-08-06 theo quyết định chủ dự án (lớp học thêm, không phải điểm học bạ). Kill-switch tự động theo override rate **đã có** (`src/lib/essay-ai/override-guard.ts`) và hiện là cổng chặn thực tế: dưới 20 bài đối chiếu thì không bài nào được tự chốt. OCR snapshot xong trong source từ 2026-08-07 (bảng `essay_ocr_snapshots` + cổng fail-closed `ocr_snapshot_missing`); `20260807` và `20260808` (append-only) đều đã nạp, negative test runtime 5/5 đạt. Từ 2026-08-06 worker gộp mọi lần chụp của một bài thay vì lấy snapshot mới nhất.
 - Analytics/lịch sử cũ chưa tổng hợp đầy đủ homework.
 - Access tier chưa guard route/data đầy đủ.
 - Mastery API cũ vẫn tồn tại trong source dù migration cleanup đã drop các bảng tương ứng.

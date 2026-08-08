@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Trophy, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare } from 'lucide-react'
+import { Loader2, Trophy, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare, Sparkles } from 'lucide-react'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import QuestionImage from '@/components/QuestionImage'
 import FeedbackModal from '@/components/FeedbackModal'
+import EssayAnswerImages from '@/components/EssayAnswerImages'
 import Toast from '@/components/Toast'
 import {
   AttemptQuestionView,
@@ -220,12 +221,30 @@ export default function ResultPage() {
         : question.questionType === 'essay' ? 'Tự luận' : 'Trả lời ngắn'
 
     if (isEssay) {
-      const approved = attempt?.answer_key_revealed && question.gradingStatus === 'approved'
+      const revealed = attempt?.answer_key_revealed === true
+      const approved = revealed && question.gradingStatus === 'approved'
+      // AI đã chấm nhưng CHƯA ai kiểm tra lại. Điểm này có thể thay đổi, nên
+      // không bao giờ hiển thị nó như một điểm đã chốt: luôn kèm nhãn nói rõ
+      // nguồn gốc. Với môn Toán, OCR đọc nhầm một dấu âm là đủ đảo ngược kết
+      // luận — học sinh phải biết mà đối chiếu lại.
+      const aiGraded = question.gradingStatus === 'ai_graded'
+
+      const iconTone = approved
+        ? 'bg-indigo-100 text-indigo-600'
+        : aiGraded
+          ? 'bg-violet-100 text-violet-600'
+          : 'bg-amber-100 text-amber-600'
+      const noteTone = approved
+        ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-200'
+        : aiGraded
+          ? 'bg-violet-50 text-violet-900 dark:bg-violet-900/20 dark:text-violet-200'
+          : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'
+
       return (
         <div key={question.questionId} className="mb-4 rounded-xl border border-slate-300 bg-slate-200 p-6 dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-start gap-3">
-            <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${approved ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'}`}>
-              {approved ? <CheckCircle2 className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+            <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${iconTone}`}>
+              {approved ? <CheckCircle2 className="h-5 w-5" /> : aiGraded ? <Sparkles className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
             </span>
             <div className="min-w-0 flex-1">
               <div className="mb-2 text-sm font-medium text-slate-500">Câu {index + 1} • {questionTypeLabel}</div>
@@ -233,14 +252,44 @@ export default function ResultPage() {
               <div className="rounded-lg bg-white/70 p-3 dark:bg-slate-900/60">
                 <div className="mb-1 text-sm font-medium text-slate-600 dark:text-slate-400">Bài làm của bạn:</div>
                 {renderStudentAnswer(question)}
+                {/* Ảnh đã nộp, chỉ để xem lại — bài đã nộp thì ảnh là bằng chứng
+                    của một bài đã chấm, không sửa được nữa. */}
+                <div className="mt-3">
+                  <EssayAnswerImages
+                    attemptId={attemptId}
+                    questionId={question.questionId}
+                    label="Ảnh bài làm bạn đã nộp"
+                  />
+                </div>
               </div>
-              <div className={`mt-3 rounded-lg p-3 text-sm ${approved ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}`}>
-                {approved
-                  ? <>Giáo viên đã duyệt: <strong>{question.score ?? 0}/{question.maxScore ?? 0} điểm</strong></>
-                  : question.gradingStatus === 'pending_review'
-                    ? 'Đã ghi nhận bài tự luận. Giáo viên đang duyệt gợi ý chấm của AI.'
-                    : 'Bài tự luận đã được ghi nhận; chi tiết chấm chưa được công bố.'}
-                {approved && question.gradingFeedback && <p className="mt-2">Nhận xét: {question.gradingFeedback}</p>}
+              <div className={`mt-3 rounded-lg p-3 text-sm ${noteTone}`}>
+                {approved ? (
+                  <>
+                    Giáo viên đã duyệt: <strong>{question.score ?? 0}/{question.maxScore ?? 0} điểm</strong>
+                    {question.gradingFeedback && <p className="mt-2">Nhận xét: {question.gradingFeedback}</p>}
+                  </>
+                ) : aiGraded ? (
+                  <>
+                    <strong>Điểm do AI chấm — giáo viên sẽ xem lại</strong>
+                    {revealed ? (
+                      <p className="mt-1">
+                        Tạm tính: <strong>{question.score ?? 0}/{question.maxScore ?? 0} điểm</strong>. Điểm này có thể thay đổi sau khi giáo viên kiểm tra.
+                      </p>
+                    ) : (
+                      <p className="mt-1">Điểm chi tiết chưa được công bố.</p>
+                    )}
+                    {revealed && question.gradingFeedback && (
+                      <p className="mt-2">Nhận xét của AI: {question.gradingFeedback}</p>
+                    )}
+                    <p className="mt-2 text-xs opacity-80">
+                      Nếu bạn thấy phần chấm chưa đúng, hãy báo lại với giáo viên.
+                    </p>
+                  </>
+                ) : question.gradingStatus === 'pending_review' ? (
+                  'Đã ghi nhận bài tự luận. Giáo viên đang duyệt gợi ý chấm của AI.'
+                ) : (
+                  'Bài tự luận đã được ghi nhận; chi tiết chấm chưa được công bố.'
+                )}
               </div>
             </div>
           </div>
@@ -388,6 +437,11 @@ export default function ResultPage() {
   const objectiveQuestions = questions.filter((question) => question.questionType !== 'essay')
   const objectiveCorrect = objectiveQuestions.filter((question) => question.isCorrect).length
   const essayQuestionCount = questions.length - objectiveQuestions.length
+  // Điểm tổng đã cộng cả phần AI chấm mà chưa ai kiểm tra. `grading_status` của
+  // attempt không nói được điều này: RPC đặt attempt về `completed` khi không
+  // còn câu `pending_review`, kể cả khi các câu đó là `ai_graded`. Phải soi
+  // từng câu.
+  const hasAiGradedEssay = questions.some((question) => question.gradingStatus === 'ai_graded')
 
   return (
     <MathProvider>
@@ -428,10 +482,23 @@ export default function ResultPage() {
               </div>
             ) : (
               <>
-                <div className={`text-4xl sm:text-6xl font-bold mb-4 ${getScoreColor(attempt?.score ?? null)}`}>
-                  {attempt?.score?.toFixed(1)}
+                <div className={`text-4xl sm:text-6xl font-bold mb-4 tabular-nums ${getScoreColor(attempt?.score ?? null)}`}>
+                  {/* `score` có thể null dù đã công bố (dữ liệu cũ, chốt lỗi giữa
+                      đường). Trước đây `?.toFixed(1)` render ra ô trống không giải
+                      thích gì — nói thẳng là chưa có điểm thay vì để khoảng trắng. */}
+                  {typeof attempt?.score === 'number' ? attempt.score.toFixed(1) : '—'}
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 mb-6">trên thang điểm 10</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-6">
+                  {typeof attempt?.score === 'number'
+                    ? 'trên thang điểm 10'
+                    : 'Chưa có điểm tổng cho lượt thi này. Hãy liên hệ giáo viên.'}
+                </p>
+                {hasAiGradedEssay && (
+                  <div className="mx-auto mb-6 flex max-w-md items-start gap-2 rounded-lg bg-violet-50 p-3 text-left text-sm text-violet-900 dark:bg-violet-900/20 dark:text-violet-200">
+                    <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <span>Điểm này có phần do AI chấm và có thể thay đổi sau khi giáo viên xem lại.</span>
+                  </div>
+                )}
               </>
             )}
 

@@ -10,24 +10,42 @@
    Optimized for 60-120 minute sessions
    ============================================= */
 
-/* Light Mode - Soft neutral palette (reduced glare) */
+/* Light Mode - Soft neutral palette (reduced glare)
+ *
+ * Nguyên tắc: nền KHÔNG bao giờ là #fff. Màn hình trắng tinh ở độ sáng phòng học
+ * buổi tối là nguồn chói chính; hạ nền xuống một bậc xám-xanh nhạt giảm chói mà
+ * gần như không ảnh hưởng khả năng đọc.
+ *
+ * Thang nền ba bậc, ngược với thói quen thường gặp (card sáng hơn nền):
+ *   --background       nền trang, tối nhất trong ba
+ *   --background-card  thẻ/panel nổi lên trên nền
+ *   --background-raised ô nhập, vùng nội dung cần nổi rõ nhất
+ * Làm card SÁNG HƠN nền cho cảm giác "nổi lên" tự nhiên dưới ánh sáng từ trên,
+ * và tránh việc mọi thứ đều trắng như nhau rồi phải kẻ viền khắp nơi.
+ */
 :root {
-  --background: #f5f7fa;        /* between slate-50 and slate-100 - less harsh */
-  --background-card: #eef2f7;   /* softer card bg - less contrast */
-  --background-overlay: rgba(245, 247, 250, 0.92);
+  --background: #eef1f6;        /* nền trang: xám-xanh nhạt, dịu hơn slate-100 */
+  --background-card: #f7f9fc;   /* thẻ nổi lên trên nền, vẫn không phải #fff */
+  --background-raised: #ffffff; /* chỉ dùng cho ô nhập/vùng cần nổi nhất */
+  --background-overlay: rgba(238, 241, 246, 0.92);
   --foreground: #1e293b;        /* slate-800 - not pure black */
   --foreground-secondary: #475569; /* slate-600 */
   --foreground-muted: #64748b;  /* slate-500 */
-  --border: #d1d9e4;            /* softer border */
+  --border: #dbe1ea;            /* viền nhạt, đủ tách khối mà không tạo lưới rối */
   --border-strong: #94a3b8;     /* slate-400 */
-  --accent: #0d9488;            /* teal-600 */
-  --accent-hover: #0f766e;      /* teal-700 */
+  /* Teal-700 thay vì teal-600: trên nền sáng, teal-600 đủ tương phản cho khối
+     lớn nhưng chữ trắng trên nút teal-600 chỉ đạt ~3.9:1, dưới chuẩn 4.5:1. */
+  --accent: #0f766e;            /* teal-700 */
+  --accent-hover: #115e59;      /* teal-800 */
+  --accent-soft: #ccfbf1;       /* nền nhạt cho badge/nút phụ, teal-100 */
+  --accent-soft-text: #115e59;  /* chữ trên nền accent-soft, teal-800 */
 }
 
 /* Dark Mode - Soft dark palette */
 html.dark {
   --background: #0f172a;        /* slate-900 */
   --background-card: #1e293b;   /* slate-800 */
+  --background-raised: #334155; /* slate-700 - ô nhập nổi trên card */
   --background-overlay: rgba(15, 23, 42, 0.9);
   --foreground: #e2e8f0;        /* slate-200 - not pure white */
   --foreground-secondary: #94a3b8; /* slate-400 */
@@ -36,7 +54,84 @@ html.dark {
   --border-strong: #475569;     /* slate-600 */
   --accent: #2dd4bf;            /* teal-400 */
   --accent-hover: #14b8a6;      /* teal-500 */
+  --accent-soft: #134e4a;       /* teal-900 */
+  --accent-soft-text: #99f6e4;  /* teal-200 */
 }
+
+/* =============================================
+   SỬA TƯƠNG PHẢN CHO LIGHT MODE
+   =============================================
+
+   Đo ngày 2026-08-07 trên trang chủ: 27 phần tử chữ dưới chuẩn WCAG AA ở light
+   mode. Ba khuôn mẫu lặp đi lặp lại, và chúng xuất hiện ~600 lần trong ~100 file:
+
+     text-teal-600  trên nền sáng  -> 2.98:1  (cần 4.5)
+     bg-teal-600 + text-white      -> 3.67:1  (cần 4.5)
+     text-slate-400 trên nền sáng  -> 2.13:1  (cần 4.5)
+     text-red-500                  -> 3.70:1  (cần 4.5)
+
+   Sửa bằng cách đổi Ý NGHĨA CỦA TOKEN trong light mode, không đi sửa 600 chỗ
+   dùng. Tailwind v4 để lộ bảng màu dưới dạng biến CSS nên ghi đè được, và cách
+   này có ba cái lợi: một nơi để đọc, một nơi để hoàn tác, và không đụng vào
+   `dark:` (biến chỉ đổi khi KHÔNG có class `dark`).
+
+   ĐÁNH ĐỔI phải nói rõ: sau đây `teal-600` trong light mode KHÔNG còn là màu
+   teal-600 của Tailwind. Ai đọc class `bg-teal-600` mà tra bảng màu Tailwind sẽ
+   thấy lệch. Đó là cái giá để không phải sửa 600 chỗ; nếu sau này muốn quay về
+   đúng nghĩa gốc thì xoá khối này và sửa từng chỗ dùng.
+
+   Chỉ đổi ba màu thật sự hỏng. Không đụng `slate-500`/`slate-600` vì chúng đang
+   giữ phân cấp chữ chính/phụ, và ép chúng tối thêm sẽ làm mọi mức chữ trông như
+   nhau.
+
+   VÌ SAO GHI ĐÈ CLASS CHỨ KHÔNG GHI ĐÈ TOKEN. Cách gọn hơn là đổi
+   `--color-teal-600` trong `:root`, nhưng đã thử và KHÔNG chạy: Tailwind v4 ở
+   dự án này biên dịch utility thành giá trị màu cứng, không phải
+   `var(--color-*)`. Kiểm bằng cách đặt `--color-slate-400: red` lúc chạy — màu
+   chữ không đổi. Nên phải nhắm vào chính class.
+
+   Độ ưu tiên: `html:not(.dark) .text-teal-600` là (0,2,1), thắng utility (0,1,0)
+   mà không cần `!important`. Tiền tố `html:not(.dark)` bảo đảm khối này KHÔNG
+   bao giờ chạm dark mode. */
+html:not(.dark) .text-teal-600 {
+  /* Chữ teal trên nền sáng: 2.98:1 -> 4.8:1 */
+  color: var(--color-teal-700);
+}
+
+html:not(.dark) .bg-teal-600 {
+  /* Chữ trắng trên nút teal: 3.67:1 -> 5.9:1 */
+  background-color: var(--color-teal-700);
+}
+
+html:not(.dark) .hover\:bg-teal-700:hover {
+  /* Nút đã đậm hơn thì trạng thái hover phải đậm hơn nữa, nếu không rê chuột
+     vào nút trông như không phản hồi. */
+  background-color: var(--color-teal-800);
+}
+
+html:not(.dark) .text-slate-400 {
+  /* Chữ phụ mờ nhất: 2.13:1 -> 3.9:1. Chỉ lên MỘT bậc; xem ghi chú bên dưới. */
+  color: var(--color-slate-500);
+}
+
+html:not(.dark) .text-red-500 {
+  /* Dấu * bắt buộc và nút xoá: 3.70:1 -> 5.3:1 */
+  color: var(--color-red-600);
+}
+
+/* Nút gradient. `.bg-teal-600` ở trên KHÔNG chạm tới chúng vì gradient nằm ở
+   `background-image`, không phải `background-color` — nên chữ trắng trên nút
+   "Đăng ký" vẫn ở 3.67:1 sau khi sửa nền phẳng. Tailwind v4 dựng
+   `--tw-gradient-stops` từ `--tw-gradient-from`, nên ghi đè biến đó là đủ và
+   không phải viết lại cả chuỗi gradient. */
+html:not(.dark) .from-teal-600 {
+  --tw-gradient-from: var(--color-teal-700);
+}
+
+/* CÒN NỢ, đã đo chứ không phải phỏng đoán: sau ba dòng trên, chữ phụ dùng
+   `text-slate-400`/`text-slate-500` đạt ~3.9:1 — vẫn dưới 4.5 cho chữ nhỏ. Đẩy
+   tiếp lên slate-600 sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ, nên đó là quyết
+   định thiết kế cần chủ dự án chọn, không phải việc sửa máy móc. */
 
 /* Tailwind theme extension */
 @theme inline {
@@ -427,6 +522,98 @@ html.dark .glass-strong {
 }
 
 /* =============================================
+   LANDING SURFACE UTILITIES
+   Dùng cho landing page (style design mới). Không thêm hệ màu thứ ba:
+   mọi giá trị đều bám vào slate/teal và biến --accent đã có ở trên.
+   ============================================= */
+
+/* Shadow mềm, khuếch tán rộng — thay cho shadow-xl gắt của Tailwind
+   khi cần card nổi nhẹ trên nền sáng. */
+.soft-shadow {
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
+}
+
+html.dark .soft-shadow {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Nền gradient toả từ góc trên phải cho hero. Light mode giữ độ chói thấp
+   (không dùng #fff thuần), dark mode chuyển sang tông slate-900. */
+.hero-gradient {
+  background: radial-gradient(circle at top right, #e2f1ef 0%, var(--background) 62%);
+}
+
+html.dark .hero-gradient {
+  background: radial-gradient(circle at top right, rgba(13, 148, 136, 0.12) 0%, var(--background) 62%);
+}
+
+/* Ký hiệu toán trang trí trôi chậm ở hero. Chậm hơn `.animate-float`
+   (3s) để không gây nhiễu khi đọc nội dung. */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+.float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+.float-slow-delay-1 {
+  animation: float-slow 7s ease-in-out 1s infinite;
+}
+
+.float-slow-delay-2 {
+  animation: float-slow 8s ease-in-out 2s infinite;
+}
+
+/* Card nâng lên khi hover, dùng cho lưới bento/quick-access. */
+.bento-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.bento-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
+}
+
+html.dark .bento-hover:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.25);
+}
+
+/* =============================================
+   DASHBOARD HỌC SINH
+   Entrance một lần khi vào trang. Biên độ nhỏ (8px) và chạy một lần —
+   dashboard là nơi học sinh quay lại nhiều lần trong ngày, chuyển động lớn
+   ở đây nhanh thành nhiễu. `both` giữ trạng thái cuối để nội dung không phụ
+   thuộc vào việc animation có chạy hay không.
+   ============================================= */
+
+@keyframes dash-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-dash-in {
+  animation: dash-in 0.45s ease-out both;
+}
+
+/* Stagger cho danh sách việc cần làm: mỗi khối vào sau khối trước một nhịp
+   ngắn, đủ để mắt bắt được thứ tự ưu tiên mà không phải chờ. */
+.animate-dash-in-1 {
+  animation: dash-in 0.45s ease-out 0.06s both;
+}
+
+.animate-dash-in-2 {
+  animation: dash-in 0.45s ease-out 0.12s both;
+}
+
+/* =============================================
    ADDITIONAL ANIMATIONS
    ============================================= */
 
@@ -728,8 +915,73 @@ html.dark .glow-teal {
   opacity: 0;
 }
 
+/* =============================================
+   REDUCED MOTION
+   Nguồn sự thật cho DESIGN_SYSTEM.md: "tôn trọng prefers-reduced-motion".
+   Mọi animation/transition mới phải nằm trong phạm vi bị tắt ở đây.
+   ============================================= */
+
 @media (prefers-reduced-motion: reduce) {
   .mm-logo-wrap {
     filter: drop-shadow(0 0 1.4rem rgba(0, 231, 255, 0.18));
+  }
+
+  /* Lưới an toàn: tắt mọi animation/transition, kể cả của thư viện.
+     Không dùng `animation: none` để tránh phá các animation state-driven
+     vẫn cần chạy tới trạng thái cuối (giữ `both`/`forwards`). */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Entrance animation: bỏ hẳn opacity 0 ban đầu để nội dung không
+     phụ thuộc vào việc animation có chạy hay không. */
+  .animate-list-stagger > *,
+  .stagger-children > * {
+    opacity: 1 !important;
+  }
+
+  /* Chuyển động theo hover/active: giữ phản hồi bằng màu/shadow,
+     bỏ dịch chuyển và phóng to. */
+  .hover-lift:hover,
+  .hover-scale:hover,
+  .bento-hover:hover,
+  .card-interactive:hover,
+  .micro-bounce-on-hover:hover,
+  .btn-action:hover,
+  .btn-action:active,
+  .btn-action-sm:hover,
+  .btn-action-sm:active,
+  .btn-primary:hover,
+  .btn-primary:active,
+  .btn-secondary:hover,
+  .btn-secondary:active {
+    transform: none !important;
+  }
+
+  /* Utility scale/translate của Tailwind áp theo hover/group-hover không nằm
+     trong danh sách class tự định nghĩa ở trên. `transition-duration: 0.01ms`
+     phía trên đã làm chúng tức thời, nhưng vẫn còn phóng to/dịch chuyển —
+     với reduced-motion thì kết quả cuối cũng phải đứng yên. */
+  .group:hover [class*="group-hover:scale-"],
+  .group:hover [class*="group-hover:translate-"],
+  .group\/stat:hover [class*="group-hover\/stat:scale-"],
+  [class*="hover:scale-"]:hover,
+  [class*="hover:-translate-"]:hover,
+  [class*="hover:translate-"]:hover {
+    transform: none !important;
+  }
+
+  /* Spinner là chỉ báo trạng thái đang tải, không phải trang trí:
+     giữ chuyển động nhưng làm chậm để giảm kích thích thị giác. */
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
   }
 }

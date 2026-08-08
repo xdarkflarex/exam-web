@@ -1,0 +1,23 @@
+{
+  "question": "Giải bất phương trình $-2x + 6 > 0$.",
+  "reference_answer": "$-2x + 6 > 0 \\Leftrightarrow -2x > -6$. Chia hai vế cho $-2$ và ĐỔI CHIỀU bất phương trình: $x < 3$. Vậy tập nghiệm là $S = (-\\infty; 3)$.",
+  "student_answer": "$-2x + 6 > 0$\n$\\Leftrightarrow -2x > -6$\n$\\Leftrightarrow x > 3$\nVậy tập nghiệm là $S = (3; +\\infty)$.",
+  "max_score": 1,
+  "rubric": [
+    {
+      "criterion_id": "c1",
+      "title": "Biến đổi tương đương",
+      "description": "Cho 0,5 điểm khi chuyển vế đúng.",
+      "max_score": 0.5
+    },
+    {
+      "criterion_id": "c2",
+      "title": "Đổi chiều khi chia cho số âm và kết luận tập nghiệm",
+      "description": "Cho 0,5 điểm khi đổi chiều đúng và viết đúng tập nghiệm. Không cho điểm nào nếu quên đổi chiều, dù cách trình bày còn lại đúng.",
+      "max_score": 0.5
+    }
+  ],
+  "expected_score": 0.5,
+  "human_scores": [0.5, 0.5, 0.5],
+  "note": "Fixture MẪU, dữ liệu tự soạn. Học sinh quên đổi chiều khi chia cho số âm — dạng sai một dấu làm đảo ngược kết luận. Đây là chế độ hỏng nguy hiểm nhất: bài trông sạch sẽ, đúng hình thức, chỉ sai đúng chiều bất phương trình. AI (hoặc OCR) bỏ qua chỗ này là cho gần điểm tối đa một bài sai."
+}

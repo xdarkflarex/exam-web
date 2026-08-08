@@ -22,6 +22,8 @@ interface EssayGradingPanelProps {
   gradingStatus: string
   currentScore: number | null
   currentFeedback: string | null
+  /** Độ tin cậy AI tự báo (0..1). Chỉ để tham khảo — không phải thước đo đúng/sai. */
+  aiConfidence?: number | null
   onApproved: () => Promise<void> | void
 }
 
@@ -37,6 +39,7 @@ export default function EssayGradingPanel({
   gradingStatus,
   currentScore,
   currentFeedback,
+  aiConfidence,
   onApproved,
 }: EssayGradingPanelProps) {
   const supabase = useMemo(() => createClient(), [])
@@ -46,6 +49,18 @@ export default function EssayGradingPanel({
   const [finalFeedback, setFinalFeedback] = useState(currentFeedback || '')
   const [message, setMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Worker đã chấm và điểm ĐANG HIỂN THỊ cho học sinh, nhưng chưa ai kiểm tra.
+  // Hàng chờ này quan trọng hơn `pending_review`: ở đó chưa có điểm nào ra
+  // ngoài, còn ở đây một điểm sai đã ra tới học sinh rồi.
+  const aiGraded = gradingStatus === 'ai_graded'
+  const approved = gradingStatus === 'approved'
+
+  const statusLabel = approved
+    ? 'Đã duyệt'
+    : aiGraded
+      ? 'AI đã chấm — chưa ai kiểm tra'
+      : 'Chờ duyệt'
 
   const prompt = useMemo(() => buildEssayGradingPrompt({
     gradingRef: answerHash,
@@ -126,7 +141,7 @@ export default function EssayGradingPanel({
             <Sparkles className="h-4 w-4" /> AI hỗ trợ chấm — giáo viên duyệt
           </h4>
           <p className="text-xs text-indigo-700 dark:text-indigo-300">
-            Trạng thái: {gradingStatus === 'approved' ? 'Đã duyệt' : 'Chờ duyệt'} · tối đa {maxScore} điểm
+            Trạng thái: {statusLabel} · tối đa {maxScore} điểm
           </p>
         </div>
         <button
@@ -137,6 +152,27 @@ export default function EssayGradingPanel({
           <Clipboard className="h-4 w-4" /> Sao chép gói chấm AI
         </button>
       </div>
+
+      {aiGraded && (
+        <div className="rounded-lg border border-violet-300 bg-violet-50 p-3 text-sm text-violet-900 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-100">
+          <div className="flex items-center gap-2 font-semibold">
+            <Sparkles className="h-4 w-4" />
+            AI đã chấm {currentScore ?? 0}/{maxScore} điểm
+            {typeof aiConfidence === 'number' && (
+              <span className="font-normal">· độ tin cậy tự báo {(aiConfidence * 100).toFixed(0)}%</span>
+            )}
+          </div>
+          <p className="mt-1">
+            Điểm này <strong>đang hiển thị cho học sinh</strong> và chưa có người nào chịu trách nhiệm.
+            Ô điểm bên dưới đã điền sẵn giá trị AI đưa ra — sửa lại nếu sai rồi chốt để chuyển sang trạng
+            thái &ldquo;đã duyệt&rdquo;.
+          </p>
+          <p className="mt-1 text-xs opacity-80">
+            Với bài Toán, hãy đối chiếu kỹ dấu và các bước biến đổi: OCR đọc nhầm một dấu âm là đủ đảo
+            ngược kết luận mà độ tin cậy vẫn cao.
+          </p>
+        </div>
+      )}
 
       <details className="rounded-lg border border-indigo-200 bg-white p-3 dark:border-indigo-800 dark:bg-slate-900">
         <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">Xem gói chấm ẩn danh</summary>
@@ -209,7 +245,7 @@ export default function EssayGradingPanel({
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
       >
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-        {gradingStatus === 'approved' ? 'Cập nhật điểm đã duyệt' : 'Duyệt và chốt điểm'}
+        {approved ? 'Cập nhật điểm đã duyệt' : aiGraded ? 'Chấm đè điểm AI và chốt' : 'Duyệt và chốt điểm'}
       </button>
     </div>
   )

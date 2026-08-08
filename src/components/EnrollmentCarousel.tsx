@@ -27,7 +27,7 @@ export default function EnrollmentCarousel({
         {/* Heading */}
         <div className="text-center mb-10">
           <p className="text-sm font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-2">Tuyển sinh</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
             {title}
           </h2>
           <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">

@@ -7,6 +7,7 @@ import { ArrowLeft, User, Clock, CheckCircle, XCircle } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import EssayGradingPanel from '@/components/admin/EssayGradingPanel'
+import EssayAnswerImages from '@/components/EssayAnswerImages'
 import { 
   AttemptQuestionView, 
   buildAttemptViewFromNestedQuery,
@@ -221,7 +222,7 @@ export default function AdminAttemptDetailPage() {
     if (question.questionType === 'essay') {
       if (!question.studentAnswerText?.trim()) {
         return (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-600 dark:text-slate-300">
             Học sinh bỏ trống câu tự luận; server đã chốt 0/{question.maxScore ?? 0} điểm.
           </div>
         )
@@ -241,16 +242,23 @@ export default function AdminAttemptDetailPage() {
       return (
         <div className="space-y-4">
           <div>
-            <span className="text-sm font-medium text-slate-600">Bài làm của học sinh:</span>
-            <div className="mt-1 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800">
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Bài làm của học sinh:</span>
+            <div className="mt-1 whitespace-pre-wrap rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-slate-800 dark:text-slate-100">
               <MathContent content={question.studentAnswerText || 'Không có bài làm'} />
             </div>
           </div>
-          <div className="rounded-lg border border-slate-200 p-3">
-            <div className="mb-2 text-sm font-semibold text-slate-700">Rubric</div>
+          {/* Ảnh gốc. Với bài chụp ảnh, text bên trên chỉ là bản máy đọc — chấm
+              theo nó mà không mở ảnh ra là chấm theo một bản dịch chưa kiểm. */}
+          <EssayAnswerImages
+            attemptId={attemptId}
+            questionId={question.questionId}
+            label="Ảnh bài làm gốc"
+          />
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+            <div className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Rubric</div>
             <div className="space-y-2">
               {question.rubric.map((criterion) => (
-                <div key={criterion.criterion_id} className="text-sm text-slate-600">
+                <div key={criterion.criterion_id} className="text-sm text-slate-600 dark:text-slate-300">
                   <strong>{criterion.title} ({criterion.max_score} điểm):</strong> {criterion.description}
                 </div>
               ))}
@@ -268,6 +276,7 @@ export default function AdminAttemptDetailPage() {
             gradingStatus={question.gradingStatus || 'pending_review'}
             currentScore={question.score ?? null}
             currentFeedback={question.gradingFeedback ?? null}
+            aiConfidence={question.gradingConfidence ?? null}
             onApproved={async () => {
               await Promise.all([fetchAttemptDetail(), fetchQuestions()])
             }}
@@ -280,7 +289,7 @@ export default function AdminAttemptDetailPage() {
       return (
         <div className="space-y-3">
           <div>
-            <span className="text-sm font-medium text-slate-600">Câu trả lời của học sinh:</span>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Câu trả lời của học sinh:</span>
             <div className={`mt-1 p-3 rounded-lg border ${
               question.isCorrect 
                 ? 'bg-green-50 border-green-200 text-green-800' 
@@ -291,7 +300,7 @@ export default function AdminAttemptDetailPage() {
           </div>
           {question.correctAnswerText && (
             <div>
-              <span className="text-sm font-medium text-slate-600">Đáp án đúng:</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Đáp án đúng:</span>
               <div className="mt-1 p-3 rounded-lg border bg-green-50 border-green-200 text-green-800">
                 <MathContent content={question.correctAnswerText} />
               </div>
@@ -316,7 +325,7 @@ export default function AdminAttemptDetailPage() {
                 }`}
               >
                 <div className="flex items-start gap-2">
-                  <span className="font-medium text-slate-700">
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
                     {String.fromCharCode(97 + detail.statementIndex)})
                   </span>
                   <div className="flex-1">
@@ -342,7 +351,7 @@ export default function AdminAttemptDetailPage() {
     return (
       <div className="space-y-3">
         <div>
-          <span className="text-sm font-medium text-slate-600">Câu trả lời của học sinh:</span>
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Câu trả lời của học sinh:</span>
           <div className={`mt-1 p-3 rounded-lg border ${
             question.isCorrect 
               ? 'bg-green-50 border-green-200 text-green-800' 
@@ -353,7 +362,7 @@ export default function AdminAttemptDetailPage() {
         </div>
         {question.correctAnswerText && (
           <div>
-            <span className="text-sm font-medium text-slate-600">Đáp án mẫu:</span>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Đáp án mẫu:</span>
             <div className="mt-1 p-3 rounded-lg border bg-green-50 border-green-200 text-green-800">
               <MathContent content={question.correctAnswerText} />
             </div>
@@ -370,7 +379,7 @@ export default function AdminAttemptDetailPage() {
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500">Đang tải chi tiết bài làm...</p>
+            <p className="text-slate-500 dark:text-slate-400">Đang tải chi tiết bài làm...</p>
           </div>
         </div>
       </div>
@@ -382,12 +391,12 @@ export default function AdminAttemptDetailPage() {
       <div className="min-h-screen bg-sky-50">
         <GlobalHeader title="Chi tiết bài làm" />
         <div className="flex items-center justify-center py-20">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <XCircle className="w-8 h-8 text-red-600" />
             </div>
-            <h1 className="text-xl font-bold text-slate-800 mb-2">Lỗi</h1>
-            <p className="text-slate-500">{error || 'Không tìm thấy bài làm'}</p>
+            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Lỗi</h1>
+            <p className="text-slate-500 dark:text-slate-400">{error || 'Không tìm thấy bài làm'}</p>
           </div>
         </div>
       </div>
@@ -403,12 +412,12 @@ export default function AdminAttemptDetailPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Chi tiết bài làm</h1>
-              <p className="text-slate-600">{attemptDetail.exam_title} • {attemptDetail.exam_subject}</p>
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Chi tiết bài làm</h1>
+              <p className="text-slate-600 dark:text-slate-300">{attemptDetail.exam_title} • {attemptDetail.exam_subject}</p>
             </div>
             <button
               onClick={() => router.push(`/admin/exams/${attemptDetail.exam_id}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Quay lại
@@ -416,18 +425,18 @@ export default function AdminAttemptDetailPage() {
           </div>
 
           {/* Student Info & Score Summary */}
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 mb-8">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Thông tin học sinh</h3>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Thông tin học sinh</h3>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-blue-600" />
                     </div>
                     <div>
-                      <div className="font-medium text-slate-800">{attemptDetail.student_name}</div>
-                      <div className="text-sm text-slate-500">{attemptDetail.student_email}</div>
+                      <div className="font-medium text-slate-800 dark:text-slate-100">{attemptDetail.student_name}</div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">{attemptDetail.student_email}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -435,8 +444,8 @@ export default function AdminAttemptDetailPage() {
                       <Clock className="w-4 h-4 text-green-600" />
                     </div>
                     <div>
-                      <div className="text-sm text-slate-500">Thời gian bắt đầu</div>
-                      <div className="font-medium text-slate-800">{formatDate(attemptDetail.start_time)}</div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">Thời gian bắt đầu</div>
+                      <div className="font-medium text-slate-800 dark:text-slate-100">{formatDate(attemptDetail.start_time)}</div>
                     </div>
                   </div>
                   {attemptDetail.submit_time && (
@@ -445,8 +454,8 @@ export default function AdminAttemptDetailPage() {
                         <CheckCircle className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div>
-                        <div className="text-sm text-slate-500">Thời gian nộp</div>
-                        <div className="font-medium text-slate-800">{formatDate(attemptDetail.submit_time)}</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Thời gian nộp</div>
+                        <div className="font-medium text-slate-800 dark:text-slate-100">{formatDate(attemptDetail.submit_time)}</div>
                       </div>
                     </div>
                   )}
@@ -454,19 +463,19 @@ export default function AdminAttemptDetailPage() {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Kết quả</h3>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Kết quả</h3>
                 <div className="space-y-4">
                   {attemptDetail.score !== null ? (
-                    <div className="text-center p-4 bg-slate-50 rounded-lg">
+                    <div className="text-center p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                       <div className={`text-3xl font-bold ${getScoreColor(attemptDetail.score)}`}>
                         {attemptDetail.score.toFixed(1)}
                       </div>
-                      <div className="text-sm text-slate-500 mt-1">Điểm số</div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Điểm số</div>
                     </div>
                   ) : (
-                    <div className="text-center p-4 bg-slate-50 rounded-lg">
+                    <div className="text-center p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                       <div className="text-2xl font-bold text-amber-600">Đang chấm</div>
-                      <div className="text-sm text-slate-500 mt-1">
+                      <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                         Còn {attemptDetail.pending_grading_count} câu tự luận chờ duyệt
                       </div>
                     </div>
@@ -502,44 +511,59 @@ export default function AdminAttemptDetailPage() {
 
           {/* Questions Review */}
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-slate-800">Chi tiết từng câu hỏi</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Chi tiết từng câu hỏi</h2>
             
             {questions.map((question, index) => {
               const isEssay = question.questionType === 'essay'
-              const questionTypeLabel = question.questionType === 'multiple_choice' 
-                ? 'Trắc nghiệm' 
-                : question.questionType === 'true_false' 
-                  ? 'Đúng / Sai' 
+              const questionTypeLabel = question.questionType === 'multiple_choice'
+                ? 'Trắc nghiệm'
+                : question.questionType === 'true_false'
+                  ? 'Đúng / Sai'
                   : question.questionType === 'essay' ? 'Tự luận' : 'Trả lời ngắn'
-              
+              // Ba trạng thái, không phải hai: `ai_graded` đã có điểm nhưng chưa
+              // ai chịu trách nhiệm. Gộp nó vào "Chờ duyệt" thì giáo viên không
+              // phân biệt được bài nào đã lỡ hiện điểm cho học sinh.
+              const essayApproved = isEssay && question.gradingStatus === 'approved'
+              const essayAiGraded = isEssay && question.gradingStatus === 'ai_graded'
+
               return (
-                <div key={question.questionId} className="bg-white rounded-xl p-6 shadow-lg border border-slate-100">
+                <div key={question.questionId} className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-100">
                   <div className="flex items-start gap-4 mb-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       isEssay
-                        ? question.gradingStatus === 'approved' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                        ? essayApproved
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : essayAiGraded
+                            ? 'bg-violet-100 text-violet-700'
+                            : 'bg-amber-100 text-amber-700'
                         : question.isCorrect
-                        ? 'bg-green-100 text-green-600' 
+                        ? 'bg-green-100 text-green-600'
                         : 'bg-red-100 text-red-600'
                     }`}>
                       {index + 1}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-slate-500">
+                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                           Câu {index + 1} • {questionTypeLabel}
                         </span>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           isEssay
-                            ? question.gradingStatus === 'approved' ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'
+                            ? essayApproved
+                              ? 'bg-indigo-100 text-indigo-800'
+                              : essayAiGraded
+                                ? 'bg-violet-100 text-violet-800'
+                                : 'bg-amber-100 text-amber-800'
                             : question.isCorrect
-                            ? 'bg-green-100 text-green-800' 
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {isEssay
-                            ? question.gradingStatus === 'approved'
+                            ? essayApproved
                               ? `${question.score ?? 0}/${question.maxScore ?? 0} điểm`
-                              : 'Chờ duyệt'
+                              : essayAiGraded
+                                ? `AI: ${question.score ?? 0}/${question.maxScore ?? 0} — chưa kiểm tra`
+                                : 'Chờ duyệt'
                             : question.isCorrect ? 'Đúng' : 'Sai'}
                         </span>
                       </div>

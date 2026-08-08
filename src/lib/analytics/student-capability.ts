@@ -2,13 +2,24 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { getStudentHomeworkAssignments } from '@/lib/homework/actions'
+import {
+  aggregateMastery,
+  getMasteryStatus,
+  getMasteryStatusLabel,
+  masteryPriority,
+  type MasteryAnswer,
+  type MasteryLink,
+  type MasteryStatus,
+} from '@/lib/analytics/knowledge-mastery'
 
-export type CapabilityStatus =
-  | 'no_data'
-  | 'needs_work'
-  | 'building'
-  | 'stable'
-  | 'mastered'
+/**
+ * Thang đo cũ giờ chỉ là bí danh của thang dùng chung.
+ *
+ * `/learn` và trang này từng có hai thang khác nhau cho cùng một học sinh. Giữ
+ * tên cũ để không phải sửa hết call-site, nhưng nguồn sự thật là
+ * `knowledge-mastery.ts`. Xem docs/STUDENT_SKILL_TREE_REDESIGN.md mục 3.1.
+ */
+export type CapabilityStatus = MasteryStatus
 
 export interface CapabilityStat {
   id: string
@@ -95,6 +106,7 @@ interface QuestionLinkRow {
   question_id: string
   theory_id: string | null
   knowledge_block_id: string | null
+  weight?: number | null
 }
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -122,28 +134,19 @@ function percent(part: number, total: number): number {
   return total > 0 ? Math.round((part / total) * 100) : 0
 }
 
+/**
+ * @deprecated Dùng `getMasteryStatus` từ `knowledge-mastery.ts`.
+ *
+ * Giữ lại vì chữ ký `(correct, total)` đang được gọi ở nhiều nơi. Hành vi đã đổi:
+ * ngưỡng bằng chứng tối thiểu nay đứng trước ngưỡng độ chính xác, nên `1 đúng /
+ * 1 câu` trả `collecting` thay vì `stable` như bản cũ.
+ */
 export function getCapabilityStatus(correct: number, total: number): CapabilityStatus {
-  if (total === 0) return 'no_data'
-  const score = correct / total
-  if (total >= 5 && score < 0.5) return 'needs_work'
-  if (score < 0.8) return 'building'
-  if (total < 8) return 'stable'
-  return 'mastered'
+  return getMasteryStatus(correct, total)
 }
 
 export function getCapabilityStatusLabel(status: CapabilityStatus): string {
-  switch (status) {
-    case 'needs_work':
-      return 'Cần củng cố'
-    case 'building':
-      return 'Đang tiến bộ'
-    case 'stable':
-      return 'Ổn định'
-    case 'mastered':
-      return 'Thành thạo'
-    default:
-      return 'Chưa có dữ liệu'
-  }
+  return getMasteryStatusLabel(status)
 }
 
 export function canViewAdvancedAnalytics(accessTier: string | null | undefined): boolean {
@@ -210,7 +213,7 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
     homeworkIds.length
       ? supabase
           .from('homework_knowledge_targets')
-          .select('homework_id, theory_id, knowledge_block_id')
+          .select('homework_id, theory_id, knowledge_block_id, weight')
           .in('homework_id', homeworkIds)
       : Promise.resolve({ data: [] }),
   ])
@@ -225,6 +228,7 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
     homework_id: string
     theory_id: string
     knowledge_block_id: string | null
+    weight: number | null
   }>
 
   const homeworkQuestions = new Map<string, Set<string>>()
@@ -255,7 +259,7 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
   if (questionIds.length) {
     const { data } = await supabase
       .from('question_knowledge_links')
-      .select('question_id, theory_id, knowledge_block_id')
+      .select('question_id, theory_id, knowledge_block_id, weight')
       .in('question_id', questionIds)
     questionLinks = (data || []) as QuestionLinkRow[]
   }
@@ -292,6 +296,7 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
         question_id: '',
         theory_id: target.theory_id,
         knowledge_block_id: target.knowledge_block_id,
+        weight: target.weight,
       },
     ])
   }
@@ -302,8 +307,16 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
     if (attempt) homeworkByAttempt.set(attempt.id, assignment.homework_id)
   }
 
+  const labelFor = (link: MasteryLink): string => (
+    link.blockId
+      ? blockTitle.get(link.blockId) || 'Khối kiến thức'
+      : theoryTitle.get(link.theoryId || '') || 'Kiến thức'
+  )
+
   const levelMap = new Map<string, { label: string; correct: number; total: number; lastActivityAt: string | null }>()
-  const knowledgeMap = new Map<string, { label: string; correct: number; total: number; lastActivityAt: string | null }>()
+  const masteryAnswers: MasteryAnswer[] = []
+  const labelById = new Map<string, string>()
+
   for (const answer of answers) {
     const isCorrect = answer.is_correct === true
     const level = questionLevel.get(answer.question_id) || 'OTHER'
@@ -311,20 +324,44 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
 
     const directLinks = linksByQuestion.get(answer.question_id) || []
     const fallbackLinks = targetsByHomework.get(homeworkByAttempt.get(answer.attempt_id) || '') || []
-    const links = directLinks.length ? directLinks : fallbackLinks
+    const rows = directLinks.length ? directLinks : fallbackLinks
+    const links: MasteryLink[] = rows.map((row) => ({
+      theoryId: row.theory_id,
+      blockId: row.knowledge_block_id,
+      weight: row.weight,
+    }))
+    if (!links.length) continue
+
     for (const link of links) {
-      const id = link.knowledge_block_id
-        ? `block:${link.knowledge_block_id}`
-        : link.theory_id
-          ? `theory:${link.theory_id}`
-          : ''
-      if (!id) continue
-      const label = link.knowledge_block_id
-        ? blockTitle.get(link.knowledge_block_id) || 'Khối kiến thức'
-        : theoryTitle.get(link.theory_id || '') || 'Kiến thức'
-      aggregateStat(knowledgeMap, id, label, isCorrect, answer.answered_at)
+      const key = link.blockId ? `block:${link.blockId}` : link.theoryId ? `theory:${link.theoryId}` : ''
+      if (key) labelById.set(key, labelFor(link))
     }
+
+    // `is_correct === null` là "chưa mở đáp án", không phải "sai". Loại khỏi
+    // bằng chứng thay vì tính là sai — xem knowledge-mastery.ts.
+    if (answer.is_correct === null) continue
+
+    masteryAnswers.push({
+      questionId: answer.question_id,
+      isCorrect,
+      answeredAt: answer.answered_at,
+      links,
+    })
   }
+
+  // Quy gán qua module dùng chung: một câu hỏi chỉ đóng góp tổng cộng một đơn vị
+  // bằng chứng, chia theo `weight`, thay vì cộng nguyên cho mọi kiến thức liên quan.
+  const knowledgeStats: CapabilityStat[] = aggregateMastery(masteryAnswers)
+    .map((stat) => ({
+      id: stat.id,
+      label: labelById.get(stat.id) || 'Kiến thức',
+      correct: stat.correctCount,
+      total: stat.answeredCount,
+      accuracy: stat.accuracy,
+      status: stat.status,
+      lastActivityAt: stat.lastActivityAt,
+    }))
+    .sort((a, b) => masteryPriority(a.status) - masteryPriority(b.status) || a.accuracy - b.accuracy)
 
   const now = Date.now()
   const homeworks: HomeworkCapabilityItem[] = assignments.map((assignment) => {
@@ -356,7 +393,7 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
   const totalQuestions = homeworks.reduce((sum, row) => sum + row.total, 0)
   const correct = homeworks.reduce((sum, row) => sum + row.correct, 0)
   const overdue = homeworks.filter((row) => row.overdue).length
-  const weakest = toCapabilityStats(knowledgeMap)[0]
+  const weakest = knowledgeStats[0]
   const firstOverdue = homeworks.find((row) => row.overdue)
   const firstPending = homeworks.find((row) => row.status !== 'submitted' && row.status !== 'graded')
 
@@ -409,7 +446,7 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
     },
     homeworks,
     levelStats: toCapabilityStats(levelMap),
-    knowledgeStats: toCapabilityStats(knowledgeMap),
+    knowledgeStats,
     recommendedAction,
   }
 }

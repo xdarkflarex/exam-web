@@ -1,17 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { FileText, HelpCircle, Users, ClipboardList } from 'lucide-react'
-import { AdminHeader, StatCard, RecentExamsList, RecentFeedbackList } from '@/components/admin'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { AlertTriangle, RefreshCcw } from 'lucide-react'
+import {
+  AdminHeader,
+  InboxPanel,
+  QuickActions,
+  RecentExamsList,
+  RecentFeedbackList,
+  type InboxItem,
+} from '@/components/admin'
 import { createClient } from '@/lib/supabase/client'
 import { useLoading } from '@/contexts/LoadingContext'
-
-interface Stats {
-  totalExams: number
-  totalQuestions: number
-  totalAttempts: number
-  totalStudents: number
-}
 
 interface RecentExam {
   id: string
@@ -30,174 +31,258 @@ interface Feedback {
   status: 'pending' | 'reviewed' | 'resolved'
 }
 
+interface Counts {
+  /** Bài tự luận đang chờ giáo viên duyệt. `null` khi cột chưa tồn tại trên DB. */
+  pendingEssays: number | null
+  pendingFeedbacks: number | null
+  overdueHomeworks: number | null
+  uncoveredTheories: number | null
+}
+
+const EMPTY_COUNTS: Counts = {
+  pendingEssays: null,
+  pendingFeedbacks: null,
+  overdueHomeworks: null,
+  uncoveredTheories: null,
+}
+
+function formatTimeAgo(dateString: string): string {
+  const diffMs = Date.now() - new Date(dateString).getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 60) return `${diffMins} phút trước`
+  if (diffHours < 24) return `${diffHours} giờ trước`
+  if (diffDays < 7) return `${diffDays} ngày trước`
+  return `${Math.floor(diffDays / 7)} tuần trước`
+}
+
+function mapFeedbackStatus(status: string): Feedback['status'] {
+  if (status === 'fixed') return 'resolved'
+  if (status === 'reviewed') return 'reviewed'
+  return 'pending'
+}
+
 export default function AdminDashboard() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { showLoading, hideLoading } = useLoading()
-  const [stats, setStats] = useState<Stats>({ totalExams: 0, totalQuestions: 0, totalAttempts: 0, totalStudents: 0 })
+  const [counts, setCounts] = useState<Counts>(EMPTY_COUNTS)
   const [recentExams, setRecentExams] = useState<RecentExam[]>([])
   const [recentFeedbacks, setRecentFeedbacks] = useState<Feedback[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     showLoading('Đang tải dữ liệu dashboard...')
+
     try {
-      // Fetch stats in parallel
-      const [examsRes, questionsRes, attemptsRes, studentsRes] = await Promise.all([
-        supabase.from('exams').select('*', { count: 'exact', head: true }),
-        supabase.from('questions').select('*', { count: 'exact', head: true }),
-        supabase.from('exam_attempts').select('*', { count: 'exact', head: true }),
-        supabase.from('exam_attempts').select('student_id')
-      ])
+      const nowIso = new Date().toISOString()
 
-      // Count unique students
-      const uniqueStudents = new Set(studentsRes.data?.map(a => a.student_id) || []).size
+      // Mỗi truy vấn độc lập: một cái hỏng không được làm trắng cả trang.
+      // `head: true` chỉ lấy count, không kéo dòng về client — khác với bản cũ
+      // tải toàn bộ `exam_attempts` rồi đếm distinct bằng Set trong browser.
+      const [essayRes, feedbackRes, overdueRes, theoryRes, targetRes, examsRes, feedbackListRes] =
+        await Promise.allSettled([
+          supabase
+            .from('exam_attempts')
+            .select('id', { count: 'exact', head: true })
+            .eq('grading_status', 'pending_review'),
+          supabase
+            .from('question_feedbacks')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending'),
+          supabase
+            .from('homework_attempts')
+            .select('id, status, homework_assignments!inner(deadline)')
+            .not('homework_assignments.deadline', 'is', null)
+            .lt('homework_assignments.deadline', nowIso)
+            .not('status', 'in', '("submitted","graded")'),
+          supabase.from('theories').select('id').eq('is_published', true),
+          supabase.from('homework_knowledge_targets').select('theory_id'),
+          supabase
+            .from('exams')
+            .select('id, title, created_at, exam_questions(count)')
+            .order('created_at', { ascending: false })
+            .limit(5),
+          supabase
+            .from('question_feedbacks')
+            .select(`
+              id,
+              message,
+              status,
+              created_at,
+              profiles!student_id(full_name),
+              questions!question_id(
+                content,
+                exam_questions(
+                  order,
+                  exams(title)
+                )
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .limit(5),
+        ])
 
-      setStats({
-        totalExams: examsRes.count || 0,
-        totalQuestions: questionsRes.count || 0,
-        totalAttempts: attemptsRes.count || 0,
-        totalStudents: uniqueStudents
+      const countOf = (result: PromiseSettledResult<{ count: number | null; error: unknown }>) => {
+        if (result.status !== 'fulfilled' || result.value.error) return null
+        return result.value.count ?? null
+      }
+
+      // Chuyên đề chưa được giao bài tập nào. Với quyết định "cây kỹ năng chỉ
+      // dùng homework được giao", đây là chỉ báo vận hành quan trọng nhất:
+      // không giao bài thì node không có tín hiệu năng lực nào.
+      let uncoveredTheories: number | null = null
+      if (
+        theoryRes.status === 'fulfilled' && !theoryRes.value.error &&
+        targetRes.status === 'fulfilled' && !targetRes.value.error
+      ) {
+        const covered = new Set(
+          ((targetRes.value.data || []) as Array<{ theory_id: string }>).map((row) => row.theory_id)
+        )
+        const published = (theoryRes.value.data || []) as Array<{ id: string }>
+        uncoveredTheories = published.filter((row) => !covered.has(row.id)).length
+      }
+
+      setCounts({
+        pendingEssays: countOf(essayRes as PromiseSettledResult<{ count: number | null; error: unknown }>),
+        pendingFeedbacks: countOf(feedbackRes as PromiseSettledResult<{ count: number | null; error: unknown }>),
+        overdueHomeworks:
+          overdueRes.status === 'fulfilled' && !overdueRes.value.error
+            ? (overdueRes.value.data || []).length
+            : null,
+        uncoveredTheories,
       })
 
-      // Fetch recent exams with question count
-      const { data: examsData } = await supabase
-        .from('exams')
-        .select(`
-          id,
-          title,
-          created_at,
-          exam_questions(count)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (examsData) {
-        setRecentExams(examsData.map(exam => ({
-          id: exam.id,
-          title: exam.title,
-          questionCount: (exam.exam_questions as any)?.[0]?.count || 0,
-          createdAt: formatTimeAgo(exam.created_at)
-        })))
+      if (examsRes.status === 'fulfilled' && examsRes.value.data) {
+        setRecentExams(
+          examsRes.value.data.map((exam) => {
+            const questions = exam.exam_questions as unknown as Array<{ count: number }> | null
+            return {
+              id: exam.id,
+              title: exam.title,
+              questionCount: questions?.[0]?.count || 0,
+              createdAt: formatTimeAgo(exam.created_at),
+            }
+          })
+        )
       }
 
-      // Fetch recent feedbacks
-      const { data: feedbacksData } = await supabase
-        .from('question_feedbacks')
-        .select(`
-          id,
-          message,
-          status,
-          created_at,
-          profiles!student_id(full_name),
-          questions!question_id(
-            content,
-            exam_questions(
-              order,
-              exams(title)
-            )
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (feedbacksData) {
-        setRecentFeedbacks(feedbacksData.map(fb => {
-          const question = fb.questions as any
-          const examQuestion = question?.exam_questions?.[0]
-          return {
-            id: fb.id,
-            studentName: (fb.profiles as any)?.full_name || 'Học sinh',
-            examTitle: examQuestion?.exams?.title || 'Đề thi',
-            questionNumber: examQuestion?.order || 1,
-            content: fb.message,
-            createdAt: formatTimeAgo(fb.created_at),
-            status: mapFeedbackStatus(fb.status)
-          }
-        }))
+      if (feedbackListRes.status === 'fulfilled' && feedbackListRes.value.data) {
+        setRecentFeedbacks(
+          feedbackListRes.value.data.map((row) => {
+            const question = row.questions as unknown as {
+              exam_questions?: Array<{ order?: number; exams?: { title?: string } }>
+            } | null
+            const examQuestion = question?.exam_questions?.[0]
+            const profile = row.profiles as unknown as { full_name?: string } | null
+            return {
+              id: row.id,
+              studentName: profile?.full_name || 'Học sinh',
+              examTitle: examQuestion?.exams?.title || 'Đề thi',
+              questionNumber: examQuestion?.order || 1,
+              content: row.message,
+              createdAt: formatTimeAgo(row.created_at),
+              status: mapFeedbackStatus(row.status),
+            }
+          })
+        )
       }
 
-    } catch (err) {
-      console.error('Dashboard fetch error:', err)
+      const allFailed = [essayRes, feedbackRes, overdueRes, examsRes].every(
+        (result) => result.status === 'rejected'
+      )
+      if (allFailed) throw new Error('Không tải được dữ liệu tổng quan.')
+    } catch (dashboardError) {
+      console.error('Dashboard fetch error:', dashboardError)
+      setError('Không tải được dữ liệu tổng quan. Vui lòng thử lại.')
     } finally {
       setLoading(false)
       hideLoading()
     }
-  }
+  }, [hideLoading, showLoading, supabase])
 
-  const formatTimeAgo = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
+  useEffect(() => {
+    void fetchDashboardData()
+  }, [fetchDashboardData])
 
-    if (diffMins < 60) return `${diffMins} phút trước`
-    if (diffHours < 24) return `${diffHours} giờ trước`
-    if (diffDays < 7) return `${diffDays} ngày trước`
-    return `${Math.floor(diffDays / 7)} tuần trước`
-  }
+  const inboxItems: InboxItem[] = [
+    {
+      id: 'essays',
+      label: 'Bài tự luận chờ duyệt',
+      count: counts.pendingEssays,
+      href: '/admin/exams',
+      note: counts.pendingEssays === null ? 'Chưa bật chấm tự luận' : 'Học sinh chưa thấy điểm tổng',
+      tone: 'rose',
+    },
+    {
+      id: 'feedbacks',
+      label: 'Góp ý chưa xem',
+      count: counts.pendingFeedbacks,
+      href: '/admin/feedback',
+      tone: 'amber',
+    },
+    {
+      id: 'overdue',
+      label: 'Bài tập quá hạn chưa nộp',
+      count: counts.overdueHomeworks,
+      href: '/admin/homework',
+      note: 'Cần nhắc học sinh',
+      tone: 'amber',
+    },
+    {
+      id: 'uncovered',
+      label: 'Chuyên đề chưa có bài tập',
+      count: counts.uncoveredTheories,
+      href: '/admin/knowledge-links',
+      note: 'Cây kỹ năng chưa đo được các bài này',
+      tone: 'teal',
+    },
+  ]
 
-  const mapFeedbackStatus = (status: string): 'pending' | 'reviewed' | 'resolved' => {
-    if (status === 'fixed') return 'resolved'
-    if (status === 'reviewed') return 'reviewed'
-    return 'pending'
-  }
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
-      {/* Header */}
-      <AdminHeader 
-        title="Tổng quan" 
-        subtitle="Chào mừng trở lại! Đây là tổng quan hệ thống của bạn."
-      />
+      <AdminHeader title="Tổng quan" subtitle="Việc đang chờ và hoạt động gần đây" />
 
-      {/* Content */}
-      <div className="p-4 sm:p-6 lg:p-8">
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-white animate-fade-in-up">
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold mb-1 sm:mb-2">Xin chào, Giáo viên! 👋</h1>
-          <p className="text-teal-100 text-sm sm:text-base">
-            Hôm nay là ngày tuyệt vời để tạo những bài kiểm tra mới. Hãy bắt đầu nào!
-          </p>
-        </div>
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        {error && (
+          <div
+            className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+          >
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {error}
+            </span>
+            <button
+              type="button"
+              onClick={() => void fetchDashboardData()}
+              className="inline-flex items-center gap-2 font-semibold hover:underline"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Thử lại
+            </button>
+          </div>
+        )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 animate-list-stagger">
-          <StatCard
-            title="Tổng số đề"
-            value={stats.totalExams}
-            icon={FileText}
-            color="teal"
-          />
-          <StatCard
-            title="Tổng câu hỏi"
-            value={stats.totalQuestions}
-            icon={HelpCircle}
-            color="blue"
-          />
-          <StatCard
-            title="Lượt làm bài"
-            value={stats.totalAttempts}
-            icon={ClipboardList}
-            color="purple"
-          />
-          <StatCard
-            title="Số học sinh"
-            value={stats.totalStudents}
-            icon={Users}
-            color="amber"
-          />
-        </div>
+        <QuickActions />
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 animate-fade-in-up-delay-2">
-          <RecentExamsList exams={recentExams} />
+        <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+          <InboxPanel items={inboxItems} loading={loading} />
           <RecentFeedbackList feedbacks={recentFeedbacks} />
         </div>
+
+        <RecentExamsList exams={recentExams} />
+
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Cần số liệu chi tiết hơn?{' '}
+          <Link href="/admin/analytics" className="font-medium text-teal-700 hover:underline dark:text-teal-400">
+            Mở trang thống kê
+          </Link>
+        </p>
       </div>
     </div>
   )

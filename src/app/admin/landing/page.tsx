@@ -11,7 +11,14 @@ import {
 } from 'lucide-react'
 
 /* ── Types ── */
-interface BrandContent { name: string; copyright: string }
+interface BrandContent {
+  name: string
+  copyright: string
+  /** Tuỳ chọn: hiện ở header + footer landing khi có giá trị. */
+  hotline?: string
+  email?: string
+  address?: string
+}
 interface HeroContent { badge: string; title: string; subtitle: string; cta_primary: string; cta_secondary: string }
 interface SectionHeading { title: string; subtitle: string }
 interface CtaContent { badge: string; title: string; subtitle: string; button: string }
@@ -37,7 +44,10 @@ const DEF_BENEFITS: Benefit[] = [
 const DEF_CONFIG: LandingConfig = { show_featured_exams: true, featured_exams_count: 6 }
 const SECTION_CATALOG: { id: string; label: string }[] = [
   { id: 'hero', label: 'Hero Carousel' },
+  { id: 'stats', label: 'Số liệu nền tảng' },
+  { id: 'quick_access', label: 'Truy cập nhanh' },
   { id: 'exams', label: 'Đề thi nổi bật' },
+  { id: 'knowledge_topics', label: 'Chuyên mục kiến thức' },
   { id: 'gallery', label: 'Thư viện ảnh' },
   { id: 'enrollment', label: 'Tuyển sinh & Lịch khai giảng' },
   { id: 'posts', label: 'Bài viết mới nhất' },
@@ -48,6 +58,33 @@ const SECTION_CATALOG: { id: string; label: string }[] = [
 ]
 
 const DEF_SECTIONS: SectionConfig[] = SECTION_CATALOG.map(s => ({ ...s, visible: true }))
+
+/**
+ * Chèn các section trong catalog mà config đã lưu chưa có.
+ *
+ * Section mới được chèn ngay sau "láng giềng đứng trước" của nó trong
+ * `SECTION_CATALOG` thay vì dồn xuống cuối, để bố cục mặc định trên landing
+ * và trong trang quản trị này khớp nhau. Thứ tự admin đã tự sắp cho các
+ * section cũ không bị thay đổi. Logic này song song với `src/app/page.tsx`.
+ */
+function mergeMissingSections(saved: SectionConfig[]): SectionConfig[] {
+  const merged = [...saved]
+  const presentIds = new Set(saved.map(s => s.id))
+  SECTION_CATALOG.forEach((entry, catalogIndex) => {
+    if (presentIds.has(entry.id)) return
+    let insertAt = merged.length
+    for (let i = catalogIndex - 1; i >= 0; i--) {
+      const anchor = merged.findIndex(s => s.id === SECTION_CATALOG[i].id)
+      if (anchor !== -1) {
+        insertAt = anchor + 1
+        break
+      }
+    }
+    merged.splice(insertAt, 0, { ...entry, visible: true })
+    presentIds.add(entry.id)
+  })
+  return merged
+}
 const ICON_OPTIONS = [
   { value: 'target', label: 'Mục tiêu' },
   { value: 'trending', label: 'Xu hướng' },
@@ -135,11 +172,7 @@ export default function LandingCMSPage() {
           const raw = g('landing.sections_config') as SectionConfig[]
           const validIds = new Set(SECTION_CATALOG.map(c => c.id))
           const filtered = raw.filter(s => validIds.has(s.id))
-          const presentIds = new Set(filtered.map(s => s.id))
-          const missing = SECTION_CATALOG
-            .filter(c => !presentIds.has(c.id))
-            .map(c => ({ ...c, visible: true }))
-          setSections([...filtered, ...missing])
+          setSections(mergeMissingSections(filtered))
         }
         if (g('landing.hero_slides')) setHeroSlides(g('landing.hero_slides') as HeroSlide[])
         if (g('landing.enrollment')) setEnrollment(g('landing.enrollment') as EnrollmentSlide[])
@@ -305,6 +338,26 @@ export default function LandingCMSPage() {
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Copyright / Footer</label>
                       <input type="text" value={brand.copyright} onChange={e => setBrand({ ...brand, copyright: e.target.value })} className={inputCls} />
+                    </div>
+                    {/* Ba trường liên hệ dưới đây là tuỳ chọn: bỏ trống thì header
+                        và footer landing đơn giản không render dòng tương ứng. */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Hotline <span className="text-slate-400">(tuỳ chọn — hiện ở header &amp; footer)</span>
+                      </label>
+                      <input type="tel" value={brand.hotline || ''} onChange={e => setBrand({ ...brand, hotline: e.target.value })} placeholder="0912 345 678" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Email liên hệ <span className="text-slate-400">(tuỳ chọn)</span>
+                      </label>
+                      <input type="email" value={brand.email || ''} onChange={e => setBrand({ ...brand, email: e.target.value })} placeholder="lienhe@example.com" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Địa chỉ <span className="text-slate-400">(tuỳ chọn)</span>
+                      </label>
+                      <input type="text" value={brand.address || ''} onChange={e => setBrand({ ...brand, address: e.target.value })} className={inputCls} />
                     </div>
                   </div>
                 </div>

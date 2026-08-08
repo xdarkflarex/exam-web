@@ -25,11 +25,11 @@ export default function PostsSection({ posts }: PostsSectionProps) {
 
   return (
     <>
-      <section className="py-16 bg-slate-200/50 dark:bg-slate-800/50">
+      <section id="posts" className="scroll-mt-32 py-16 bg-slate-200/50 dark:bg-slate-800/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollRevealClient>
             <div className="text-center mb-12">
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3">Bài viết mới nhất</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">Bài viết mới nhất</h2>
               <p className="text-slate-600 dark:text-slate-400">Tin tức, hướng dẫn và kiến thức bổ ích</p>
             </div>
           </ScrollRevealClient>
@@ -38,7 +38,7 @@ export default function PostsSection({ posts }: PostsSectionProps) {
               <ScrollRevealClient key={post.id} delay={index * 80}>
                 <div
                   onClick={() => setSelectedPostId(post.id)}
-                  className="group cursor-pointer bg-slate-200 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                  className="group cursor-pointer bg-slate-200 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 soft-shadow hover:shadow-xl hover:-translate-y-1"
                 >
                   {post.cover_image && (
                     <div className="h-40 overflow-hidden">

@@ -210,17 +210,21 @@ Runtime expectation sau cutover đồng bộ `20260721` + `20260722` và source 
 4. Practice chỉ autosave raw draft của attempt đang làm; `submit_practice_attempt` chấm ba loại cũ ở server và trả feedback theo policy practice. Practice từ chối `essay`.
 5. Student dashboard/history/result dùng các RPC metadata an toàn thay vì đọc answer key trực tiếp; admin/teacher vẫn phải được scope theo exam/lớp.
 
-Migration 20260721 và backfill essay legacy đã được áp ngày 2026-07-22 với hậu kiểm cấu trúc đạt; migration 20260722 và JWT/E2E chưa hoàn tất. Không deploy riêng source hardening hoặc riêng migration 20260722; xem điều kiện cutover trong `docs/RUNBOOK.md`.
+Migration 20260721, backfill essay legacy và hardening 20260722 đều **đã được áp** trên Primary (20260721 + backfill ngày 2026-07-22 với hậu kiểm cấu trúc đạt; 20260722 xác minh live ngày 2026-08-06 qua `to_regprocedure` — `submit_exam_attempt_trusted_internal`, `can_edit_homework_question_links`, `get_my_safe_bookmarks` đều tồn tại và chỉ được định nghĩa trong file đó). JWT negative test và E2E vẫn chưa hoàn tất; đó là phần còn chặn rollout, không phải migration. Xem `docs/RUNBOOK.md`.
+
+Chi tiết bắt buộc biết khi sửa hàm chấm: `20260722:1195-1205` **RENAME** `submit_exam_attempt(text,jsonb)` thành `submit_exam_attempt_trusted_internal` rồi bọc bằng `submit_exam_attempt` mới lo gating công bố điểm. Thân hàm chấm đang chạy vì thế là của `20260721`, dưới tên `_trusted_internal`. `CREATE OR REPLACE` wrapper là mất gating điểm.
 
 ### Pilot tự luận simulation
 
 1. Admin/teacher tạo `essay` + đáp án tham chiếu + rubric ở `/admin/questions/essay/new` qua RPC `create_essay_question`.
-2. Tạo đề simulation xếp `multiple_choice` vào phần 1, `true_false` phần 2, `short_answer|essay` phần 3; essay dùng `essay_max_score` làm trọng số.
+2. Tạo đề simulation xếp `multiple_choice` vào phần 1, `true_false` phần 2, `short_answer|essay` phần 3; essay dùng **tổng thang điểm rubric** làm trọng số (`rubricTotal()` trong `src/lib/exam/scoring.ts`), khớp ngưỡng 0,0001 của `ESSAY_RUBRIC_SCORE_MISMATCH`.
 3. Học sinh nhập văn bản/LaTeX; submit RPC ghi answer hash/rubric version và trạng thái chờ duyệt.
 4. Admin results dẫn tới attempt detail. `EssayGradingPanel` tạo gói không kèm định danh, giáo viên copy sang AI và paste JSON về.
 5. Parser kiểm tra schema/ref/rubric/criteria/score. Giáo viên tự sửa rồi gọi `review_essay_answer`; RPC ghi `essay_grading_reviews` và tính lại điểm thang 10.
 
-Đây là workflow copy/paste thủ công, không có provider API hoặc worker. Schema/RPC essay 20260721 đã live với postflight cấu trúc đạt, nhưng runtime an toàn đầy đủ vẫn phụ thuộc `20260722_runtime_security_hardening.sql`, deploy source đồng bộ và JWT/E2E. Xem [`ESSAY_GRADING.md`](ESSAY_GRADING.md).
+Luồng copy/paste thủ công ở bước 4–5 vẫn là luồng chính và vẫn dùng được. Từ 2026-08-04 có thêm luồng tự động song song: `src/lib/essay-ai/worker.ts` gọi `get_essay_grading_package` → DeepSeek → `decideFinalization()` → `ai_finalize_essay_answer`, kích hoạt qua `POST /api/essay-ai/grade-queue` (bearer `CRON_SECRET`). Bài AI chốt mang `grading_status='ai_graded'`, phân biệt với `approved` của người duyệt. **`ESSAY_AI_AUTO_FINALIZE` đã bật từ 2026-08-06** (quyết định chủ dự án). Cổng chặn thực tế giờ là `override-guard.ts`: chưa đủ 20 bài đối chiếu thì mọi bài vẫn về `pending_review`. Lý do và ràng buộc đi kèm ở `AGENTS.md` mục 4.
+
+Schema/RPC essay 20260721, 20260722 và 20260804 đều đã live với postflight cấu trúc đạt; `20260805_essay_ai_usage.sql` chưa áp. Runtime an toàn đầy đủ vẫn phụ thuộc deploy source đồng bộ và JWT/E2E. Xem [`ESSAY_GRADING.md`](ESSAY_GRADING.md) cho luồng thủ công và [`ESSAY_AUTO_GRADING_PLAN.md`](ESSAY_AUTO_GRADING_PLAN.md) cho luồng tự động.
 
 ### Homework
 
@@ -231,9 +235,9 @@ Migration 20260721 và backfill essay legacy đã được áp ngày 2026-07-22 
 5. Feedback/lời giải được server trả theo `show_feedback_immediately`/`allow_review`; homework từ chối `essay` trong source hiện tại.
 6. Metadata học sinh dùng `get_my_homework_question_metadata` và `get_my_homework_answer_metadata`; admin results/analytics vẫn phải tuân theo role/scope của homework domain.
 
-Các bước server-side ở trên phụ thuộc hardening 20260722 chưa live. Bản r4 rebuild closed baseline cho `classes`, `exams`, `homeworks`, assignments, recipients và `site_settings`; preflight/postflight vẫn phải xác minh đúng policy/grant trước khi mở lại website.
+Các bước server-side ở trên dựa vào hardening 20260722, đã live từ trước 2026-08-06. Bản r4 rebuild closed baseline cho `classes`, `exams`, `homeworks`, assignments, recipients và `site_settings`; vẫn chưa có JWT negative test chứng minh mọi đường ghi trực tiếp đã bị khóa.
 
-### RPC trust boundary dự kiến sau hardening 20260722
+### RPC trust boundary sau hardening 20260722 (đã live)
 
 | Nhóm | RPC chính | Ranh giới |
 |---|---|---|
@@ -280,7 +284,8 @@ node scripts/ai-context.mjs --table homework_attempts --depth 1
 - `src/lib/theories/actions.ts`: nhiều domain cũ/mới, view/RPC/mastery.
 - Các runner: state lớn, autosave, chấm điểm và submit.
 - `supabase/migrations/20260721_essay_assisted_grading.sql`: pilot simulation chạm constraint, trigger, RLS và RPC; đã apply/postflight cấu trúc ngày 2026-07-22 nhưng chưa JWT/E2E.
-- `supabase/migrations/20260722_runtime_security_hardening.sql`: rebuild policy/grant core, ownership question và RPC capability cho simulation/practice/homework; chỉ áp sau preflight parent policy/grant, cùng source tương ứng, rồi postflight/JWT negative test.
+- `supabase/migrations/20260722_runtime_security_hardening.sql`: rebuild policy/grant core, ownership question và RPC capability cho simulation/practice/homework; đã áp, chưa JWT negative test. Nó RENAME `submit_exam_attempt` thành `submit_exam_attempt_trusted_internal` rồi bọc lại, nên sửa hàm chấm phải sửa hàm `_trusted_internal` — xem `docs/SCORING.md`.
+- `supabase/migrations/20260806_moet_scoring_scale.sql`: bậc thang Đúng/Sai cho **cả ba luồng chấm**, và trọng số thang Bộ GD&ĐT **chỉ cho đề thi thử** (`exams.scoring_profile = 'moet_standard'`; cột này thêm ở đây, độc lập với `exam_mode`). `CREATE OR REPLACE` ba hàm chấm, nên mọi sửa đổi hàm chấm sau này phải rebase trên file này, không trên 20260721/20260722.
 - `src/components/admin/EssayGradingPanel.tsx`: dữ liệu rubric/reference/bài làm đi qua clipboard; không thêm định danh hoặc tự động chốt điểm.
 - `src/app/learn/page.tsx`: ghép nhiều bảng/domain trong một client workspace.
 - Trang admin exam/question/report: nhiều query và lint debt.

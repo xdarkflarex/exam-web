@@ -10,8 +10,10 @@ Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn
 4. Tài liệu đúng miền:
    - [`FEATURES.md`](FEATURES.md)
    - [`DATA_MODEL.md`](DATA_MODEL.md)
+   - [`SCORING.md`](SCORING.md): thang điểm Bộ GD&ĐT, bậc thang Đúng/Sai, quy đổi thang 10. **Đọc trước khi chạm bất cứ đường tính điểm nào**
    - [`ESSAY_GRADING.md`](ESSAY_GRADING.md) cho pilot tự luận simulation, copy/paste AI và giáo viên duyệt
    - [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)
+   - [`STUDENT_SKILL_TREE_REDESIGN.md`](STUDENT_SKILL_TREE_REDESIGN.md): kế hoạch thiết kế lại cây kỹ năng và trang học sinh (chưa thi công)
 5. [`RUNBOOK.md`](RUNBOOK.md): setup/verify/deploy.
 6. [`SECURITY_AND_AUDIT.md`](SECURITY_AND_AUDIT.md): baseline và backlog rủi ro.
 
@@ -29,7 +31,8 @@ Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn
 |---|---|
 | Route/layout/middleware | `PROJECT_MAP.md`, `FEATURES.md` |
 | Bảng/view/RPC/RLS/migration | `DATA_MODEL.md`, `SECURITY_AND_AUDIT.md` |
-| Câu tự luận/rubric/AI hỗ trợ | `ESSAY_GRADING.md`, `DATA_MODEL.md`, `SECURITY_AND_AUDIT.md` |
+| Trọng số câu, hàm chấm, quy đổi điểm | `SCORING.md`, `DATA_MODEL.md`, `RUNBOOK.md` |
+| Câu tự luận/rubric/AI hỗ trợ | `ESSAY_GRADING.md`, `SCORING.md`, `DATA_MODEL.md`, `SECURITY_AND_AUDIT.md` |
 | Env/build/deploy/MCP | `RUNBOOK.md`, `.env.example` |
 | UI token/component/UX | `DESIGN_SYSTEM.md` |
 | Quy tắc AI/index | `AGENTS.md`, `ai/project.manifest.json` |

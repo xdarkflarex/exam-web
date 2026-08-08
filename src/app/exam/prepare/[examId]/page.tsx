@@ -14,6 +14,7 @@ import {
   Timer
 } from 'lucide-react'
 import { useLoading } from '@/contexts/LoadingContext'
+import ConfirmModal from '@/components/ConfirmModal'
 
 interface ExamInfo {
   id: string
@@ -35,6 +36,38 @@ interface ExamPreparationPayload {
   existing_attempt: { id: string; start_time: string } | null
   attempt_count: number
   best_score: number | null
+  // Bổ sung bởi migration 20260803; có thể vắng mặt nếu database chưa áp.
+  max_attempts?: number | null
+  attempts_remaining?: number | null
+}
+
+/**
+ * `start_exam_attempt` raise exception có tên mã ở đầu message.
+ * Ánh xạ sang tiếng Việt để học sinh biết vì sao không vào thi được,
+ * thay vì spinner tắt im lặng và chỉ có lỗi 403 trong console.
+ */
+const START_ERROR_MESSAGES: Record<string, string> = {
+  MAX_ATTEMPTS_REACHED:
+    'Bạn đã dùng hết số lượt thi cho đề này. Hãy liên hệ giáo viên nếu cần mở thêm lượt.',
+  FEATURE_NOT_AVAILABLE:
+    'Tài khoản của bạn chưa được mở tính năng này. Hãy liên hệ giáo viên.',
+  EXAM_NOT_AVAILABLE: 'Đề thi này hiện không khả dụng.',
+  EXAM_NOT_STARTED: 'Đề thi chưa tới giờ mở. Hãy quay lại sau.',
+  EXAM_ENDED: 'Đề thi đã đóng, bạn không thể bắt đầu lượt mới.',
+  EXAM_NOT_ASSIGNED_TO_STUDENT_CLASS: 'Đề thi này không được giao cho lớp của bạn.',
+  STUDENT_ROLE_REQUIRED: 'Chỉ tài khoản học sinh mới có thể làm bài thi.',
+  UNSUPPORTED_EXAM_MODE: 'Đề thi này không hỗ trợ chế độ làm bài hiện tại.',
+  UNAUTHENTICATED: 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.',
+}
+
+function describeStartError(error: { message?: string } | null): string {
+  const raw = error?.message ?? ''
+
+  for (const [code, message] of Object.entries(START_ERROR_MESSAGES)) {
+    if (raw.includes(code)) return message
+  }
+
+  return 'Không thể bắt đầu bài thi. Vui lòng thử lại hoặc liên hệ giáo viên.'
 }
 
 function readAttemptId(value: unknown): string | null {
@@ -59,6 +92,13 @@ export default function ExamPreparePage() {
   const [starting, setStarting] = useState(false)
   const [attemptCount, setAttemptCount] = useState(0)
   const [bestScore, setBestScore] = useState<number | null>(null)
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(null)
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null)
+  const [startError, setStartError] = useState<string | null>(null)
+  // Hủy bài dở là hành động KHÔNG hoàn tác được: nó nộp bài với 0 đáp án và
+  // chốt điểm. Phải hỏi lại trước khi gọi RPC (DESIGN_SYSTEM: "destructive
+  // action cần confirm").
+  const [showCancelModal, setShowCancelModal] = useState(false)
 
   const fetchExamInfo = useCallback(async () => {
     try {
@@ -80,6 +120,14 @@ export default function ExamPreparePage() {
       setExam(preparation.exam)
       setAttemptCount(preparation.attempt_count || 0)
       setBestScore(typeof preparation.best_score === 'number' ? preparation.best_score : null)
+      setMaxAttempts(
+        typeof preparation.max_attempts === 'number' ? preparation.max_attempts : null
+      )
+      setAttemptsRemaining(
+        typeof preparation.attempts_remaining === 'number'
+          ? preparation.attempts_remaining
+          : null
+      )
 
       if (preparation.existing_attempt) {
         const startTime = new Date(preparation.existing_attempt.start_time)
@@ -115,6 +163,7 @@ export default function ExamPreparePage() {
   const handleStartExam = async () => {
     if (!exam) return
     setStarting(true)
+    setStartError(null)
     showLoading('Đang chuẩn bị bài thi...')
 
     try {
@@ -131,14 +180,18 @@ export default function ExamPreparePage() {
 
       if (error || !startedAttemptId) {
         console.error('Create attempt error:', error)
+        setStartError(describeStartError(error))
         hideLoading()
         setStarting(false)
+        // Đồng bộ lại số lượt để UI phản ánh đúng trạng thái server.
+        void fetchExamInfo()
         return
       }
 
       router.push(`/exam/${startedAttemptId}`)
     } catch (error) {
       console.error('Error starting exam:', error)
+      setStartError('Không thể bắt đầu bài thi. Vui lòng kiểm tra kết nối và thử lại.')
       hideLoading()
       setStarting(false)
     }
@@ -152,9 +205,11 @@ export default function ExamPreparePage() {
 
   const handleCancelExam = async () => {
     if (!existingAttempt) return
-    
-    showLoading('Đang hủy bài thi...')
-    
+
+    setShowCancelModal(false)
+    setStartError(null)
+    showLoading('Đang nộp bài thi...')
+
     try {
       // Empty submission is still finalized by the trusted database RPC.
       const { error } = await supabase.rpc('submit_exam_attempt', {
@@ -165,6 +220,9 @@ export default function ExamPreparePage() {
       if (error) {
         console.error('Cancel exam error:', error)
         hideLoading()
+        // Trước đây chỉ log ra console: spinner tắt và trang không đổi gì, nên
+        // học sinh tưởng đã nộp xong trong khi bài vẫn đang dở. Phải nói ra.
+        setStartError('Không nộp được bài. Bài thi của bạn vẫn đang dở dang — kiểm tra kết nối rồi thử lại.')
         return
       }
 
@@ -173,6 +231,7 @@ export default function ExamPreparePage() {
     } catch (error) {
       console.error('Error canceling exam:', error)
       hideLoading()
+      setStartError('Lỗi kết nối. Bài thi của bạn vẫn đang dở dang — thử lại sau.')
     }
   }
 
@@ -181,6 +240,15 @@ export default function ExamPreparePage() {
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
+
+  // `attempts_remaining` chỉ có khi database đã áp migration 20260803.
+  // Nếu vắng mặt, giữ nguyên hành vi cũ: cho bấm và để server quyết định.
+  // max_attempts <= 0 nghĩa là không giới hạn.
+  const outOfAttempts =
+    attemptsRemaining !== null &&
+    attemptsRemaining <= 0 &&
+    maxAttempts !== null &&
+    maxAttempts > 0
 
   if (loading) {
     return (
@@ -275,6 +343,7 @@ export default function ExamPreparePage() {
                   <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                   <span className="font-medium text-green-800 dark:text-green-300">
                     Đã hoàn thành {attemptCount} lần
+                    {maxAttempts !== null && maxAttempts > 0 ? ` / ${maxAttempts} lượt` : ''}
                   </span>
                 </div>
                 {bestScore !== null && (
@@ -282,6 +351,35 @@ export default function ExamPreparePage() {
                     Điểm cao nhất: <span className="font-bold">{bestScore.toFixed(1)}</span>/10
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Hết lượt thi */}
+            {outOfAttempts && !existingAttempt && (
+              <div className="bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    Bạn không còn lượt thi
+                  </span>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Đề này giới hạn {maxAttempts} lượt và bạn đã dùng hết. Hãy liên hệ giáo
+                  viên nếu cần mở thêm lượt.
+                </p>
+              </div>
+            )}
+
+            {/* Lỗi khi bắt đầu thi */}
+            {startError && (
+              <div
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-300">{startError}</p>
+                </div>
               </div>
             )}
 
@@ -308,11 +406,11 @@ export default function ExamPreparePage() {
                     Tiếp tục thi
                   </button>
                   <button
-                    onClick={handleCancelExam}
+                    onClick={() => setShowCancelModal(true)}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium btn-action"
                   >
                     <AlertTriangle className="w-4 h-4" />
-                    Hủy và xem kết quả
+                    Nộp bài dở dang
                   </button>
                 </div>
               </div>
@@ -363,13 +461,18 @@ export default function ExamPreparePage() {
                 </button>
                 <button
                   onClick={handleStartExam}
-                  disabled={starting}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-400 text-white rounded-xl font-semibold btn-action"
+                  disabled={starting || outOfAttempts}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed disabled:text-slate-500 dark:disabled:text-slate-400 text-white rounded-xl font-semibold btn-action"
                 >
                   {starting ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Đang chuẩn bị...
+                    </>
+                  ) : outOfAttempts ? (
+                    <>
+                      <AlertTriangle className="w-5 h-5" />
+                      Hết lượt thi
                     </>
                   ) : (
                     <>
@@ -383,6 +486,19 @@ export default function ExamPreparePage() {
           </div>
         </div>
       </div>
+
+      {/* Xác nhận nộp bài dở dang. Nói rõ hậu quả: bài được chốt điểm ngay với
+          những gì đã làm, và không mở lại được. */}
+      <ConfirmModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleCancelExam}
+        title="Nộp bài dở dang?"
+        message="Bài thi sẽ được nộp và chấm ngay với phần bạn đã làm. Các câu chưa trả lời tính 0 điểm và bạn không mở lại được lượt thi này."
+        confirmText="Nộp và xem kết quả"
+        cancelText="Quay lại"
+        type="danger"
+      />
     </div>
   )
 }
