@@ -13,6 +13,7 @@ Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn
    - [`SCORING.md`](SCORING.md): thang điểm Bộ GD&ĐT, bậc thang Đúng/Sai, quy đổi thang 10. **Đọc trước khi chạm bất cứ đường tính điểm nào**
    - [`ESSAY_GRADING.md`](ESSAY_GRADING.md) cho pilot tự luận simulation, copy/paste AI và giáo viên duyệt
    - [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)
+   - [`DESIGN_TODO.md`](DESIGN_TODO.md): việc design còn lại, có số đo tương phản và 4 bất biến theme không được phá
    - [`STUDENT_SKILL_TREE_REDESIGN.md`](STUDENT_SKILL_TREE_REDESIGN.md): kế hoạch thiết kế lại cây kỹ năng và trang học sinh (chưa thi công)
 5. [`RUNBOOK.md`](RUNBOOK.md): setup/verify/deploy.
 6. [`SECURITY_AND_AUDIT.md`](SECURITY_AND_AUDIT.md): baseline và backlog rủi ro.
@@ -35,4 +36,5 @@ Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn
 | Câu tự luận/rubric/AI hỗ trợ | `ESSAY_GRADING.md`, `SCORING.md`, `DATA_MODEL.md`, `SECURITY_AND_AUDIT.md` |
 | Env/build/deploy/MCP | `RUNBOOK.md`, `.env.example` |
 | UI token/component/UX | `DESIGN_SYSTEM.md` |
+| Sửa giao diện sáng/tối, tương phản | `DESIGN_TODO.md` (việc còn lại) + `DESIGN_SYSTEM.md` (quy tắc) |
 | Quy tắc AI/index | `AGENTS.md`, `ai/project.manifest.json` |
