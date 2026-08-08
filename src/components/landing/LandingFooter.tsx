@@ -17,8 +17,18 @@ interface LandingFooterProps {
   hotline?: string
   email?: string
   address?: string
+  /** Fanpage của trung tâm. */
   facebookUrl?: string
+  /** Facebook cá nhân của giáo viên. Tách khỏi fanpage vì là hai đích khác nhau. */
+  teacherFacebookUrl?: string
 }
+
+/**
+ * Mặc định trỏ tới trang thật do chủ dự án cung cấp. Admin vẫn ghi đè được qua
+ * `landing.brand` mà không cần sửa code.
+ */
+const DEFAULT_FANPAGE_URL = 'https://www.facebook.com/profile.php?id=100092483586525'
+const DEFAULT_TEACHER_FACEBOOK_URL = 'https://www.facebook.com/minh.bam'
 
 const EXPLORE_LINKS = [
   { label: 'Đề thi nổi bật', href: '/#exams' },
@@ -39,8 +49,14 @@ export default function LandingFooter({
   hotline,
   email,
   address,
-  facebookUrl = 'https://www.facebook.com/minhmath',
+  facebookUrl = DEFAULT_FANPAGE_URL,
+  teacherFacebookUrl = DEFAULT_TEACHER_FACEBOOK_URL,
 }: LandingFooterProps) {
+  const socialLinks = [
+    { href: facebookUrl, label: `Fanpage ${brandName}`, sub: 'Thông báo khai giảng, lịch học' },
+    { href: teacherFacebookUrl, label: 'Facebook thầy Minh', sub: 'Nhắn tin trực tiếp với thầy' },
+  ].filter((link) => Boolean(link.href))
+
   const hasContact = Boolean(hotline || email || address)
   // Số cột bám theo số khối thực tế: cột "Liên hệ" tự ẩn khi admin chưa nhập
   // gì, nên nếu để cứng 4 cột thì footer sẽ chừa một rãnh trống bên phải.
@@ -64,15 +80,33 @@ export default function LandingFooter({
               Nền tảng luyện thi Toán THPT: làm đề, xem phân tích chi tiết và theo dõi
               tiến bộ qua từng ngày.
             </p>
-            <a
-              href={facebookUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Fanpage ${brandName}`}
-              className="inline-flex w-10 h-10 items-center justify-center rounded-full bg-slate-300/70 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 hover:bg-teal-600 hover:text-white dark:hover:bg-teal-500 transition-colors"
-            >
-              <Facebook className="w-5 h-5" />
-            </a>
+            {/* Hai đích Facebook khác nhau nên phải có NHÃN. Hai icon giống hệt
+                cạnh nhau thì người đọc không biết cái nào là fanpage, cái nào là
+                thầy — buộc phải bấm thử mới biết. */}
+            <ul className="space-y-2.5">
+              {socialLinks.map((social) => (
+                <li key={social.href}>
+                  <a
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group/social flex items-center gap-3 rounded-xl border border-slate-300/70 dark:border-slate-700/70 px-3 py-2.5 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-colors"
+                  >
+                    <span className="inline-flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-slate-300/70 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300 group-hover/social:bg-teal-600 group-hover/social:text-white dark:group-hover/social:bg-teal-500 transition-colors">
+                      <Facebook className="w-4 h-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover/social:text-teal-700 dark:group-hover/social:text-teal-300 transition-colors">
+                        {social.label}
+                      </span>
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">
+                        {social.sub}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Cột 2 — khám phá */}

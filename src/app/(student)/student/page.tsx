@@ -21,6 +21,12 @@ import {
 import { getFeatureFlags, hasFeatureAccess } from '@/lib/auth/access'
 import { createClient } from '@/lib/supabase/client'
 import { getStudentHomeworkAssignments } from '@/lib/homework/actions'
+import {
+  getStudentCapabilitySummary,
+  type StudentCapabilitySummary,
+} from '@/lib/analytics/student-capability'
+import TodayHero from '@/components/student/TodayHero'
+import WeakAreas from '@/components/student/WeakAreas'
 
 interface Exam {
   id: string
@@ -141,6 +147,17 @@ export default function StudentPage() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   const [userName, setUserName] = useState('Học sinh')
+  const [userId, setUserId] = useState<string | null>(null)
+  /**
+   * Phần năng lực tải RIÊNG, sau và độc lập với dữ liệu "việc hôm nay".
+   *
+   * `getStudentCapabilitySummary` chạy nhiều truy vấn nối tiếp (assignment →
+   * attempt → answer metadata → knowledge links). Gộp nó vào `fetchDashboardData`
+   * sẽ bắt học sinh chờ toàn bộ chuỗi đó mới thấy được việc cần làm hôm nay —
+   * đúng thứ mà mục 6.5 khen trang này làm tốt. Hero hiện ngay với phần trái,
+   * cột phải xuất hiện khi có số.
+   */
+  const [capability, setCapability] = useState<StudentCapabilitySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
@@ -186,6 +203,7 @@ export default function StudentPage() {
       if (profileError) throw profileError
 
       setUserName(profile?.full_name || 'Học sinh')
+      setUserId(user.id)
       const studentGrade = profile?.grade || null
       const snapshotNow = Date.now()
       const access: TodayFeatureAccess = {
@@ -438,6 +456,28 @@ export default function StudentPage() {
     return () => window.clearInterval(intervalId)
   }, [])
 
+  /**
+   * Phần năng lực là bổ sung, không phải điều kiện để trang dùng được: nếu nó
+   * hỏng thì hero chỉ mất cột phải, không hiện lỗi và không chặn gì. Cờ `alive`
+   * tránh setState sau khi component đã unmount.
+   */
+  useEffect(() => {
+    if (!userId) return
+    let alive = true
+
+    getStudentCapabilitySummary(userId)
+      .then((summary) => {
+        if (alive) setCapability(summary)
+      })
+      .catch(() => {
+        if (alive) setCapability(null)
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [userId])
+
   const activeHomeworks = useMemo(
     () => homeworkTasks
       .filter((task) => (
@@ -574,38 +614,14 @@ export default function StudentPage() {
           không thể lệch với danh sách thật; ô nào bằng 0 thì không hiện, tránh
           bắt học sinh đọc "0 quá hạn" mỗi ngày.
         */}
-        <header className="mb-6 animate-dash-in">
-          <p className="text-sm font-medium text-teal-600 dark:text-teal-400">
-            {new Intl.DateTimeFormat('vi-VN', {
-              weekday: 'long',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            }).format(new Date(now))}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
-            Hôm nay, {userName}
-          </h1>
-          <p className="mt-1 text-slate-500 dark:text-slate-400">
-            {summaryChips.length > 0
-              ? 'Bắt đầu từ việc quan trọng nhất, rồi xem phản hồi khi kết quả đã được công bố.'
-              : 'Không còn việc nào đang chờ. Bạn có thể chọn một hoạt động để luyện thêm.'}
-          </p>
+        <TodayHero
+          userName={userName}
+          now={now}
+          summary={capability}
+          chips={summaryChips}
+        />
 
-          {summaryChips.length > 0 && (
-            <dl className="mt-4 flex flex-wrap gap-2">
-              {summaryChips.map((chip) => (
-                <div
-                  key={chip.label}
-                  className={`inline-flex items-baseline gap-2 rounded-xl border px-3 py-2 ${chip.className}`}
-                >
-                  <dd className="text-lg font-bold tabular-nums leading-none">{chip.value}</dd>
-                  <dt className="text-xs font-medium">{chip.label}</dt>
-                </div>
-              ))}
-            </dl>
-          )}
-        </header>
+        {capability && <WeakAreas stats={capability.knowledgeStats} />}
 
         {warning && (
           <div

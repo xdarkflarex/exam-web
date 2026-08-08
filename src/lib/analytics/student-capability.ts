@@ -67,6 +67,14 @@ export interface StudentCapabilitySummary {
   homeworks: HomeworkCapabilityItem[]
   levelStats: CapabilityStat[]
   knowledgeStats: CapabilityStat[]
+  /**
+   * Thời điểm trả lời từng câu, để dựng lưới hoạt động và chuỗi ngày học.
+   *
+   * Lấy từ chính `answers` đã tải ở trên nên KHÔNG thêm truy vấn nào. Trả về
+   * mảng timestamp thô thay vì Map đã đếm sẵn, để `activity-streak.ts` vẫn là
+   * nơi duy nhất quy đổi ngày — quy đổi hai nơi là hai cách xử lý múi giờ.
+   */
+  activityTimestamps: string[]
   recommendedAction: {
     label: string
     detail: string
@@ -447,6 +455,12 @@ export async function getStudentCapabilitySummary(studentId: string): Promise<St
     homeworks,
     levelStats: toCapabilityStats(levelMap),
     knowledgeStats,
+    // Bao gồm cả câu chưa mở đáp án: lưới hoạt động đo VIỆC ĐÃ LÀM, không đo
+    // làm đúng. Lọc theo `is_correct` ở đây sẽ làm ngày học biến mất chỉ vì
+    // giáo viên chưa công bố đáp án.
+    activityTimestamps: answers
+      .map((row) => row.answered_at)
+      .filter((value): value is string => Boolean(value)),
     recommendedAction,
   }
 }

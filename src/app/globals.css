@@ -497,28 +497,62 @@ html {
    GLASS MORPHISM UTILITIES
    ============================================= */
 
+/* NỀN ĐỤC LÀ MẶC ĐỊNH, BLUR LÀ PHẦN THÊM.
+ *
+ * Bản trước đặt nền 0.7/0.85 rồi trông cậy vào `backdrop-filter` làm phần còn
+ * lại. Trong bản build thật thì blur KHÔNG tồn tại: dự án không khai báo
+ * `browserslist`, nên mặc định gồm `op_mini all`, và Lightning CSS của Tailwind
+ * v4 xoá hẳn `backdrop-filter` lẫn `-webkit-backdrop-filter` khi có target
+ * không hỗ trợ. Kiểm bằng CSSOM lúc chạy: rule `.glass-strong` chỉ còn
+ * `background` và `border`.
+ *
+ * Hệ quả là thanh nav dính chỉ có nền mờ 85% không blur, nên tiêu đề section
+ * cuộn qua phía dưới đọc xuyên lên — mất khả năng đọc cả nav lẫn tiêu đề.
+ *
+ * Nên đảo lại thứ tự phụ thuộc: nền tự nó đã đủ đục để đọc được, `@supports`
+ * mới hạ độ đục xuống và thêm blur khi trình duyệt thật sự làm được. Thiết kế
+ * không còn phụ thuộc vào một thuộc tính mà bước build có thể bỏ đi.
+ */
 .glass {
-  background: rgba(241, 245, 249, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(241, 245, 249, 0.94);
   border: 1px solid rgba(203, 213, 225, 0.4);
 }
 
 html.dark .glass {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(30, 41, 59, 0.94);
   border: 1px solid rgba(51, 65, 85, 0.4);
 }
 
 .glass-strong {
-  background: rgba(241, 245, 249, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(241, 245, 249, 0.97);
   border: 1px solid rgba(203, 213, 225, 0.5);
 }
 
 html.dark .glass-strong {
-  background: rgba(30, 41, 59, 0.85);
+  background: rgba(30, 41, 59, 0.97);
   border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgba(241, 245, 249, 0.7);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  html.dark .glass {
+    background: rgba(30, 41, 59, 0.7);
+  }
+
+  .glass-strong {
+    background: rgba(241, 245, 249, 0.85);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  html.dark .glass-strong {
+    background: rgba(30, 41, 59, 0.85);
+  }
 }
 
 /* =============================================
@@ -578,6 +612,30 @@ html.dark .hero-gradient {
 
 html.dark .bento-hover:hover {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.25);
+}
+
+/* =============================================
+   GIẤY KẺ Ô
+   Nguồn: docs/STUDENT_SKILL_TREE_REDESIGN.md mục 7.2 — lấy chất liệu từ chính
+   môn học thay vì hiệu ứng chung chung. Dùng `repeating-linear-gradient` chứ
+   không dùng ảnh: không thêm request, co giãn theo mọi DPI.
+
+   Chỉ dùng cho vùng hero. Độ tương phản cố ý rất thấp (~2% ở light, ~4% ở dark)
+   — hoạ tiết nền không được cạnh tranh với chữ đặt trên nó, và nền hero vẫn
+   phải giữ mức chói thấp mà `--background` đã đặt ra.
+   ============================================= */
+
+.paper-grid {
+  background-image:
+    repeating-linear-gradient(to right, rgba(15, 23, 42, 0.045) 0 1px, transparent 1px 100%),
+    repeating-linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 0 1px, transparent 1px 100%);
+  background-size: 28px 28px;
+}
+
+html.dark .paper-grid {
+  background-image:
+    repeating-linear-gradient(to right, rgba(226, 232, 240, 0.05) 0 1px, transparent 1px 100%),
+    repeating-linear-gradient(to bottom, rgba(226, 232, 240, 0.05) 0 1px, transparent 1px 100%);
 }
 
 /* =============================================

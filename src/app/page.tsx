@@ -298,6 +298,24 @@ async function getKnowledgeTopics(count: number = 12) {
 }
 
 /**
+ * Bảng màu xoay vòng cho khối "Lợi ích".
+ *
+ * Bốn tông đều đã có trong `docs/DESIGN_SYSTEM.md` mục "Màu trạng thái" — đây
+ * KHÔNG phải hệ màu thứ ba, chỉ là dùng lại phần bảng màu vốn bị bỏ không trên
+ * trang chủ (trước đây mọi thứ đều teal).
+ *
+ * Lưu ý: đây là trang trí trên trang giới thiệu, không truyền đạt trạng thái.
+ * Không tái dùng bảng này cho badge đúng/sai hay chip trạng thái trong app —
+ * ở đó màu phải mang nghĩa và phải đi kèm icon/chữ.
+ */
+const BENEFIT_TONES = [
+  { tile: 'bg-teal-100 dark:bg-teal-900/30', icon: 'text-teal-700 dark:text-teal-300', rule: 'bg-teal-500' },
+  { tile: 'bg-indigo-100 dark:bg-indigo-900/30', icon: 'text-indigo-700 dark:text-indigo-300', rule: 'bg-indigo-500' },
+  { tile: 'bg-amber-100 dark:bg-amber-900/30', icon: 'text-amber-700 dark:text-amber-300', rule: 'bg-amber-500' },
+  { tile: 'bg-emerald-100 dark:bg-emerald-900/30', icon: 'text-emerald-700 dark:text-emerald-300', rule: 'bg-emerald-500' },
+] as const
+
+/**
  * Icon component mapper
  */
 function BenefitIcon({ icon, className }: { icon: string; className?: string }) {
@@ -610,18 +628,47 @@ export default async function LandingPage({
                       </p>
                     </div>
                   </ScrollRevealClient>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {(content.benefits || DEFAULT_CONTENT.benefits).map((benefit: any, index: number) => (
-                      <ScrollRevealClient key={index} delay={index * 100}>
-                        <div className="group flex h-full flex-col bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500/40 dark:hover:border-teal-400/40 transition-all duration-300 soft-shadow hover:shadow-lg hover:-translate-y-1">
-                          <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-teal-200 dark:group-hover:bg-teal-900/50 transition-all duration-300">
-                            <BenefitIcon icon={benefit.icon} className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                  {/*
+                    Lợi ích KHÔNG dùng khung card.
+
+                    Trước đây khối này dùng đúng công thức của card đề thi bên
+                    trên (`bg-slate-200` + viền + `rounded-2xl` + ô icon teal
+                    `w-12 h-12`), nên cuộn một mạch qua trang chủ là gặp 11 khối
+                    gần như y hệt nhau. Đổi sang danh sách có số thứ tự lớn và
+                    không viền để nó là một LOẠI ĐỐI TƯỢNG khác hẳn về hình,
+                    không chỉ khác nội dung.
+
+                    Màu icon xoay vòng qua bảng màu đã có trong DESIGN_SYSTEM.md
+                    thay vì teal cho cả bốn. Đây là trang trí trên trang giới
+                    thiệu, không mang nghĩa trạng thái — teal vẫn là màu duy nhất
+                    của hành động, mọi nút CTA giữ nguyên teal.
+                  */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
+                    {(content.benefits || DEFAULT_CONTENT.benefits).map((benefit: any, index: number) => {
+                      const tone = BENEFIT_TONES[index % BENEFIT_TONES.length]
+                      return (
+                        <ScrollRevealClient key={index} delay={index * 100}>
+                          <div className="group relative h-full pt-2">
+                            <span
+                              aria-hidden="true"
+                              className="absolute -top-3 right-1 text-6xl font-bold leading-none text-slate-300/50 dark:text-slate-700/50 select-none font-baloo"
+                            >
+                              {String(index + 1).padStart(2, '0')}
+                            </span>
+                            <div className={`relative w-12 h-12 rounded-2xl ${tone.tile} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}>
+                              <BenefitIcon icon={benefit.icon} className={`w-6 h-6 ${tone.icon}`} />
+                            </div>
+                            <h3 className="relative text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+                              {benefit.title}
+                            </h3>
+                            <p className="relative text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                              {benefit.description}
+                            </p>
+                            <span className={`relative mt-4 block h-0.5 w-10 rounded-full ${tone.rule} transition-all duration-300 group-hover:w-16`} />
                           </div>
-                          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2 group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors">{benefit.title}</h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">{benefit.description}</p>
-                        </div>
-                      </ScrollRevealClient>
-                    ))}
+                        </ScrollRevealClient>
+                      )
+                    })}
                   </div>
                 </div>
               </section>
@@ -676,13 +723,18 @@ export default async function LandingPage({
         }
       })}
 
-      {/* Footer */}
+      {/*
+        Footer. Hai link Facebook truyền `undefined` khi admin chưa nhập, để
+        `LandingFooter` giữ mặc định — không hardcode URL ở hai nơi.
+      */}
       <LandingFooter
         brandName={content.brand?.name || DEFAULT_CONTENT.brand.name}
         copyright={content.brand?.copyright || DEFAULT_CONTENT.brand.copyright}
         hotline={content.brand?.hotline}
         email={content.brand?.email}
         address={content.brand?.address}
+        facebookUrl={content.brand?.facebook_page}
+        teacherFacebookUrl={content.brand?.facebook_teacher}
       />
 
       {/* Floating enrollment button + modal */}
