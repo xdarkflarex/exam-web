@@ -1,27 +1,49 @@
+/**
+ * Cài đặt tài khoản học sinh.
+ *
+ * Làm đẹp đợt 2026-08-09. Logic xác thực, đổi mật khẩu và cập nhật hồ sơ giữ
+ * nguyên hoàn toàn — đây là bề mặt bảo mật, không phải bề mặt design.
+ *
+ * MỘT SỬA LỖI THẬT đi kèm đợt này: khối "Giao diện" trước đây quyết định markup
+ * bằng giá trị `theme` của JavaScript (`mounted && theme === 'dark' ? <Moon/> :
+ * <Sun/>`, `left-8` hay `left-1`), nên phải giữ thêm một state `mounted` chỉ để
+ * chặn lệch hydration. Đó đúng là bất biến số 4 của docs/DESIGN_TODO.md mục 0:
+ * markup không được phụ thuộc `theme`. Bản này chuyển hết sang biến thể `dark:`
+ * của CSS — class `dark` trên `<html>` do script inline đặt trước lượt vẽ đầu,
+ * nên trạng thái công tắc đúng ngay từ HTML server trả về và `mounted` biến mất
+ * cùng với cả một nhịp nháy.
+ *
+ * `theme` vẫn được đọc, nhưng chỉ trong handler onClick — đó là hành vi lúc chạy,
+ * không phải markup, nên không có gì để lệch.
+ */
+
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { 
-  User, 
-  Mail, 
-  Moon, 
-  Sun, 
-  Shield, 
+import {
+  User,
+  Mail,
+  Moon,
+  Sun,
+  Shield,
   Save,
   Lock,
   Eye,
   EyeOff,
-  CheckCircle,
-  AlertCircle
+  CheckCircle2,
+  AlertCircle,
+  Palette,
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 
+const FIELD_CLASS =
+  'w-full rounded-xl border border-slate-200 bg-[var(--background-raised)] px-4 py-2.5 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white'
+
 export default function StudentSettingsPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -49,33 +71,31 @@ export default function StudentSettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
   useEffect(() => {
-    setMounted(true)
-    fetchUserData()
-  }, [])
+    const fetchUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-  const fetchUserData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, class_name, school')
+          .eq('id', user.id)
+          .single()
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, class_name, school')
-        .eq('id', user.id)
-        .single()
-
-      setFormData({
-        fullName: profile?.full_name || '',
-        email: user.email || '',
-        className: profile?.class_name || '',
-        school: profile?.school || ''
-      })
-    } catch (error) {
-      console.error('Error fetching user data:', error)
-    } finally {
-      setLoading(false)
+        setFormData({
+          fullName: profile?.full_name || '',
+          email: user.email || '',
+          className: profile?.class_name || '',
+          school: profile?.school || ''
+        })
+      } catch (error) {
+        console.error('Error fetching user data:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+    void fetchUserData()
+  }, [supabase])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -197,279 +217,319 @@ export default function StudentSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
+      <main className="flex min-h-screen items-center justify-center">
+        <div className="text-center" role="status" aria-live="polite">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
+          <p className="text-slate-500 dark:text-slate-400">Đang tải cài đặt...</p>
+        </div>
+      </main>
     )
   }
 
+  const initial = (formData.fullName.trim()[0] || '?').toUpperCase()
+
   return (
-    <div className="min-h-screen p-4 lg:p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-            Cài đặt
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            Quản lý thông tin cá nhân và tài khoản của bạn
-          </p>
-        </div>
-
-        {/* Profile Section */}
-        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            Thông tin cá nhân
-          </h2>
-
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
-              <User className="w-8 h-8 text-teal-600 dark:text-teal-400" />
-            </div>
-            <div>
-              <p className="font-medium text-slate-800 dark:text-white">
-                {formData.fullName || 'Chưa cập nhật'}
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {formData.email}
-              </p>
+    <main className="min-h-screen p-4 lg:p-6">
+      <div className="mx-auto max-w-3xl">
+        {/* Đầu trang mang luôn danh tính: tên, email, chữ cái đầu. Trang cài đặt cũ
+            mở ra là một tiêu đề trơn rồi mới tới thẻ hồ sơ lặp lại đúng thông tin
+            đó — hai lần nói cùng một chuyện. */}
+        <header className="animate-dash-in bento-tile-lead mb-6 overflow-hidden">
+          <div className="paper-grid p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+              <div
+                className="font-baloo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-2xl font-bold text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"
+                aria-hidden="true"
+              >
+                {initial}
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
+                  {formData.fullName || 'Chưa cập nhật tên'}
+                </h1>
+                <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">{formData.email}</p>
+                <p className="mt-2 flex flex-wrap gap-2 text-xs">
+                  {formData.className && (
+                    <span className="rounded-full bg-teal-100 px-2.5 py-1 font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+                      Lớp {formData.className}
+                    </span>
+                  )}
+                  {formData.school && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                      {formData.school}
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
+        </header>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Họ và tên
-              </label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => handleInputChange('fullName', e.target.value)}
-                placeholder="Nhập họ và tên"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        <div className="space-y-5">
+          {/* Thông tin cá nhân */}
+          <section className="bento-tile animate-dash-in-1 p-5 sm:p-6" aria-labelledby="profile-heading">
+            <h2 id="profile-heading" className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-white">
+              <User className="h-5 w-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              Thông tin cá nhân
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="settings-full-name" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Họ và tên
+                </label>
+                <input
+                  id="settings-full-name"
+                  type="text"
+                  value={formData.fullName}
+                  onChange={(e) => handleInputChange('fullName', e.target.value)}
+                  placeholder="Nhập họ và tên"
+                  className={FIELD_CLASS}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="settings-email" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <input
+                    id="settings-email"
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 py-2.5 pl-10 pr-4 text-slate-600 dark:border-slate-600 dark:bg-slate-700/50 dark:text-slate-300"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Email không thể thay đổi</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="settings-class" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Lớp
+                  </label>
+                  <input
+                    id="settings-class"
+                    type="text"
+                    value={formData.className}
+                    onChange={(e) => handleInputChange('className', e.target.value)}
+                    placeholder="Ví dụ: 12A1"
+                    className={FIELD_CLASS}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="settings-school" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Trường
+                  </label>
+                  <input
+                    id="settings-school"
+                    type="text"
+                    value={formData.school}
+                    onChange={(e) => handleInputChange('school', e.target.value)}
+                    placeholder="Nhập tên trường"
+                    className={FIELD_CLASS}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:bg-teal-400 dark:focus:ring-offset-slate-800"
+              >
+                {saving ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" aria-hidden="true" />
+                    Lưu thay đổi
+                  </>
+                )}
+              </button>
+              <span role="status" aria-live="polite" className="text-sm">
+                {saveSuccess && (
+                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    Đã lưu thành công
+                  </span>
+                )}
+                {saveError && (
+                  <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                    {saveError}
+                  </span>
+                )}
+              </span>
+            </div>
+          </section>
+
+          {/* Đổi mật khẩu */}
+          <section className="bento-tile animate-dash-in-2 p-5 sm:p-6" aria-labelledby="password-heading">
+            <h2 id="password-heading" className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-white">
+              <Lock className="h-5 w-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              Đổi mật khẩu
+            </h2>
+
+            <div className="space-y-4">
+              <PasswordField
+                id="settings-current-password"
+                label="Mật khẩu hiện tại"
+                placeholder="Nhập mật khẩu hiện tại"
+                value={passwordData.currentPassword}
+                visible={showPasswords.current}
+                onToggle={() => setShowPasswords(p => ({ ...p, current: !p.current }))}
+                onChange={(value) => handlePasswordChange('currentPassword', value)}
+                autoComplete="current-password"
+              />
+              <PasswordField
+                id="settings-new-password"
+                label="Mật khẩu mới"
+                placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
+                value={passwordData.newPassword}
+                visible={showPasswords.new}
+                onToggle={() => setShowPasswords(p => ({ ...p, new: !p.new }))}
+                onChange={(value) => handlePasswordChange('newPassword', value)}
+                autoComplete="new-password"
+              />
+              <PasswordField
+                id="settings-confirm-password"
+                label="Xác nhận mật khẩu mới"
+                placeholder="Nhập lại mật khẩu mới"
+                value={passwordData.confirmPassword}
+                visible={showPasswords.confirm}
+                onToggle={() => setShowPasswords(p => ({ ...p, confirm: !p.confirm }))}
+                onChange={(value) => handlePasswordChange('confirmPassword', value)}
+                autoComplete="new-password"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  disabled
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-500 dark:text-slate-400 cursor-not-allowed"
-                />
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Email không thể thay đổi
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                  Lớp
-                </label>
-                <input
-                  type="text"
-                  value={formData.className}
-                  onChange={(e) => handleInputChange('className', e.target.value)}
-                  placeholder="Ví dụ: 12A1"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                  Trường
-                </label>
-                <input
-                  type="text"
-                  value={formData.school}
-                  onChange={(e) => handleInputChange('school', e.target.value)}
-                  placeholder="Nhập tên trường"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Save Profile Button */}
-          <div className="mt-6 flex items-center gap-3">
-            <button 
-              onClick={handleSaveProfile}
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white rounded-xl font-medium transition-colors"
-            >
-              {saving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Đang lưu...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Lưu thay đổi
-                </>
-              )}
-            </button>
-            {saveSuccess && (
-              <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
-                <CheckCircle className="w-4 h-4" />
-                Đã lưu thành công
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={changingPassword}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-5 py-2.5 font-medium text-white transition-colors hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 dark:focus:ring-offset-slate-800"
+              >
+                {changingPassword ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true" />
+                    Đang đổi...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4" aria-hidden="true" />
+                    Đổi mật khẩu
+                  </>
+                )}
+              </button>
+              <span role="status" aria-live="polite" className="text-sm">
+                {passwordSuccess && (
+                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    Đổi mật khẩu thành công
+                  </span>
+                )}
+                {passwordError && (
+                  <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                    {passwordError}
+                  </span>
+                )}
               </span>
-            )}
-            {saveError && (
-              <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                {saveError}
-              </span>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
 
-        {/* Password Section */}
-        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-            <Lock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            Đổi mật khẩu
-          </h2>
+          {/* Giao diện */}
+          <section className="bento-tile animate-dash-in-2 p-5 sm:p-6" aria-labelledby="theme-heading">
+            <h2 id="theme-heading" className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-white">
+              <Palette className="h-5 w-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              Giao diện
+            </h2>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Mật khẩu hiện tại
-              </label>
-              <div className="relative">
-                <input
-                  type={showPasswords.current ? 'text' : 'password'}
-                  value={passwordData.currentPassword}
-                  onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                  placeholder="Nhập mật khẩu hiện tại"
-                  className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords(p => ({ ...p, current: !p.current }))}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPasswords.current ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-100 p-4 dark:bg-slate-700/60">
+              <div className="flex min-w-0 items-center gap-3">
+                {/* Hai icon cùng nằm trong HTML, CSS chọn cái nào hiện. Không có
+                    nhánh JavaScript nào ở đây nên không có gì để lệch hydration. */}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-amber-500 dark:bg-slate-800 dark:text-teal-300">
+                  <Sun className="h-5 w-5 dark:hidden" aria-hidden="true" />
+                  <Moon className="hidden h-5 w-5 dark:block" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-800 dark:text-white">Chế độ tối</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    <span className="dark:hidden">Đang dùng nền sáng</span>
+                    <span className="hidden dark:inline">Đang dùng nền tối, đỡ mỏi mắt khi học buổi đêm</span>
+                  </p>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                aria-label="Chuyển giữa chế độ sáng và chế độ tối"
+                className="relative h-7 w-14 shrink-0 rounded-full bg-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:bg-teal-600 dark:focus:ring-offset-slate-800"
+              >
+                <span className="absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow-sm transition-[left] dark:left-8" />
+              </button>
             </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  )
+}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Mật khẩu mới
-              </label>
-              <div className="relative">
-                <input
-                  type={showPasswords.new ? 'text' : 'password'}
-                  value={passwordData.newPassword}
-                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                  placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
-                  className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords(p => ({ ...p, new: !p.new }))}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Xác nhận mật khẩu mới
-              </label>
-              <div className="relative">
-                <input
-                  type={showPasswords.confirm ? 'text' : 'password'}
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                  placeholder="Nhập lại mật khẩu mới"
-                  className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords(p => ({ ...p, confirm: !p.confirm }))}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Change Password Button */}
-          <div className="mt-6 flex items-center gap-3">
-            <button 
-              onClick={handleChangePassword}
-              disabled={changingPassword}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-600 dark:hover:bg-slate-500 disabled:bg-slate-400 text-white rounded-xl font-medium transition-colors"
-            >
-              {changingPassword ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Đang đổi...
-                </>
-              ) : (
-                <>
-                  <Shield className="w-4 h-4" />
-                  Đổi mật khẩu
-                </>
-              )}
-            </button>
-            {passwordSuccess && (
-              <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
-                <CheckCircle className="w-4 h-4" />
-                Đổi mật khẩu thành công
-              </span>
-            )}
-            {passwordError && (
-              <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                {passwordError}
-              </span>
-            )}
-          </div>
-        </section>
-
-        {/* Theme Section */}
-        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-            {mounted && theme === 'dark' ? (
-              <Moon className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            ) : (
-              <Sun className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            )}
-            Giao diện
-          </h2>
-
-          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-xl">
-            <div>
-              <p className="font-medium text-slate-800 dark:text-white">Chế độ tối</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Giảm mỏi mắt khi học lâu</p>
-            </div>
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className={`relative w-14 h-7 rounded-full transition-colors ${
-                mounted && theme === 'dark' ? 'bg-teal-600' : 'bg-slate-300'
-              }`}
-              disabled={!mounted}
-            >
-              <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
-                mounted && theme === 'dark' ? 'left-8' : 'left-1'
-              }`} />
-            </button>
-          </div>
-        </section>
+function PasswordField({
+  id,
+  label,
+  placeholder,
+  value,
+  visible,
+  onToggle,
+  onChange,
+  autoComplete,
+}: {
+  id: string
+  label: string
+  placeholder: string
+  value: string
+  visible: boolean
+  onToggle: () => void
+  onChange: (value: string) => void
+  autoComplete: string
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? 'text' : 'password'}
+          value={value}
+          autoComplete={autoComplete}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`${FIELD_CLASS} pr-11`}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={visible ? `Ẩn ${label.toLowerCase()}` : `Hiện ${label.toLowerCase()}`}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+        >
+          {visible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+        </button>
       </div>
     </div>
   )

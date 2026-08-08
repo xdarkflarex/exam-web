@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { logger } from '@/lib/logger'
+import { countByDay, currentStreak } from '@/lib/analytics/activity-streak'
 import { StudentHeader } from '@/components/student'
 import { 
   Target, Plus, Trash2, CheckCircle, Clock,
@@ -118,28 +119,9 @@ export default function GoalsPage() {
           new Date(a.created_at) >= weekAgo
         ).length
 
-        // Calculate streak
-        let streak = 0
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        
-        const attemptDates = new Set(
-          attemptsData.map(a => {
-            const d = new Date(a.created_at)
-            d.setHours(0, 0, 0, 0)
-            return d.getTime()
-          })
-        )
-
-        for (let i = 0; i < 365; i++) {
-          const checkDate = new Date(today)
-          checkDate.setDate(checkDate.getDate() - i)
-          if (attemptDates.has(checkDate.getTime())) {
-            streak++
-          } else if (i > 0) {
-            break
-          }
-        }
+        // Cùng một module với `badges/page.tsx`: streak theo ngày chỉ được tính ở
+        // `src/lib/analytics/activity-streak.ts`. Ngữ nghĩa hiển thị giữ nguyên.
+        const streak = currentStreak(countByDay(attemptsData.map(a => a.created_at)))
 
         setCurrentStats({
           avgScore: Math.round(avgScore * 10) / 10,

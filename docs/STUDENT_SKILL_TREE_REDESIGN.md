@@ -387,14 +387,82 @@ Dashboard `/admin` thay 4 vanity metric bằng "Cần bạn xử lý" (`InboxPan
 
 `InboxPanel` phân biệt ba trạng thái: `count > 0` (cần xử lý), `count === 0` (đã xong, vẫn hiện), `count === null` (chưa đo được — nói rõ thay vì hiện 0). `RecentFeedbackList` mỗi dòng thành `Link`. `StatCard` thêm prop `higherIsBetter` và xoá `colorClasses[color].trend` chết.
 
+**Phase 9 — hero `/student`**
+
+`TodayHero` + `WeakAreas`. Ghi chi tiết ở `docs/DESIGN_OVERHAUL_2026-08-09.md` mục 3, không
+chép lại ở đây.
+
+**Phase 10 — gộp `practice` và `exams`**
+
+`src/components/student/AssessmentListPage.tsx` nhận `mode: 'practice' | 'simulation'`; hai
+route page rút xuống còn ba dòng. Xoá được cả bốn khoản nợ ghi ở mục 6.5 và mục 9 trong một
+lần: `filterStatus as any`, import chết `Filter`/`AlertCircle`, một bên tách hằng bộ lọc còn
+bên kia viết inline, và chuyện chỉ một trang có icon cạnh `h1`.
+
+**Dùng chung KHUNG, không dùng chung TRUY VẤN.** Đây là quyết định đáng nhớ nhất của phase.
+`practice` cần biết attempt đang dở để cho nút "Tiếp tục"; `simulation` đi qua
+`/exam/prepare/:id` và cố ý không đọc attempt. Gộp query lại thì chế độ thi thử bắt đầu tải
+dữ liệu nó không dùng, và bề mặt của một mode rò sang mode kia — thứ AGENTS.md mục 4 cấm.
+Hai nhánh `.select()` cũng phải viết tách ra chứ không truyền chuỗi cột động: supabase-js suy
+kiểu từ chính chuỗi đó, nên một biểu thức điều kiện biến kết quả thành `ParserError` và mất
+sạch kiểu trả về.
+
+Cột thành tích có **ba** nhánh, và ba nhánh này không được gộp: đã nộp ít nhất một lần thì vẽ
+`ProgressRing` theo điểm cao nhất (kể cả khi điểm là 0 — đó là một kết quả thật); đang làm dở
+thì chưa có điểm nào để vẽ; chưa làm thì là vòng **gạch đứt**, không phải vòng 0%. Nhánh thứ
+ba là lý do phase này tồn tại — bản cũ hiện "Điểm cao nhất" bằng một dòng chữ teal và đề chưa
+làm thì mất luôn dòng đó, nên mắt đọc thành "không có gì ở đây" chứ không thành "chưa có kết
+quả". Vòng vẽ **phần trăm của điểm tối đa** (thang 10, `docs/SCORING.md`) và luôn có dòng chữ
+"Cao nhất X/10" bên dưới: hình để liếc, số để đọc chính xác.
+
+**Làm đẹp bốn trang học sinh còn lại**
+
+`/student/history`, `/student/analytics`, `/student/settings`, `/student/homework` chuyển sang
+từ vựng bề mặt chung (`.bento-tile*`, `.bento-rail`, `.paper-grid`, `.animate-dash-in*`) cho
+khớp `TodayHero`/`WeakAreas` của Phase 9. Không thêm truy vấn Supabase nào; `history` bớt đi
+một, vì `fetchTaxonomyStats` và `fetchDifficultyStats` vốn gọi **cùng** RPC
+`get_my_exam_answer_metadata` với **cùng** tham số hai lần liên tiếp rồi mỗi hàm tự gộp một kiểu.
+
+Bảy chỗ hiện `0` cho dữ liệu **chưa có** đã được sửa — cùng một lớp lỗi với node emerald ở mục
+2.1, chỉ nhẹ hơn: `history` (điểm cao nhất, điểm trung bình, tỷ lệ đạt khi chưa thi lần nào;
+mức độ chưa gặp câu nào vẫn vẽ thanh 0%), `analytics` (độ chính xác khi chưa trả lời câu nào,
+tỷ lệ hoàn thành khi chưa được giao bài, thanh tiến độ của bài chưa rõ số câu), `homework`
+(độ chính xác khi chưa làm câu nào). Tất cả nay là dấu gạch kèm câu nói rõ vì sao trống.
+
+`/student/settings` sửa một vi phạm bất biến số 4 của `docs/DESIGN_TODO.md` mục 0: khối "Giao
+diện" quyết định markup bằng giá trị `theme` của JavaScript (`mounted && theme === 'dark'` chọn
+icon, chọn `left-8` hay `left-1`), nên phải nuôi thêm state `mounted` chỉ để chặn lệch
+hydration. Chuyển hết sang biến thể `dark:` của CSS thì `mounted` biến mất, và công tắc đúng
+trạng thái ngay từ HTML server trả về. `theme` vẫn được đọc, nhưng chỉ trong handler `onClick`
+— đó là hành vi lúc chạy, không phải markup, nên không có gì để lệch.
+
+**Gom bảng màu năng lực** (`src/lib/analytics/mastery-tone.ts`)
+
+`statusTone`/`barTone` của `analytics` và `STATUS_TONE` của `WeakAreas` là hai bản chép tay đã
+bắt đầu trôi khỏi nhau ở mức `no_data` (`text-slate-500` so với `text-slate-600`), nghĩa là
+cùng một trạng thái hiện hai màu tuỳ trang. Nay một module, hai nơi import. Bản gom chọn
+`slate-600` vì `slate-500` đo được 3.9:1 — dưới chuẩn AA cho chữ nhỏ, mà chip trạng thái thì
+luôn là chữ nhỏ.
+
+`badges/page.tsx` và `goals/page.tsx` chuyển sang `activity-streak.ts`, xoá hai bản sao vòng
+lặp 365 ngày. Ngữ nghĩa hiển thị giữ nguyên từng chi tiết, kể cả quy tắc "hôm nay chưa học
+không làm mất chuỗi" — hai bản cũ tình cờ cũng làm đúng vậy.
+
 ### Chưa làm
 
 - **Phase 3**: chế độ Lộ trình bằng DOM riêng. Hiện `/learn` vẫn dùng ReactFlow, nhưng đã có một layout ổn định nên vấn đề nhảy bố cục đã hết.
-- **Phase 9**: hero `/student` dùng `ProgressRing` + `ActivityHeatmap`. Primitive đã sẵn sàng, chưa gắn vào trang.
-- **Phase 10**: gộp `practice`/`exams` thành `AssessmentListPage`.
-- **Phase 12**: gamification — vẫn chặn bởi ba điều kiện ở mục 7.7. `badges/page.tsx` và `goals/page.tsx` chưa chuyển sang dùng `activity-streak.ts`; làm việc đó trước khi bật link sẽ hợp lý hơn.
+- **Phase 12**: gamification — vẫn chặn bởi ba điều kiện ở mục 7.7. Điều kiện thứ ba (streak tính một chỗ) nay đã đủ; còn thiếu cơ chế trao huy hiệu và migration bù.
 - Dead code mastery trong `src/lib/theories/actions.ts` (mục 2.3) chưa xoá.
 - Migration bù cho `theory_edges`, `knowledge_block_edges`, `badges`, `user_badges`, `user_goals` (mục 9).
+- `badges/page.tsx` và `goals/page.tsx` vẫn truy vấn `exam_attempts` bằng `user_id` và
+  `status = 'completed'`, trong khi cột thật là `student_id` và trạng thái thật là
+  `'submitted'`. Nghĩa là hai trang đó luôn thấy 0 lần thi, 0 điểm và chuỗi 0 ngày bất kể học
+  sinh làm gì. Không sửa trong đợt này vì đây là lỗi dữ liệu, không phải lỗi thị giác, và cả
+  hai trang đang không được link tới từ đâu (mục 6.1) — nhưng phải sửa **trước** khi bật link.
+- `a.bento-tile:hover`/`a.bento-tile-lead:hover` trong `globals.css` nâng ô lên 3px và chưa
+  nằm trong danh sách `transform: none` của khối `prefers-reduced-motion`. `transition-duration:
+  0.01ms` đã làm nó tức thời nên không còn là chuyển động, nhưng để nhất quán với `.hover-lift`
+  và `.card-interactive` thì nên thêm vào danh sách đó.
 
 ### Chưa kiểm chứng
 

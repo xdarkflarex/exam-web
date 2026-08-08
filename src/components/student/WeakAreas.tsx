@@ -16,20 +16,8 @@
 import Link from 'next/link'
 import { ChevronRight, LifeBuoy } from 'lucide-react'
 import { getMasteryStatusLabel, type MasteryStatus } from '@/lib/analytics/knowledge-mastery'
+import { MASTERY_CHIP_TONE, MASTERY_RAIL_COLOR } from '@/lib/analytics/mastery-tone'
 import type { CapabilityStat } from '@/lib/analytics/student-capability'
-
-/**
- * Giữ nguyên bảng tông của `/student/analytics` để cùng một trạng thái không đổi
- * màu giữa hai trang. Nếu sửa ở đây, sửa cả `statusTone` bên đó.
- */
-const STATUS_TONE: Record<MasteryStatus, string> = {
-  no_data: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-  collecting: 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300',
-  needs_work: 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300',
-  building: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
-  stable: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300',
-  mastered: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300',
-}
 
 /** Chỉ hai mức này là "cần củng cố". `collecting` chưa đủ bằng chứng để kết luận. */
 const WEAK: MasteryStatus[] = ['needs_work', 'building']
@@ -61,7 +49,8 @@ export default function WeakAreas({ stats, limit = 3 }: Props) {
           <li key={item.id}>
             <Link
               href={`/learn?theory=${encodeURIComponent(item.id.slice('theory:'.length))}`}
-              className="group flex h-full flex-col justify-between gap-3 rounded-2xl border border-slate-200 bg-[var(--background-card)] p-4 transition-colors hover:border-rose-300 dark:border-slate-700 dark:hover:border-rose-700"
+              className="bento-tile bento-rail group flex h-full flex-col justify-between gap-3 p-4"
+              style={{ '--rail': MASTERY_RAIL_COLOR[item.status] } as React.CSSProperties}
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="font-semibold text-slate-800 dark:text-white">{item.label}</span>
@@ -72,7 +61,7 @@ export default function WeakAreas({ stats, limit = 3 }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 {/* Trạng thái = màu + chữ, không bao giờ chỉ màu (DESIGN_SYSTEM.md). */}
-                <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_TONE[item.status]}`}>
+                <span className={`rounded-full px-2 py-1 text-xs font-medium ${MASTERY_CHIP_TONE[item.status]}`}>
                   {getMasteryStatusLabel(item.status)}
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">

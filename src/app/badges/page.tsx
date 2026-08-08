@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { logger } from '@/lib/logger'
+import { countByDay, currentStreak } from '@/lib/analytics/activity-streak'
 import { StudentHeader } from '@/components/student'
 import { 
   Award, Trophy, Target, Flame, Star, Lock,
@@ -98,28 +99,12 @@ export default function BadgesPage() {
         const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length
         const highestScore = Math.max(...scores)
 
-        // Calculate streak
-        let streak = 0
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        
-        const attemptDates = new Set(
-          attemptsData.map(a => {
-            const d = new Date(a.created_at)
-            d.setHours(0, 0, 0, 0)
-            return d.getTime()
-          })
-        )
-
-        for (let i = 0; i < 365; i++) {
-          const checkDate = new Date(today)
-          checkDate.setDate(checkDate.getDate() - i)
-          if (attemptDates.has(checkDate.getTime())) {
-            streak++
-          } else if (i > 0) {
-            break
-          }
-        }
+        // Chuỗi ngày học tính bằng module dùng chung, không tự đếm tại chỗ nữa.
+        // Trước đây logic này được chép ở cả `badges` lẫn `goals`; hai bản sao là
+        // hai cách xử lý múi giờ có thể trôi khỏi nhau (mục 6.1 của
+        // docs/STUDENT_SKILL_TREE_REDESIGN.md). Quy tắc hiển thị không đổi: hôm
+        // nay chưa học vẫn giữ chuỗi, chuỗi chỉ đứt khi hôm qua cũng trống.
+        const streak = currentStreak(countByDay(attemptsData.map(a => a.created_at)))
 
         setStats({
           totalExams: attemptsData.length,
