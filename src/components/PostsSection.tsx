@@ -102,8 +102,10 @@ function PostCard({
             {post.excerpt}
           </p>
         )}
+        {/* `dark:text-slate-400`, không phải `-500`: slate-500 trên nền thẻ tối
+            chỉ đạt 3,07:1, dưới chuẩn 4,5 cho chữ nhỏ (đo 2026-08-09). */}
         {dateLabel && (
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-500">{dateLabel}</p>
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{dateLabel}</p>
         )}
       </div>
     </article>

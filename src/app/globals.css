@@ -128,10 +128,76 @@ html:not(.dark) .from-teal-600 {
   --tw-gradient-from: var(--color-teal-700);
 }
 
+/* QUYẾT ĐỊNH CỦA CHỦ DỰ ÁN (2026-08-09): đẩy `slate-500` lên `slate-600`
+   CHỈ Ở CHỮ NHỎ.
+
+   `DESIGN_TODO.md` mục 1 để treo ba lựa chọn cho 531 chỗ dùng `text-slate-500`
+   (đo ~3,9:1, dưới chuẩn 4,5 cho chữ nhỏ). Chủ dự án chọn phương án giữa: đạt
+   chuẩn ở nơi khó đọc nhất, mà vẫn giữ phân cấp chữ chính/chữ phụ ở cỡ thường
+   — đẩy toàn bộ sẽ làm chữ chính (slate-800) và chữ phụ đậm gần bằng nhau.
+
+   Nhắm vào TỔ HỢP hai class nên chỉ chạm chữ nhỏ: `.text-xs.text-slate-500` là
+   (0,3,1) kể cả tiền tố, thắng utility (0,1,0). Chỗ `text-sm` trở lên giữ
+   nguyên — dòng bản quyền ở footer vì thế vẫn ở 4,21:1, có chủ ý. */
+html:not(.dark) .text-xs.text-slate-500,
+html:not(.dark) .text-\[11px\].text-slate-500 {
+  color: var(--color-slate-600);
+}
+
 /* CÒN NỢ, đã đo chứ không phải phỏng đoán: sau ba dòng trên, chữ phụ dùng
    `text-slate-400`/`text-slate-500` đạt ~3.9:1 — vẫn dưới 4.5 cho chữ nhỏ. Đẩy
    tiếp lên slate-600 sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ, nên đó là quyết
    định thiết kế cần chủ dự án chọn, không phải việc sửa máy móc. */
+
+/* =============================================
+   SỬA TƯƠNG PHẢN CHO DARK MODE
+   =============================================
+
+   Đo ngày 2026-08-09 trên trang chủ ở dark mode, bằng cách rasterize màu qua
+   canvas `getImageData` (KHÔNG dùng `fillStyle` — Tailwind v4 trả `oklch()` mà
+   `fillStyle` không parse nổi, cho ra tỉ số vô nghĩa quanh 1.0; xem
+   `docs/DESIGN_TODO.md` mục 5).
+
+   Mẫu lặp lại: chữ trắng trên nút teal SÁNG. Ở dark mode `dark:bg-teal-500`
+   biên dịch thành `.bg-teal-500` dưới `.dark`, và `text-white` trên nền đó chỉ
+   đạt 2,42:1 — dưới xa 4,5. Đây là nhóm lỗi mà `DESIGN_TODO.md` mục 1 đã ghi
+   nhận ("badge bg-teal-600 + chữ trắng") nhưng chưa xử lý.
+
+   Cách sửa theo quy ước dark mode phổ thông: nút nhấn ở nền tối dùng accent
+   SÁNG với chữ TỐI, thay vì cố ép chữ trắng lên accent sáng.
+
+   PHẢI NHẮM VÀO TÊN CLASS CÓ TIỀN TỐ `dark:`. Tailwind v4 giữ nguyên tên
+   utility trong DOM, nên phần tử mang đồng thời `bg-teal-600` và
+   `dark:bg-teal-500`. Viết `html.dark .bg-teal-500` sẽ KHÔNG khớp — đã thử và
+   trượt. Trong CSS, dấu hai chấm phải escape thành `.dark\:bg-teal-500`.
+
+   Độ ưu tiên: `html.dark .dark\:bg-teal-500.text-white` là (0,3,1), thắng
+   utility `.text-white` (0,1,0) mà không cần `!important`. Chỉ chạm đúng tổ
+   hợp trắng-trên-teal-sáng, không đụng chữ teal trên nền tối. */
+html.dark .dark\:bg-teal-500.text-white,
+html.dark .dark\:bg-teal-400.text-white,
+html.dark .dark\:from-teal-500.text-white,
+html.dark .dark\:from-teal-400.text-white {
+  color: var(--color-teal-950);
+}
+
+/* Chữ đỏ ở dark mode. Đối xứng với `html:not(.dark) .text-red-500` ở khối light
+   mode phía trên: red-500 trên nền slate tối chỉ đạt 3,84:1. Dùng cho dấu `*`
+   bắt buộc và thông báo lỗi form — chỗ mà đọc không ra là hỏng việc thật. */
+html.dark .text-red-500 {
+  color: var(--color-red-400);
+}
+
+/* Nút amber: hỏng ở CẢ HAI chế độ, không riêng dark.
+   `bg-amber-500` (#f59e0b) với chữ trắng chỉ đạt 2,13:1 — amber sáng gần như
+   không bao giờ đi được với chữ trắng. Nút "Đăng ký học thầy Minh" là CTA
+   tuyển sinh nổi bật nhất trang, nên chỗ này đáng sửa hơn cả.
+   Không giới hạn trong `html.dark` vì lỗi có ở light mode luôn. */
+.bg-amber-500.text-white,
+.dark\:bg-amber-500.text-white,
+.from-amber-500.text-white {
+  color: var(--color-amber-950);
+}
 
 /* Tailwind theme extension */
 @theme inline {

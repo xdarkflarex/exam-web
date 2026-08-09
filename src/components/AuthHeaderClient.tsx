@@ -75,15 +75,19 @@ export default function AuthHeaderClient() {
           href="/login"
           className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-xl transition-all duration-200"
         >
-          <LogIn className="w-4 h-4" />
-          <span className="hidden sm:inline">Đăng nhập</span>
+          <LogIn className="w-4 h-4" aria-hidden="true" />
+          {/* `sr-only` thay cho `hidden`: trên mobile chữ vẫn nằm trong cây trợ
+              năng, chỉ không chiếm chỗ. Bản cũ dùng `hidden` nên ở mobile đây là
+              một link CHỈ CÓ ICON và KHÔNG CÓ TÊN — trình đọc màn hình đọc ra
+              "link" trống. */}
+          <span className="sr-only sm:not-sr-only sm:inline">Đăng nhập</span>
         </Link>
         <Link
           href="/signup"
           className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400 rounded-xl shadow-md shadow-teal-600/20 dark:shadow-teal-500/15 hover:shadow-lg hover:shadow-teal-600/30 dark:hover:shadow-teal-400/25 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
         >
-          <UserPlus className="w-4 h-4" />
-          <span className="hidden sm:inline">Đăng ký</span>
+          <UserPlus className="w-4 h-4" aria-hidden="true" />
+          <span className="sr-only sm:not-sr-only sm:inline">Đăng ký</span>
         </Link>
       </>
     )

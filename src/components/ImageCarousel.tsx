@@ -105,40 +105,62 @@ export default function ImageCarousel({
         </div>
       )}
 
-      {/* Arrows */}
+      {/*
+        Mũi tên.
+
+        Trước đây là `opacity-0 group-hover:opacity-100`, tức chỉ hiện khi rê
+        chuột — trên điện thoại không có trạng thái hover nên chúng VÔ HÌNH
+        VĨNH VIỄN. Học sinh dùng điện thoại là phần lớn, nên mặc định hiện; từ
+        `sm` trở lên mới quay lại kiểu ẩn-hiện-theo-hover cho desktop đỡ rối.
+
+        Nền cũng đổi: bản cũ đặt `bg-white` rồi để chữ `text-white` lên trên —
+        icon trắng trên nền trắng, gần như không nhìn thấy ở light mode.
+      */}
       {showArrows && total > 1 && (
         <>
           <button
             onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white dark:bg-slate-800/20 backdrop-blur-sm hover:bg-white/40 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-            aria-label="Previous"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-slate-900/45 hover:bg-slate-900/65 text-white flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Ảnh trước"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
           </button>
           <button
             onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white dark:bg-slate-800/20 backdrop-blur-sm hover:bg-white/40 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-            aria-label="Next"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-slate-900/45 hover:bg-slate-900/65 text-white flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Ảnh tiếp theo"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-5 h-5" aria-hidden="true" />
           </button>
         </>
       )}
 
-      {/* Dots */}
+      {/*
+        Chấm chuyển slide.
+
+        Chấm nhìn thấy vẫn 10px, nhưng VÙNG BẤM phải đủ lớn: bản cũ để cả nút
+        cao 10px, dưới xa mọi ngưỡng chạm. Nên nút được đệm `p-3` (thành 34px
+        cao, và `-my-1.5` kéo lại để không đẩy layout), phần chấm chuyển vào
+        `<span>` bên trong. Hình không đổi, ngón tay bấm được.
+      */}
       {showDots && total > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center">
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`rounded-full transition-all duration-300 ${
-                i === current
-                  ? 'w-8 h-2.5 bg-white dark:bg-slate-800'
-                  : 'w-2.5 h-2.5 bg-white dark:bg-slate-800/50 hover:bg-white/70'
-              }`}
-              aria-label={`Go to slide ${i + 1}`}
-            />
+              className="group/dot px-2 py-4 focus:outline-none"
+              aria-label={`Chuyển tới ảnh ${i + 1}`}
+              aria-current={i === current ? 'true' : undefined}
+            >
+              <span
+                className={`block rounded-full transition-all duration-300 group-focus-visible/dot:ring-2 group-focus-visible/dot:ring-white ${
+                  i === current
+                    ? 'w-8 h-2.5 bg-white'
+                    : 'w-2.5 h-2.5 bg-white/55 group-hover/dot:bg-white/80'
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}

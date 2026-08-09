@@ -349,7 +349,9 @@ export default function EnrollmentFormSection({
                 )}
               </button>
 
-              <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+              {/* `dark:text-slate-400`: slate-500 trên nền thẻ tối chỉ đạt
+                  3,07:1, dưới chuẩn 4,5 cho chữ nhỏ (đo 2026-08-09). */}
+              <p className="mt-4 text-xs text-slate-400 dark:text-slate-400">
                 Thông tin của bạn được bảo mật và chỉ dùng cho mục đích liên lạc.
               </p>
             </form>
