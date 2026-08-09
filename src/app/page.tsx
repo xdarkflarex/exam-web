@@ -18,7 +18,8 @@ import KnowledgeTopicsGrid from '@/components/landing/KnowledgeTopicsGrid'
 import PostsSection from '@/components/PostsSection'
 import EnrollmentFormSection from '@/components/EnrollmentFormSection'
 import EnrollmentFloatingButton from '@/components/EnrollmentFloatingButton'
-import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
+import HeroActions from '@/components/landing/HeroActions'
+import HeroParallax from '@/components/landing/HeroParallax'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 export const dynamic = 'force-dynamic'
@@ -563,16 +564,12 @@ export default async function LandingPage({
                     <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto mb-10 drop-shadow">
                       {content.hero?.subtitle || DEFAULT_CONTENT.hero.subtitle}
                     </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                      <Link href="/login" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-lg shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 font-baloo">
-                        {content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
-                        <ArrowRight className="w-5 h-5" />
-                      </Link>
-                      <Link href="/signup" className="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-white/50 text-white font-semibold text-lg hover:bg-white/10 transition-all hover:scale-105 active:scale-95 font-baloo backdrop-blur-sm">
-                        {content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
-                      </Link>
-                      <ScrollToEnrollButton variant="hero-slide" />
-                    </div>
+                    <HeroActions
+                      isAuthenticated={isAuthenticated}
+                      ctaPrimary={content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
+                      ctaSecondary={content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
+                      variant="slide"
+                    />
                   </div>
                 </ImageCarousel>
               </section>
@@ -581,14 +578,14 @@ export default async function LandingPage({
                 {/* Trang trí: ký hiệu toán trôi chậm + quầng sáng mờ.
                     aria-hidden + pointer-events-none để không lọt vào a11y tree
                     hay chắn click. Chuyển động bị tắt bởi prefers-reduced-motion. */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+                <HeroParallax className="absolute inset-0 pointer-events-none overflow-hidden">
                   <span className="absolute top-[18%] left-[8%] text-6xl sm:text-8xl font-serif text-teal-600/15 dark:text-teal-400/15 float-slow">∫</span>
                   <span className="absolute top-[30%] right-[12%] text-5xl sm:text-7xl font-serif text-teal-600/10 dark:text-teal-400/10 float-slow-delay-1">π</span>
                   <span className="absolute bottom-[18%] left-[20%] text-5xl sm:text-7xl font-serif text-amber-500/10 float-slow-delay-2">∑</span>
                   <span className="absolute top-[50%] right-[26%] text-6xl sm:text-8xl font-serif text-teal-600/10 dark:text-teal-400/10 float-slow">√</span>
                   <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-teal-400/15 dark:bg-teal-500/10 blur-3xl" />
                   <div className="absolute -bottom-32 -left-24 w-96 h-96 rounded-full bg-amber-400/10 blur-3xl" />
-                </div>
+                </HeroParallax>
                 <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium mb-6 slide-in-up">
                     <span className="flex w-2 h-2 rounded-full bg-teal-500 animate-pulse" aria-hidden="true" />
@@ -601,15 +598,13 @@ export default async function LandingPage({
                   <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-10 slide-in-up" style={{animationDelay: '0.2s'}}>
                     {content.hero?.subtitle || DEFAULT_CONTENT.hero.subtitle}
                   </p>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 slide-in-up" style={{animationDelay: '0.3s'}}>
-                    <Link href="/login" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 text-white font-semibold text-lg shadow-lg shadow-teal-600/20 transition-all duration-75 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 hover-glow font-baloo">
-                      {content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
-                      <ArrowRight className="w-5 h-5" />
-                    </Link>
-                    <Link href="/signup" className="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold text-lg hover:border-teal-500 dark:hover:border-teal-400 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-75 hover:scale-105 active:scale-95 font-baloo hover-lift">
-                      {content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
-                    </Link>
-                    <ScrollToEnrollButton variant="hero-plain" />
+                  <div className="slide-in-up" style={{animationDelay: '0.3s'}}>
+                    <HeroActions
+                      isAuthenticated={isAuthenticated}
+                      ctaPrimary={content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
+                      ctaSecondary={content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
+                      variant="plain"
+                    />
                   </div>
                 </div>
               </section>

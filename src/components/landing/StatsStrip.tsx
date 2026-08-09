@@ -40,8 +40,22 @@ const REST_COLS: Record<number, string> = {
 }
 
 /** Số hiển thị do `CountUpNumber` tự định dạng theo locale Việt (1.234). */
+/**
+ * Ngưỡng để một con số được phép lên trang.
+ *
+ * Số nhỏ HẠI HƠN là không có số. "4 đề luyện tập" nói với người lạ rằng nền
+ * tảng gần như trống, trong khi không hiện gì thì họ đánh giá bằng phần còn lại
+ * của trang. Trước đây điều kiện chỉ là `> 0`, nên lúc mới mở lớp trang chủ tự
+ * khoe đúng cái điểm yếu của mình.
+ *
+ * Đây là con số THẨM MỸ/TIẾP THỊ, không phải ràng buộc kỹ thuật — chỉnh một
+ * dòng này là đổi được. Khi ngân hàng đề lớn lên, dải số liệu tự hiện lại mà
+ * không phải sửa code.
+ */
+const MIN_DE_HIEN = 10
+
 export default function StatsStrip({ stats, surface = 'plain' }: StatsStripProps) {
-  const shown = ITEMS.filter(item => stats[item.key] > 0)
+  const shown = ITEMS.filter(item => stats[item.key] >= MIN_DE_HIEN)
   if (shown.length === 0) return null
 
   /*
