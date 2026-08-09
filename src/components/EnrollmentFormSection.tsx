@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { UserPlus, Phone, Mail, User, Users, GraduationCap, CheckCircle, AlertCircle, Loader2, ArrowRight, MessageSquare } from 'lucide-react'
+import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 const CLASSES = ['Toán 10', 'Toán 11', 'Toán 12', 'Tin học'] as const
 
 interface EnrollmentFormSectionProps {
   title?: string
   subtitle?: string
+  surface?: SectionSurface
 }
 
 interface FormState {
@@ -33,6 +35,7 @@ const INITIAL_FORM: FormState = {
 export default function EnrollmentFormSection({
   title = 'Đăng ký học ngay hôm nay',
   subtitle = 'Điền thông tin bên dưới, chúng tôi sẽ liên hệ với bạn trong 24 giờ',
+  surface = 'plain',
 }: EnrollmentFormSectionProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [errors, setErrors] = useState<Partial<FormState>>({})
@@ -103,7 +106,22 @@ export default function EnrollmentFormSection({
   const inputError = `${inputBase} border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/30`
 
   return (
-    <section id="enrollment-form" className="py-20 bg-gradient-to-br from-teal-50 to-slate-100 dark:from-teal-950/30 dark:to-slate-900 relative overflow-hidden">
+    /*
+      Nền section KHÔNG còn là gradient teal.
+
+      `docs/DESIGN_OVERHAUL_2026-08-09.md` mục 2.3: mỗi trang tối đa MỘT bề mặt
+      gradient, dành cho hành động quan trọng nhất — trên trang chủ đó là nút
+      "Đăng ký miễn phí" ở khối CTA. Trang cũ có hai (gradient ở đây + gradient
+      ở nút), nên bề mặt gradient không còn nói lên điều gì.
+
+      Thay bằng nhịp nền chung của trang, và dời sức nặng thị giác vào chính
+      tấm form: dải teal mỏng bên trái (`.bento-rail`) đủ để nói "đây là vùng
+      hành động" mà không cần cả một mảng màu.
+    */
+    <section
+      id="enrollment-form"
+      className={`py-20 relative overflow-hidden ${surfaceClass(surface)}`}
+    >
       {/* Decorative bg element */}
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '28px 28px' }} />
 
@@ -123,7 +141,10 @@ export default function EnrollmentFormSection({
         </div>
 
         {/* Form card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/60 dark:shadow-slate-900/60 border border-slate-200 dark:border-slate-700 p-8 sm:p-10">
+        <div
+          className="bento-tile-lead bento-rail p-8 sm:p-10 pl-9 sm:pl-12"
+          style={{ '--rail': '#14b8a6' } as React.CSSProperties}
+        >
 
           {/* Success state */}
           {status === 'success' && (

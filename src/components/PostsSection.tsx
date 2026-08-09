@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
 import PostModal from '@/components/PostModal'
+import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 interface PostItem {
   id: string
@@ -16,6 +17,7 @@ interface PostItem {
 
 interface PostsSectionProps {
   posts: PostItem[]
+  surface?: SectionSurface
 }
 
 /**
@@ -51,9 +53,16 @@ function PostCard({
     : null
 
   return (
+    /*
+      Bề mặt thẻ lấy từ từ vựng bento dùng chung (`.bento-tile-lead` /
+      `.bento-tile` trong globals.css) thay vì hardcode `bg-slate-200`. Nhờ vậy
+      thẻ bài viết, thẻ đề thi và ô truy cập nhanh cùng nằm trên một thang bề
+      mặt — cái phân biệt chúng là CỠ và HÌNH, không phải mỗi nơi một sắc xám.
+      `.bento-*-interactive` vì thẻ ở đây là `<article>`, không phải `<a>`.
+    */
     <article
-      className={`group relative h-full overflow-hidden rounded-2xl border border-slate-300 bg-slate-200 transition-all duration-300 soft-shadow hover:-translate-y-1 hover:border-teal-500/60 hover:shadow-xl has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal-500 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-teal-400/60 ${
-        featured ? 'flex flex-col' : 'flex flex-row items-stretch'
+      className={`group relative h-full overflow-hidden bento-tile-interactive transition-all duration-300 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal-500 ${
+        featured ? 'bento-tile-lead flex flex-col' : 'bento-tile flex flex-row items-stretch'
       }`}
     >
       {post.cover_image && (
@@ -101,14 +110,14 @@ function PostCard({
   )
 }
 
-export default function PostsSection({ posts }: PostsSectionProps) {
+export default function PostsSection({ posts, surface = 'plain' }: PostsSectionProps) {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null)
 
   if (posts.length === 0) return null
 
   return (
     <>
-      <section id="posts" className="scroll-mt-32 py-16 bg-slate-200/50 dark:bg-slate-800/50">
+      <section id="posts" className={`scroll-mt-32 py-16 ${surfaceClass(surface)}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollRevealClient>
             <div className="text-center mb-12">

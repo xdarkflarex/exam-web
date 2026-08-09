@@ -34,6 +34,28 @@ import type { BlockType } from '@/types/theories'
  */
 export type SkillNodeStatus = 'locked' | 'available' | 'in_progress' | 'completed' | 'no_homework'
 
+/**
+ * Một bài tiên quyết, kèm đủ thông tin để ĐIỀU HƯỚNG tới nó.
+ *
+ * Trước đây trường này chỉ là `string[]` tên bài, đủ để đếm nhưng không đủ để
+ * bấm. Chế độ Lộ trình cần chip "Cần: X" nhảy được tới node tương ứng
+ * (docs/STUDENT_SKILL_TREE_REDESIGN.md mục 3.3), nên phải mang theo `id`.
+ */
+export interface SkillTreePrerequisite {
+  id: string
+  title: string
+  /** Chuyên đề của bài tiên quyết — dùng để biết đây có phải quan hệ chéo chuyên đề. */
+  group: string
+  /**
+   * Đã đủ vững chưa, theo `isMasteryAchieved`.
+   *
+   * `null` nghĩa là CHƯA CÓ BẰNG CHỨNG để kết luận (bài đó chưa được giao bài
+   * tập nào). Cố ý tách khỏi `false` — nói "chưa đạt" khi chưa từng đo là dựng
+   * ra một kết luận không có dữ liệu, đúng loại lỗi mà mục 2.1 mô tả.
+   */
+  met: boolean | null
+}
+
 export interface SkillTreeItem {
   id: string
   title: string
@@ -46,13 +68,19 @@ export interface SkillTreeItem {
   /** Số câu đã làm nhưng giáo viên chưa mở đáp án nên chưa tính năng lực. */
   pending: number
   assignmentCount: number
+  /** Số bài tập chưa quá hạn. Bằng 0 mà `assignmentCount > 0` nghĩa là hết hạn cả. */
+  openAssignments: number
+  /** Hạn nộp gần nhất trong các bài tập còn mở. ISO string, `null` khi không có. */
+  nextDeadline: string | null
+  /** Assignment ứng với `nextDeadline`, để nút "Làm bài" trỏ đúng chỗ. */
+  nextAssignmentId: string | null
   status: SkillNodeStatus
   /** Mức năng lực dựa trên ĐỘ CHÍNH XÁC. `no_data` khi chưa có câu nào được chấm. */
   mastery: MasteryStatus
   /** Độ chính xác 0-100, `null` khi chưa có bằng chứng đã chấm. */
   accuracy: number | null
-  /** Bài tiên quyết chưa đạt. Khóa mềm: vẫn vào được, chỉ để cảnh báo. */
-  missingPrerequisites: string[]
+  /** Bài tiên quyết. Khóa mềm: vẫn vào được, chỉ để nhắc thứ tự nên học. */
+  prerequisites: SkillTreePrerequisite[]
   /**
    * Có khớp bộ lọc/tìm kiếm hiện tại không.
    *
@@ -102,45 +130,80 @@ type BranchKey = 'foundation' | 'theorem' | 'rules' | 'method' | 'practice' | 'n
 const BRANCH_ORDER: BranchKey[] = ['foundation', 'theorem', 'rules', 'method', 'practice', 'note']
 
 /**
+ * BẢNG MÀU CANVAS, KHAI BÁO BẰNG BIẾN CSS.
+ *
+ * Canvas trước đây hardcode `bg-[#061124]` cùng một bảng hex chọn riêng cho nền
+ * tối, nên ở light mode nó là một mảng đen giữa trang sáng và chữ `#34d399` trên
+ * nền trắng tụt xuống ~1,7:1 (docs/STUDENT_SKILL_TREE_REDESIGN.md mục 2.4, 3.4).
+ *
+ * Không thể chọn màu bằng giá trị `theme` của JS — trên server nó luôn là
+ * `'light'` nên markup sẽ lệch hydration (docs/DESIGN_TODO.md mục 0.4). Cũng
+ * không sửa được `globals.css` trong đợt này. Cách còn lại, và cũng là cách
+ * đúng: khai báo biến CSS ngay trên node gốc bằng arbitrary property của
+ * Tailwind, có biến thể `dark:` — CSS tự chọn, JS không tham gia.
+ *
+ * Mọi giá trị light dùng bậc 600-700 (đủ tương phản trên nền sáng), dark giữ bậc
+ * 400-500 như cũ.
+ */
+const CANVAS_TOKENS = [
+  '[--tree-bg:#e8eef5] dark:[--tree-bg:#061124]',
+  '[--tree-dot:rgba(71,85,105,0.32)] dark:[--tree-dot:rgba(148,163,184,0.45)]',
+  '[--st-locked:#475569] dark:[--st-locked:#64748b]',
+  '[--st-available:#0891b2] dark:[--st-available:#22d3ee]',
+  '[--st-progress:#b45309] dark:[--st-progress:#f59e0b]',
+  '[--st-completed:#047857] dark:[--st-completed:#10b981]',
+  '[--st-none:#6d28d9] dark:[--st-none:#8b5cf6]',
+  '[--ms-no-data:#475569] dark:[--ms-no-data:#94a3b8]',
+  '[--ms-collecting:#6d28d9] dark:[--ms-collecting:#a78bfa]',
+  '[--ms-needs-work:#be123c] dark:[--ms-needs-work:#f87171]',
+  '[--ms-building:#b45309] dark:[--ms-building:#fbbf24]',
+  '[--ms-stable:#1d4ed8] dark:[--ms-stable:#60a5fa]',
+  '[--ms-mastered:#047857] dark:[--ms-mastered:#34d399]',
+  '[--rel-prerequisite:#b45309] dark:[--rel-prerequisite:#f59e0b]',
+  '[--rel-related:#64748b] dark:[--rel-related:#94a3b8]',
+  '[--rel-extension:#0f766e] dark:[--rel-extension:#14b8a6]',
+].join(' ')
+
+/**
  * Theme theo trạng thái HOẠT ĐỘNG. Chỉ nói về việc đã làm bài tới đâu, tuyệt đối
  * không hàm ý làm đúng hay sai — phần đó thuộc `masteryTheme`.
  */
 const statusTheme: Record<SkillNodeStatus, { border: string; glow: string; accent: string; icon: string; label: string }> = {
   locked: {
     // Khóa mềm: học sinh vẫn vào được, viền chỉ để nhắc thứ tự nên học.
-    border: '#64748b',
+    border: 'var(--st-locked)',
     glow: '0 0 0 1px rgba(100,116,139,.22)',
-    accent: '#94a3b8',
+    accent: 'var(--st-locked)',
     icon: 'bg-slate-600',
     label: 'Nên học sau',
   },
   available: {
-    border: '#22d3ee',
+    border: 'var(--st-available)',
     glow: '0 0 24px rgba(34,211,238,.22)',
-    accent: '#22d3ee',
-    icon: 'bg-cyan-500',
+    accent: 'var(--st-available)',
+    icon: 'bg-cyan-600 dark:bg-cyan-500',
     label: 'Chưa làm bài',
   },
   in_progress: {
-    border: '#f59e0b',
+    border: 'var(--st-progress)',
     glow: '0 0 28px rgba(245,158,11,.24)',
-    accent: '#f59e0b',
-    icon: 'bg-amber-500',
+    accent: 'var(--st-progress)',
+    icon: 'bg-amber-600 dark:bg-amber-500',
     label: 'Đang làm',
   },
   completed: {
-    border: '#10b981',
+    border: 'var(--st-completed)',
     glow: '0 0 30px rgba(16,185,129,.28)',
-    accent: '#10b981',
-    icon: 'bg-emerald-500',
+    accent: 'var(--st-completed)',
+    icon: 'bg-emerald-600 dark:bg-emerald-500',
     // Trước đây là "Đã đạt 80%" — sai, vì `progress` chỉ đếm câu đã trả lời.
     label: 'Đã làm hết',
   },
   no_homework: {
-    border: '#8b5cf6',
+    border: 'var(--st-none)',
     glow: '0 0 26px rgba(139,92,246,.25)',
-    accent: '#8b5cf6',
-    icon: 'bg-violet-500',
+    accent: 'var(--st-none)',
+    icon: 'bg-violet-600 dark:bg-violet-500',
     label: 'Chưa có bài tập',
   },
 }
@@ -148,14 +211,18 @@ const statusTheme: Record<SkillNodeStatus, { border: string; glow: string; accen
 /**
  * Theme theo mức NĂNG LỰC (độ chính xác). Đây mới là thứ được phép dùng màu xanh
  * "đã đạt". Nhãn lấy từ `getMasteryStatusLabel` để không lệch với `/student/analytics`.
+ *
+ * Tông chip trùng bảng của `/student/analytics` và `WeakAreas` — cùng một trạng
+ * thái phải cùng một màu ở mọi trang, nếu không học sinh phải học lại bảng màu
+ * mỗi lần đổi trang. `stable` vì thế là XANH DƯƠNG chứ không phải emerald.
  */
 const masteryTheme: Record<MasteryStatus, { color: string; chip: string }> = {
-  no_data: { color: '#94a3b8', chip: 'border-slate-400/25 bg-slate-400/10 text-slate-300' },
-  collecting: { color: '#a78bfa', chip: 'border-violet-400/25 bg-violet-400/10 text-violet-200' },
-  needs_work: { color: '#f87171', chip: 'border-red-400/25 bg-red-400/10 text-red-200' },
-  building: { color: '#fbbf24', chip: 'border-amber-400/25 bg-amber-400/10 text-amber-100' },
-  stable: { color: '#34d399', chip: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100' },
-  mastered: { color: '#10b981', chip: 'border-emerald-400/35 bg-emerald-400/15 text-emerald-100' },
+  no_data: { color: 'var(--ms-no-data)', chip: 'border-slate-400/40 bg-slate-400/10 text-slate-700 dark:text-slate-300' },
+  collecting: { color: 'var(--ms-collecting)', chip: 'border-violet-500/40 bg-violet-400/10 text-violet-800 dark:text-violet-200' },
+  needs_work: { color: 'var(--ms-needs-work)', chip: 'border-rose-500/40 bg-rose-400/10 text-rose-800 dark:text-rose-200' },
+  building: { color: 'var(--ms-building)', chip: 'border-amber-500/40 bg-amber-400/10 text-amber-800 dark:text-amber-100' },
+  stable: { color: 'var(--ms-stable)', chip: 'border-blue-500/40 bg-blue-400/10 text-blue-800 dark:text-blue-200' },
+  mastered: { color: 'var(--ms-mastered)', chip: 'border-emerald-500/50 bg-emerald-400/15 text-emerald-800 dark:text-emerald-100' },
 }
 
 function hexToRgba(hex: string, alpha: number) {
@@ -196,6 +263,7 @@ function LessonNode({ data }: NodeProps) {
   const mastery = masteryTheme[item.mastery]
   const progress = item.progress ?? 0
   const hasMastery = item.mastery !== 'no_data' && item.accuracy !== null
+  const missingCount = item.prerequisites.filter(prerequisite => prerequisite.met === false).length
 
   // Viền lấy màu theo NĂNG LỰC khi đã có bằng chứng đã chấm; chưa có thì mới rơi
   // về màu theo tiến độ. Nhờ vậy màu xanh trên cây luôn có nghĩa là "làm đúng".
@@ -203,7 +271,7 @@ function LessonNode({ data }: NodeProps) {
 
   return (
     <div
-      className={`mind-node lesson-node-shell group rounded-[18px] border bg-slate-950/95 p-3 text-white shadow-xl transition-[filter,box-shadow,opacity] duration-200 hover:brightness-125 hover:shadow-2xl ${selected ? 'lesson-selected' : ''} ${expanded ? 'lesson-expanded' : ''} ${dimmed ? 'opacity-45 saturate-50' : ''}`}
+      className={`mind-node lesson-node-shell group rounded-[18px] border bg-white/95 p-3 text-slate-900 shadow-xl transition-[filter,box-shadow,opacity] duration-200 hover:shadow-2xl dark:bg-slate-950/95 dark:text-white dark:hover:brightness-125 ${selected ? 'lesson-selected' : ''} ${expanded ? 'lesson-expanded' : ''} ${dimmed ? 'opacity-45 saturate-50' : ''}`}
       style={{
         width: LESSON_WIDTH,
         minHeight: LESSON_HEIGHT,
@@ -223,12 +291,12 @@ function LessonNode({ data }: NodeProps) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">{item.group}</p>
+          <p className="truncate text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{item.group}</p>
           <h3 className="mt-1 line-clamp-2 text-[13px] font-black uppercase leading-snug tracking-tight">{item.title}</h3>
         </div>
         {hasMastery && (
           <span
-            className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-xs font-black"
+            className="rounded-full border border-slate-900/10 bg-slate-900/5 px-2 py-1 text-xs font-black dark:border-white/10 dark:bg-white/10"
             style={{ color: mastery.color }}
             title="Tỷ lệ trả lời đúng"
           >
@@ -239,13 +307,13 @@ function LessonNode({ data }: NodeProps) {
 
       {item.progress !== null ? (
         <div className="mt-3">
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
             <div
               className="skill-progress-fill h-full rounded-full transition-[width] duration-700 ease-out"
               style={{ width: `${progress}%`, backgroundColor: theme.accent }}
             />
           </div>
-          <div className="mt-1.5 flex justify-between text-[10px] text-slate-400">
+          <div className="mt-1.5 flex justify-between text-[10px] text-slate-500 dark:text-slate-400">
             <span>{theme.label}</span>
             <span>{item.answered}/{item.total} câu</span>
           </div>
@@ -256,19 +324,19 @@ function LessonNode({ data }: NodeProps) {
           </p>
         </div>
       ) : (
-        <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-violet-400/15 bg-violet-500/10 px-2 py-1.5 text-[11px] text-violet-200">
+        <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-1.5 text-[11px] text-violet-800 dark:border-violet-400/15 dark:text-violet-200">
           <ClipboardList className="h-3.5 w-3.5" />
           Chưa có bài tập — đọc lý thuyết được
         </div>
       )}
-      {item.missingPrerequisites.length > 0 && (
-        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-200/80">
+      {missingCount > 0 && (
+        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-200/80">
           <LockKeyhole className="h-3 w-3 shrink-0" />
-          Nên học {item.missingPrerequisites.length} bài trước
+          Nên học {missingCount} bài trước
         </p>
       )}
       {expanded && (
-        <div className="pointer-events-none absolute -right-2 -top-2 rounded-full border border-teal-300/40 bg-teal-400/20 p-1 text-teal-200">
+        <div className="pointer-events-none absolute -right-2 -top-2 rounded-full border border-teal-600/40 bg-teal-500/20 p-1 text-teal-700 dark:border-teal-300/40 dark:bg-teal-400/20 dark:text-teal-200">
           <GitBranch className="h-3.5 w-3.5" />
         </div>
       )}
@@ -283,7 +351,7 @@ function BlockNode({ data }: NodeProps) {
   const title = block.title?.trim() || style.label
   return (
     <div
-      className={`mind-node block-node-shell group rounded-[16px] border bg-slate-950/90 p-3 text-white shadow-xl backdrop-blur transition-[filter,box-shadow] duration-200 hover:brightness-125 ${focused ? 'ring-2 ring-white/20' : ''}`}
+      className={`mind-node block-node-shell group rounded-[16px] border bg-white/90 p-3 text-slate-900 shadow-xl backdrop-blur transition-[filter,box-shadow] duration-200 dark:bg-slate-950/90 dark:text-white dark:hover:brightness-125 ${focused ? 'ring-2 ring-slate-900/15 dark:ring-white/20' : ''}`}
       style={{
         width: BLOCK_WIDTH,
         minHeight: BLOCK_HEIGHT,
@@ -298,7 +366,7 @@ function BlockNode({ data }: NodeProps) {
         </div>
         <div className="min-w-0">
           <p className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: style.color }}>{style.label}</p>
-          <h4 className="mt-1 line-clamp-2 text-[13px] font-bold leading-snug text-slate-100">{title}</h4>
+          <h4 className="mt-1 line-clamp-2 text-[13px] font-bold leading-snug text-slate-800 dark:text-slate-100">{title}</h4>
         </div>
       </div>
       <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-0" style={{ backgroundColor: style.color }} />
@@ -465,10 +533,29 @@ function buildBlockEdges(
   return edges
 }
 
+/**
+ * Màu cạnh, trả về biến CSS chứ không phải hex — SVG `stroke` nhận `var()` bình
+ * thường, và biến được khai báo trên node gốc của canvas nên tự đổi theo theme.
+ */
 function relationColor(relation: SkillTreeLink['relation']) {
-  if (relation === 'prerequisite') return '#f59e0b'
-  if (relation === 'extension') return '#14b8a6'
-  return '#94a3b8'
+  if (relation === 'prerequisite') return 'var(--rel-prerequisite)'
+  if (relation === 'extension') return 'var(--rel-extension)'
+  return 'var(--rel-related)'
+}
+
+/**
+ * Màu đầu mũi tên phải là giá trị TĨNH, không phải `var()`.
+ *
+ * ReactFlow gộp `markerEnd` thành id của `<marker>` rồi tham chiếu bằng
+ * `url('#type=arrowclosed&color=...')`. Nhét `var(--x)` vào đó là nhét dấu ngoặc
+ * vào một fragment identifier — chạy được hay không tuỳ trình duyệt, và hỏng thì
+ * hỏng im lặng (mất mũi tên). Đầu mũi tên chỉ vài pixel nên một tông trung tính
+ * đọc được trên cả hai nền là đủ, không đáng đánh cược.
+ */
+function relationMarkerColor(relation: SkillTreeLink['relation']) {
+  if (relation === 'prerequisite') return '#d97706'
+  if (relation === 'extension') return '#0d9488'
+  return '#64748b'
 }
 
 function SkillTreeCanvas({
@@ -588,7 +675,7 @@ function SkillTreeCanvas({
         target: link.target,
         type: 'smoothstep',
         className: 'mind-edge theory-edge',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: relationColor(link.relation) },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: relationMarkerColor(link.relation) },
         style: {
           stroke: relationColor(link.relation),
           strokeWidth: link.relation === 'prerequisite' ? 2.4 : 1.7,
@@ -601,7 +688,8 @@ function SkillTreeCanvas({
 
     const expandedEdges = blockEdges.map((link, index): Edge => {
       const targetBlock = displayBlocks.find(block => block.id === link.target)
-      const stroke = targetBlock ? getBlockStyle(targetBlock.block_type).color : relationColor(link.relation)
+      // Màu khối là hex tĩnh trong `block-style.ts`, dùng cho marker được.
+      const stroke = targetBlock ? getBlockStyle(targetBlock.block_type).color : relationMarkerColor(link.relation)
 
       return {
         id: `block-${link.source}-${link.target}-${index}`,
@@ -664,10 +752,13 @@ function SkillTreeCanvas({
   }, [displayBlocks.length, displayExpandedId])
 
   return (
-    <div ref={root} className="relative h-full w-full overflow-hidden rounded-2xl bg-[#061124]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.13),transparent_34%),linear-gradient(120deg,rgba(37,99,235,0.12),transparent_32%,rgba(139,92,246,0.10))]" />
-      <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1.5 text-[11px] font-semibold text-slate-300 backdrop-blur">
-        <Sparkles className="h-3.5 w-3.5 text-teal-300" />
+    <div
+      ref={root}
+      className={`relative h-full w-full overflow-hidden rounded-2xl bg-[var(--tree-bg)] ${CANVAS_TOKENS}`}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.10),transparent_34%),linear-gradient(120deg,rgba(37,99,235,0.08),transparent_32%,rgba(139,92,246,0.07))]" />
+      <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full border border-slate-900/10 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-600 backdrop-blur dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
+        <Sparkles className="h-3.5 w-3.5 text-teal-600 dark:text-teal-300" />
         Mỗi cột là một chuyên đề • màu theo tỷ lệ trả lời đúng
       </div>
       <ReactFlow
@@ -686,8 +777,8 @@ function SkillTreeCanvas({
           if (data.item) onSelect(data.item)
         }}
       >
-        <Background color="rgba(148, 163, 184, .45)" gap={20} size={1.05} />
-        <Controls showInteractive={false} className="!border !border-white/10 !bg-white/90 dark:!bg-slate-900/90" />
+        <Background color="var(--tree-dot)" gap={20} size={1.05} />
+        <Controls showInteractive={false} className="!border !border-slate-900/10 !bg-white/90 dark:!border-white/10 dark:!bg-slate-900/90" />
       </ReactFlow>
     </div>
   )

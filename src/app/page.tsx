@@ -19,6 +19,7 @@ import PostsSection from '@/components/PostsSection'
 import EnrollmentFormSection from '@/components/EnrollmentFormSection'
 import EnrollmentFloatingButton from '@/components/EnrollmentFloatingButton'
 import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
+import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 export const dynamic = 'force-dynamic'
 
@@ -316,6 +317,32 @@ const BENEFIT_TONES = [
 ] as const
 
 /**
+ * Màu dải bên trái của card đề (`--rail` của `.bento-rail`).
+ *
+ * Dùng thang 500 chứ không phải 600/700: dải chỉ rộng 4px và phải đọc được
+ * trên CẢ nền card sáng (#f7f9fc) lẫn nền card tối (#1e293b). Đây là trang trí
+ * phân loại, không phải chữ, nên không thuộc diện phải đạt ngưỡng tương phản
+ * WCAG cho text.
+ *
+ * Vì sao băm tên môn thay vì bảng tra cứng: `exams.subject` là chuỗi tự do do
+ * giáo viên nhập, không phải enum. Bảng tra cứng sẽ trả về màu mặc định cho mọi
+ * môn chưa liệt kê, tức là mọi đề lại cùng một màu — đúng cái đang cần chữa.
+ * Băm cho kết quả TẤT ĐỊNH nên server và client vẽ ra cùng một màu, không lệch
+ * hydration.
+ */
+const EXAM_RAILS = ['#14b8a6', '#6366f1', '#f59e0b', '#10b981'] as const
+
+function examRail(subject?: string | null): string {
+  const key = (subject || '').trim()
+  if (!key) return EXAM_RAILS[0]
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) % 1000003
+  }
+  return EXAM_RAILS[hash % EXAM_RAILS.length]
+}
+
+/**
  * Icon component mapper
  */
 function BenefitIcon({ icon, className }: { icon: string; className?: string }) {
@@ -412,8 +439,102 @@ export default async function LandingPage({
   }
   const visibleSections = sectionsConfig.filter((s: any) => s.visible)
 
+  /*
+    NHỊP NỀN GIỮA CÁC SECTION
+
+    Trang cũ chỉ có hai trạng thái nền — "trong suốt" và `bg-slate-200/50` — và
+    chúng được gán CỨNG cho từng section. Hệ quả: `exams`, `knowledge_topics`,
+    `gallery` đứng liền nhau và cùng có nền, nên ba khối dính thành một mảng
+    phẳng dài; còn `benefits` và `videos` liền nhau thì cùng trong suốt.
+
+    Nền phải tính theo VỊ TRÍ THỰC TẾ, vì hai thứ đều động: admin sắp lại thứ tự
+    qua `landing.sections_config`, và section không có dữ liệu thì tự ẩn. Nếu
+    chỉ đếm theo `visibleSections` thì một section ẩn sẽ làm hai section cạnh
+    nhau nhận cùng một nền — nên `willRender` phải lặp lại đúng điều kiện ẩn của
+    từng section bên dưới.
+
+    Hero luôn `plain`: nó đã có `.hero-gradient` riêng, chồng thêm nền xen kẽ chỉ
+    làm bẩn.
+  */
+  const willRender = (id: string): boolean => {
+    switch (id) {
+      case 'stats':
+        return stats.exams > 0 || stats.topics > 0 || stats.theories > 0 || stats.posts > 0
+      case 'knowledge_topics':
+        return knowledgeTopics.length > 0
+      case 'gallery':
+        return gallery.length > 0
+      case 'enrollment':
+        return enrollment.length > 0
+      case 'posts':
+        return recentPosts.length > 0
+      case 'videos':
+        return videos.length > 0
+      default:
+        return true
+    }
+  }
+
+  const surfaces = new Map<string, SectionSurface>()
+  // Bắt đầu bằng `alt` để section ngay dưới hero tách hẳn khỏi nền gradient của
+  // hero. Nếu bắt đầu bằng `plain` thì hero và section kế nó cùng chìm vào nền
+  // trang, và nhịp xen kẽ mất đúng cái tương phản đầu tiên mà người cuộn thấy.
+  let nextIsAlt = true
+  for (const sec of visibleSections) {
+    if (!willRender(sec.id)) continue
+    if (sec.id === 'hero') {
+      surfaces.set(sec.id, 'plain')
+      continue
+    }
+    surfaces.set(sec.id, nextIsAlt ? 'alt' : 'plain')
+    nextIsAlt = !nextIsAlt
+  }
+  const sectionSurface = (id: string): SectionSurface => surfaces.get(id) ?? 'plain'
+
+  /*
+    ĐỘ TRẢI CỦA Ô ĐỀ DẪN DẮT
+
+    Lưới đề ở `lg` có 3 cột. Ô dẫn dắt luôn rộng 2 cột, nhưng nó cao 1 hay 2
+    hàng — hay trải hết 3 cột — phải phụ thuộc SỐ ĐỀ, nếu không hàng cuối sẽ thủng
+    một lỗ. Số đề không cố định: admin đặt `featured_exams_count`, và ô tìm kiếm
+    ở header còn lọc bớt danh sách này.
+
+    Đếm ô nhỏ còn lại là `n - 1`, và ô dẫn dắt chừa lại:
+      - `n % 3 === 1`  -> trải hết 3 cột, `n - 1` ô nhỏ chia đúng thành các hàng 3.
+      - `n % 3 === 0`  -> cao 2 hàng, chừa 2 ô ở cột 3; `n - 3` ô còn lại chia hết cho 3.
+      - `n % 3 === 2`  -> cao 1 hàng, chừa 1 ô ở cột 3; `n - 2` ô còn lại chia hết cho 3.
+    Cả ba nhánh đều lấp kín, với mọi `n >= 1`.
+  */
+  const examLeadSpan =
+    exams.length % 3 === 1
+      ? 'sm:col-span-2 lg:col-span-3'
+      : exams.length % 3 === 0
+        ? 'sm:col-span-2 lg:col-span-2 lg:row-span-2'
+        : 'sm:col-span-2 lg:col-span-2'
+
+  /*
+    Ở `sm` lưới chỉ có 2 cột và ô dẫn dắt chiếm cả hai, nên số ô nhỏ phải CHẴN
+    mới lấp kín. Khi nó lẻ, ô cuối trải hai cột — ở `lg` trả lại 1 cột.
+  */
+  const examTailSpansTwoOnSm = exams.length > 1 && (exams.length - 1) % 2 === 1
+
+  /*
+    Khi ô dẫn dắt trải hết 3 cột (nhánh `n % 3 === 1`) nó rộng gần 1100px. Xếp
+    dọc ở bề rộng đó thì tiêu đề một dòng nằm chơ vơ và nửa phải bỏ trống — nên
+    ở nhánh này nội dung xếp NGANG: tên đề bên trái, thông số + nút bên phải.
+    Hai nhánh còn lại ô chỉ rộng 2/3 lưới, xếp dọc vẫn kín.
+  */
+  const examLeadIsWide = exams.length % 3 === 1
+
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors">
+    /*
+      Nền trang KHÔNG đặt bằng utility nữa. `globals.css` đã đặt
+      `html, body { background-color: var(--background) }`, và `--background`
+      (#eef1f6) là giá trị đã hiệu chỉnh để bớt chói — đè `bg-slate-100`
+      (#f1f5f9) lên trên chỉ làm mất công hiệu chỉnh đó. Xem
+      `docs/DESIGN_TODO.md` mục 0 bất biến 2 và mục 4.
+    */
+    <div className="min-h-screen transition-colors">
       {/* Header */}
       <LandingHeader
         brandName={content.brand?.name || DEFAULT_CONTENT.brand.name}
@@ -495,17 +616,33 @@ export default async function LandingPage({
             )
 
           case 'stats':
-            return <StatsStrip key="stats" stats={stats} />
+            return <StatsStrip key="stats" stats={stats} surface={sectionSurface('stats')} />
 
           case 'quick_access':
-            return <QuickAccessGrid key="quick_access" isAuthenticated={isAuthenticated} />
+            return (
+              <QuickAccessGrid
+                key="quick_access"
+                isAuthenticated={isAuthenticated}
+                surface={sectionSurface('quick_access')}
+              />
+            )
 
           case 'knowledge_topics':
-            return <KnowledgeTopicsGrid key="knowledge_topics" items={knowledgeTopics} />
+            return (
+              <KnowledgeTopicsGrid
+                key="knowledge_topics"
+                items={knowledgeTopics}
+                surface={sectionSurface('knowledge_topics')}
+              />
+            )
 
           case 'exams':
             return (
-              <section key="exams" id="exams" className="scroll-mt-32 py-16 bg-slate-200/50 dark:bg-slate-800/50">
+              <section
+                key="exams"
+                id="exams"
+                className={`scroll-mt-32 py-16 ${surfaceClass(sectionSurface('exams'))}`}
+              >
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ScrollRevealClient>
                     <div className="text-center mb-12">
@@ -518,43 +655,132 @@ export default async function LandingPage({
                     </div>
                   </ScrollRevealClient>
                   {exams.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {exams.map((exam, index) => (
-                        <ScrollRevealClient key={exam.id} delay={index * 80}>
-                          {/*
-                            Đã đăng nhập thì vào thẳng trang chuẩn bị làm bài; chưa thì qua
-                            /login. Trước đây luôn trỏ /login, nên học sinh đang có session
-                            bấm "Làm bài ngay" sẽ bị middleware đẩy về /student (xem
-                            src/middleware.ts:149) và không bao giờ tới được đề vừa bấm.
-                          */}
-                          <Link href={isAuthenticated ? `/exam/prepare/${exam.id}` : '/login'} className="group flex h-full flex-col bg-slate-200 dark:bg-slate-800 rounded-2xl p-6 border border-slate-300 dark:border-slate-700 hover:border-teal-500/60 dark:hover:border-teal-400/60 transition-all duration-300 soft-shadow hover:shadow-xl hover:-translate-y-1">
-                            <div className="flex items-start justify-between gap-3 mb-4">
-                              <div className="w-12 h-12 shrink-0 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                <BookOpen className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-                              </div>
-                              {/* Chip môn học — thay cho dòng text nhỏ ở dưới, theo style card mới */}
-                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-600 text-white dark:bg-teal-500">
-                                {exam.subject || 'Toán học'}
+                    /*
+                      LƯỚI BENTO — không còn ba cột đều nhau.
+
+                      Ô dẫn dắt to hơn, các đề sau nhỏ hơn. Nhưng "to hơn" phải
+                      to theo cách LẤP KÍN lưới, nếu không thì bento chỉ đổi một
+                      nhịp lặp lấy một lỗ trống ở hàng cuối. Số đề là dữ liệu
+                      động (`featured_exams_count`, mặc định 6, và đề có thể bị
+                      lọc bởi ô tìm kiếm), nên độ trải của ô dẫn dắt được suy ra
+                      từ số đề — xem `examLeadSpan` ngay trên `return`.
+
+                      Ô nhỏ cố ý BỎ HẲN ô icon teal `w-12 h-12` và nút "Làm bài
+                      ngay" — đó chính là công thức đang lặp ở mọi khối khác của
+                      trang. Việc phân loại chuyển sang dải màu 4px bên trái
+                      (`.bento-rail`), rẻ hơn về thị giác và không đụng vào ngân
+                      sách màu teal vốn để dành cho hành động.
+                    */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                      {/*
+                        Đã đăng nhập thì vào thẳng trang chuẩn bị làm bài; chưa thì qua
+                        /login. Trước đây luôn trỏ /login, nên học sinh đang có session
+                        bấm "Làm bài ngay" sẽ bị middleware đẩy về /student (xem
+                        src/middleware.ts:149) và không bao giờ tới được đề vừa bấm.
+                      */}
+                      <ScrollRevealClient className={examLeadSpan}>
+                        <Link
+                          href={isAuthenticated ? `/exam/prepare/${exams[0].id}` : '/login'}
+                          className={`group relative flex h-full flex-col justify-between overflow-hidden bento-tile-lead p-6 sm:p-8 ${
+                            examLeadIsWide ? 'lg:flex-row lg:items-center lg:gap-12' : ''
+                          }`}
+                        >
+                          {/* Hoạ tiết giấy kẻ ô: card đề phải gợi cảm giác TỜ ĐỀ THI
+                              chứ không phải card sản phẩm. Tương phản ~2% nên không
+                              cạnh tranh với chữ đặt trên nó. */}
+                          <span
+                            className="paper-grid absolute inset-0 pointer-events-none"
+                            aria-hidden="true"
+                          />
+                          <div className={`relative ${examLeadIsWide ? 'lg:flex-1' : ''}`}>
+                            <div className="mb-4 flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 dark:bg-teal-500 px-3 py-1 text-xs font-bold text-white">
+                                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                                Đề mới nhất
                               </span>
+                              {exams[0].subject && (
+                                <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  {exams[0].subject}
+                                </span>
+                              )}
                             </div>
-                            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 line-clamp-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{exam.title}</h3>
-                            {/* Dải thông tin: chỉ hiện dữ liệu thật đang có trong bảng `exams` */}
-                            <div className="grid grid-cols-2 gap-3 mb-5 mt-auto">
-                              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                                <Clock className="w-4 h-4 shrink-0" />
-                                {exam.duration} phút
+                            <h3 className="font-baloo text-2xl sm:text-3xl font-bold leading-snug text-slate-800 dark:text-slate-100 line-clamp-3 transition-colors group-hover:text-teal-700 dark:group-hover:text-teal-300">
+                              {exams[0].title}
+                            </h3>
+                          </div>
+                          <div className={`relative mt-8 ${examLeadIsWide ? 'lg:mt-0 lg:shrink-0' : ''}`}>
+                            {/* Chỉ hiện dữ liệu thật đang có trong bảng `exams`. */}
+                            <div className="mb-6 flex flex-wrap gap-x-10 gap-y-4">
+                              <div>
+                                <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                  Thời gian làm bài
+                                </div>
+                                <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                                  <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                                  {exams[0].duration} phút
+                                </div>
                               </div>
-                              {exam.question_count > 0 && (
-                                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                                  <ListOrdered className="w-4 h-4 shrink-0" />
-                                  {exam.question_count} câu
+                              {exams[0].question_count > 0 && (
+                                <div>
+                                  <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    Số câu
+                                  </div>
+                                  <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                                    <ListOrdered className="w-4 h-4 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                                    {exams[0].question_count} câu
+                                  </div>
                                 </div>
                               )}
                             </div>
-                            <span className="flex w-full items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 transition-colors duration-300 group-hover:bg-teal-600 group-hover:text-white dark:group-hover:bg-teal-500">
+                            <span className="inline-flex items-center gap-2 rounded-xl bg-teal-600 dark:bg-teal-500 px-6 py-3 text-sm font-semibold text-white transition-colors duration-300 group-hover:bg-teal-700 dark:group-hover:bg-teal-400">
                               Làm bài ngay
-                              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
+                              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                             </span>
+                          </div>
+                        </Link>
+                      </ScrollRevealClient>
+
+                      {exams.slice(1).map((exam, index) => (
+                        <ScrollRevealClient
+                          key={exam.id}
+                          delay={(index + 1) * 70}
+                          className={
+                            examTailSpansTwoOnSm && index === exams.length - 2
+                              ? 'sm:col-span-2 lg:col-span-1'
+                              : ''
+                          }
+                        >
+                          <Link
+                            href={isAuthenticated ? `/exam/prepare/${exam.id}` : '/login'}
+                            className="group bento-tile flex h-full flex-col py-4 pl-6 pr-4 bento-rail"
+                            style={{ '--rail': examRail(exam.subject) } as React.CSSProperties}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <h3 className="text-base font-semibold leading-snug text-slate-800 dark:text-slate-100 line-clamp-2 transition-colors group-hover:text-teal-700 dark:group-hover:text-teal-300">
+                                {exam.title}
+                              </h3>
+                              <ArrowRight
+                                className="mt-0.5 w-4 h-4 shrink-0 text-slate-400 transition-all duration-200 group-hover:translate-x-1 group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                                aria-hidden="true"
+                              />
+                            </div>
+                            <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-4 text-xs text-slate-500 dark:text-slate-400">
+                              {exam.subject && (
+                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                  {exam.subject}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                                {exam.duration} phút
+                              </span>
+                              {exam.question_count > 0 && (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <ListOrdered className="w-3.5 h-3.5" aria-hidden="true" />
+                                  {exam.question_count} câu
+                                </span>
+                              )}
+                            </div>
                           </Link>
                         </ScrollRevealClient>
                       ))}
@@ -597,6 +823,7 @@ export default async function LandingPage({
                 items={gallery}
                 title={content.gallery_section?.title}
                 subtitle={content.gallery_section?.subtitle}
+                surface={sectionSurface('gallery')}
               />
             ) : null
 
@@ -608,15 +835,26 @@ export default async function LandingPage({
                 title={content.enrollment_section?.title}
                 subtitle={content.enrollment_section?.subtitle}
                 interval={(content.enrollment_interval || 6) * 1000}
+                surface={sectionSurface('enrollment')}
               />
             ) : null
 
           case 'posts':
-            return <PostsSection key="posts" posts={recentPosts} />
+            return (
+              <PostsSection
+                key="posts"
+                posts={recentPosts}
+                surface={sectionSurface('posts')}
+              />
+            )
 
           case 'benefits':
             return (
-              <section key="benefits" id="benefits" className="scroll-mt-32 py-20">
+              <section
+                key="benefits"
+                id="benefits"
+                className={`scroll-mt-32 py-20 ${surfaceClass(sectionSurface('benefits'))}`}
+              >
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ScrollRevealClient>
                     <div className="text-center mb-12">
@@ -681,6 +919,7 @@ export default async function LandingPage({
                 videos={videos}
                 title={content.videos_section?.title}
                 subtitle={content.videos_section?.subtitle}
+                surface={sectionSurface('videos')}
               />
             ) : null
 
@@ -690,12 +929,23 @@ export default async function LandingPage({
                 key="enrollment_form"
                 title={content.enrollment_form_section?.title}
                 subtitle={content.enrollment_form_section?.subtitle}
+                surface={sectionSurface('enrollment_form')}
               />
             )
 
           case 'cta':
             return (
-              <section key="cta" className="py-20 bg-slate-200/50 dark:bg-slate-800/50 relative overflow-hidden">
+              /*
+                Khối CTA giữ NGUYÊN nút gradient: theo
+                `docs/DESIGN_OVERHAUL_2026-08-09.md` mục 2.3, mỗi trang chỉ được
+                MỘT bề mặt gradient và nó thuộc về hành động quan trọng nhất.
+                Gradient nền của `EnrollmentFormSection` đã bị gỡ chính vì lý do
+                này, không phải vì nó xấu.
+              */
+              <section
+                key="cta"
+                className={`py-20 relative overflow-hidden ${surfaceClass(sectionSurface('cta'))}`}
+              >
                 <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]" style={{backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px'}} />
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
                   <ScrollRevealClient>

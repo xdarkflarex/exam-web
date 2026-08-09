@@ -129,10 +129,34 @@ nhưng đổi CSS toàn site, nên để chủ dự án quyết.
 
 ## 4. Chưa xác minh được
 
-- **Lưới hoạt động trống và "Mảng cần củng cố" không hiện** trên tài khoản test,
-  dù vòng tiến độ có số. Hai thứ đó lấy từ RPC `get_my_homework_answer_metadata`;
-  vòng tiến độ lấy từ bộ đếm attempt (`answered_questions`, `correct_answers`) —
-  **hai nguồn khác nhau**. Nghi RPC không trả dòng nào cho tài khoản đó. Cách
-  kiểm: mở `/student/analytics`, phần thống kê theo kiến thức có trống không.
-  Nếu trống thì là nợ có sẵn, không phải do đợt này.
+### Lưới hoạt động trống và "Mảng cần củng cố" không hiện
+
+Trên tài khoản test, vòng tiến độ có số (17% / 30 câu) nhưng lưới hoạt động
+trống trơn và dải "Mảng cần củng cố" không xuất hiện. Hai bên lấy từ **hai
+nguồn khác nhau**:
+
+| Hiển thị | Nguồn |
+|---|---|
+| Vòng tiến độ, "30 câu đã làm" | bộ đếm của `homework_attempts` (`answered_questions`, `correct_answers`), đọc thẳng qua RLS |
+| Lưới hoạt động, mảng cần củng cố | RPC `get_my_homework_answer_metadata` |
+
+Đọc thân RPC ở `supabase/migrations/20260722_runtime_security_hardening.sql`
+dòng 1795–1826, có hai chỗ khiến nó trả rỗng trong khi đường kia vẫn có số:
+
+1. **`AND public.student_has_feature('homework')`** — đường đọc attempt không có
+   điều kiện này. Feature gate tắt là RPC trả 0 dòng **im lặng**, không báo lỗi.
+2. Phía client lọc lại `attemptIds.has(row.attempt_id)`
+   (`student-capability.ts` khoảng dòng 245–250). RPC khai `attempt_id text`;
+   nếu kiểu/định dạng id hai bên lệch nhau thì lọc rơi hết.
+
+Chưa kiểm được vì không có quyền truy vấn database. Cách kiểm nhanh: mở
+`/student/analytics` — nếu phần thống kê theo kiến thức **cũng** trống thì đúng
+là RPC, và đó là nợ có sẵn chứ không phải do đợt làm đẹp này.
+
+**Việc phải làm bất kể nguyên nhân là gì:** hiện tại khi không có dữ liệu, lưới
+vẫn vẽ đủ 28 ô xám — trông như "bốn tuần qua bạn không học buổi nào", một câu
+**sai** nếu nguyên nhân thật là thiếu dữ liệu. Đúng loại lỗi mà mục 7.1 của bản
+thiết kế cấm. Phải đổi thành trạng thái "chưa ghi nhận hoạt động" tường minh.
+Ghi ở đây vì lúc phát hiện thì `src/components/student/**` đang do một luồng
+khác giữ; xử lý ở bước tích hợp cuối.
 - **Chưa xem bằng mắt ở light mode** cho các trang cần đăng nhập.

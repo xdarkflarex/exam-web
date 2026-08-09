@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Play } from 'lucide-react'
+import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 export interface VideoItem {
   youtube_url: string
@@ -12,6 +13,7 @@ interface VideoSectionProps {
   videos: VideoItem[]
   title?: string
   subtitle?: string
+  surface?: SectionSurface
 }
 
 function getYouTubeId(url: string): string | null {
@@ -25,6 +27,7 @@ export default function VideoSection({
   videos,
   title = 'Video giới thiệu',
   subtitle = 'Tìm hiểu thêm về chúng tôi qua video',
+  surface = 'plain',
 }: VideoSectionProps) {
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -34,7 +37,7 @@ export default function VideoSection({
   const activeId = getYouTubeId(activeVideo.youtube_url)
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className={`py-16 sm:py-20 ${surfaceClass(surface)}`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Heading */}
         <div className="text-center mb-10">
@@ -83,37 +86,55 @@ export default function VideoSection({
                 return (
                   <button
                     key={i}
+                    type="button"
                     onClick={() => setActiveIndex(i)}
+                    aria-current={i === activeIndex ? 'true' : undefined}
                     className={`w-full flex items-start gap-3 p-2 rounded-xl transition-all duration-200 text-left ${
                       i === activeIndex
                         ? 'bg-teal-50 dark:bg-teal-900/20 border-2 border-teal-500 dark:border-teal-400'
-                        : 'bg-slate-200 dark:bg-slate-800 border-2 border-transparent hover:border-slate-300 dark:hover:border-slate-600'
+                        : 'bg-[var(--background-card)] border-2 border-transparent hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
-                    <div className="relative w-28 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-slate-300 dark:bg-slate-700">
+                    {/*
+                      `<button>` chỉ được chứa phrasing content. Bản trước lồng
+                      `<div>` và `<p>` vào trong nút — HTML không hợp lệ, và
+                      "Invalid HTML tag nesting" nằm đúng trong danh sách nguyên
+                      nhân gây lỗi hydration của Next.js. Mọi khối ở đây đổi sang
+                      `<span className="block">`, cấu trúc thị giác giữ nguyên.
+                    */}
+                    <span className="relative block w-28 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-slate-300 dark:bg-slate-700">
                       {thumbUrl ? (
                         <img
                           src={thumbUrl}
-                          alt={video.title || `Video ${i + 1}`}
+                          alt=""
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
                       ) : null}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center">
-                          <Play className="w-3.5 h-3.5 text-white ml-0.5" />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0 py-0.5">
-                      <p className={`text-sm font-medium truncate ${
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center">
+                          <Play className="w-3.5 h-3.5 text-white ml-0.5" aria-hidden="true" />
+                        </span>
+                      </span>
+                    </span>
+                    <span className="flex-1 min-w-0 py-0.5">
+                      <span className={`block text-sm font-medium truncate ${
                         i === activeIndex
                           ? 'text-teal-700 dark:text-teal-300'
                           : 'text-slate-700 dark:text-slate-300'
                       }`}>
                         {video.title || `Video ${i + 1}`}
-                      </p>
-                    </div>
+                      </span>
+                      {/* Trạng thái = màu + icon + CHỮ. Viền teal một mình không
+                          nói được "video nào đang phát" cho người không phân biệt
+                          được màu. */}
+                      {i === activeIndex && (
+                        <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+                          <Play className="w-3 h-3" aria-hidden="true" />
+                          Đang xem
+                        </span>
+                      )}
+                    </span>
                   </button>
                 )
               })}

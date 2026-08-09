@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { ZoomIn, X } from 'lucide-react'
 import ImageCarousel, { CarouselSlide } from './ImageCarousel'
+import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 interface EnrollmentCarouselProps {
   slides: CarouselSlide[]
   title?: string
   subtitle?: string
   interval?: number
+  surface?: SectionSurface
 }
 
 export default function EnrollmentCarousel({
@@ -16,13 +18,14 @@ export default function EnrollmentCarousel({
   title = 'Tuyển sinh & Lịch khai giảng',
   subtitle = 'Đăng ký ngay — Số lượng có hạn!',
   interval = 6000,
+  surface = 'plain',
 }: EnrollmentCarouselProps) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   if (slides.length === 0) return null
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className={`py-16 sm:py-20 ${surfaceClass(surface)}`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Heading */}
         <div className="text-center mb-10">

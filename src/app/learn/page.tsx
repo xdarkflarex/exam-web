@@ -1,18 +1,35 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import gsap from 'gsap'
-import { ArrowRight, BookOpen, BrainCircuit, ClipboardList, Loader2, LockKeyhole, Search, X } from 'lucide-react'
+import {
+  ArrowRight,
+  BookOpen,
+  BrainCircuit,
+  ClipboardList,
+  Loader2,
+  LockKeyhole,
+  Network,
+  Route,
+  Search,
+  X,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import { getBlockStyle } from '@/lib/theories/block-style'
 import { getMasteryStatusLabel, isMasteryAchieved, type MasteryStat } from '@/lib/analytics/knowledge-mastery'
 import { loadTheoryMastery, type TheoryAssignmentInfo, type TheoryProgress } from '@/lib/analytics/theory-mastery-data'
+import LearningPath from '@/components/theories/LearningPath'
 import type { KnowledgeBlock, KnowledgeBlockEdge } from '@/types/theories'
-import type { SkillTreeBlockLink, SkillTreeItem, SkillTreeLink } from '@/components/theories/SkillTree'
+import type {
+  SkillTreeBlockLink,
+  SkillTreeItem,
+  SkillTreeLink,
+  SkillTreePrerequisite,
+} from '@/components/theories/SkillTree'
 
 const SkillTree = dynamic(() => import('@/components/theories/SkillTree'), {
   ssr: false,
@@ -29,6 +46,88 @@ interface TheoryRow {
   sections?: { name: string; categories?: { name: string; topics?: { name: string } } }
 }
 interface EdgeRow { from_theory_id: string; to_theory_id: string; relation_type: SkillTreeLink['relation'] }
+
+/**
+ * Hai chế độ xem cây kỹ năng (docs/STUDENT_SKILL_TREE_REDESIGN.md mục 1).
+ *
+ * `path` là MẶC ĐỊNH: DOM thường, bố cục bất biến, bàn phím và trình đọc màn
+ * hình chạy tự nhiên. `graph` là tuỳ chọn thứ hai cho ai muốn nhìn quan hệ.
+ */
+type ViewMode = 'path' | 'graph'
+
+const VIEW_MODE_KEY = 'learnViewMode'
+const VIEW_MODE_EVENT = 'minhmath:learn-view-mode'
+
+/**
+ * Bản nhớ tạm khi `localStorage` bị chặn (chế độ duyệt riêng tư).
+ *
+ * Không có nó thì ở những trình duyệt đó nút đổi chế độ bấm không ăn: ghi hỏng
+ * nên snapshot không bao giờ đổi. Ghi nhớ mất sau khi tải lại trang là chấp
+ * nhận được; nút bấm không phản hồi thì không.
+ */
+let viewModeFallback: ViewMode = 'path'
+
+function subscribeToViewMode(onChange: () => void) {
+  // `storage` bắn khi tab KHÁC ghi; sự kiện riêng bắn cho chính tab này.
+  window.addEventListener('storage', onChange)
+  window.addEventListener(VIEW_MODE_EVENT, onChange)
+  return () => {
+    window.removeEventListener('storage', onChange)
+    window.removeEventListener(VIEW_MODE_EVENT, onChange)
+  }
+}
+
+function getViewModeSnapshot(): ViewMode {
+  try {
+    const saved = window.localStorage.getItem(VIEW_MODE_KEY)
+    if (saved === 'path' || saved === 'graph') return saved
+  } catch {
+    // Trình duyệt chặn đọc. Rơi về bản nhớ trong bộ nhớ.
+  }
+  return viewModeFallback
+}
+
+/** Trên server không có `localStorage`, và mặc định đã chốt là Lộ trình. */
+function getViewModeServerSnapshot(): ViewMode {
+  return 'path'
+}
+
+/**
+ * Đồng hồ của trang, đọc bằng `useSyncExternalStore`.
+ *
+ * Thời gian là một hệ thống BÊN NGOÀI React: gọi `Date.now()` lúc render là hàm
+ * không thuần, còn `setState` thẳng trong effect thì tạo lượt render dây chuyền
+ * — `react-hooks/purity` và `react-hooks/set-state-in-effect` chặn cả hai, và
+ * chặn đúng.
+ *
+ * Snapshot được GIỮ NGUYÊN giữa các lượt render và chỉ đọc lại khi tab quay về
+ * tiền cảnh. Hai lý do: `getSnapshot` bắt buộc trả cùng một giá trị trong một
+ * lượt render (gọi thẳng `Date.now()` ở đó làm React render vô hạn), và một mốc
+ * thời gian đứng yên khiến mọi con số trên trang cùng nói về một thời điểm.
+ */
+let clockSnapshot: number | null = null
+
+function subscribeToClock(onChange: () => void) {
+  // Học sinh hay để tab mở qua đêm. Không đọc lại thì "còn 1 ngày" đứng nguyên
+  // trong khi hạn đã trôi qua.
+  const refresh = () => {
+    if (document.visibilityState !== 'visible') return
+    clockSnapshot = Date.now()
+    onChange()
+  }
+  document.addEventListener('visibilitychange', refresh)
+  return () => document.removeEventListener('visibilitychange', refresh)
+}
+
+function getClockSnapshot(): number | null {
+  if (clockSnapshot === null) clockSnapshot = Date.now()
+  return clockSnapshot
+}
+
+/** Server không có đồng hồ của người dùng; `null` nghĩa là "chưa đo được". */
+function getClockServerSnapshot(): number | null {
+  return null
+}
 
 /**
  * `useSearchParams()` bắt buộc phải nằm trong ranh giới `<Suspense>` — xem chú
@@ -66,8 +165,29 @@ function LearnPageContent() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState('')
+  /**
+   * Chế độ xem đọc thẳng từ `localStorage` qua `useSyncExternalStore`.
+   *
+   * Đọc lúc render sẽ lệch hydration (server không có `localStorage`); đọc
+   * trong effect rồi `setState` thì tạo lượt render dây chuyền. `getServerSnapshot`
+   * trả đúng mặc định đã chốt nên lượt vẽ đầu luôn khớp hai bên.
+   */
+  const mode = useSyncExternalStore(subscribeToViewMode, getViewModeSnapshot, getViewModeServerSnapshot)
+  /** Mốc thời gian dùng chung để phân loại bài tập còn hạn / hết hạn. */
+  const now = useSyncExternalStore(subscribeToClock, getClockSnapshot, getClockServerSnapshot)
   const selectedId = searchParams.get('theory')
   const groupOf = useCallback((theory: TheoryRow) => theory.sections?.categories?.name || theory.sections?.name || 'Khác', [])
+
+  const changeMode = useCallback((next: ViewMode) => {
+    viewModeFallback = next
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, next)
+    } catch {
+      // Chế độ duyệt web riêng tư có thể chặn ghi. Bản nhớ tạm ở trên đã giữ
+      // lựa chọn cho phiên này, nên nút vẫn phản hồi.
+    }
+    window.dispatchEvent(new Event(VIEW_MODE_EVENT))
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -148,22 +268,27 @@ function LearnPageContent() {
     return map
   }, [edges])
 
-  const titleById = useMemo(() => new Map(theories.map(theory => [theory.id, theory.title])), [theories])
+  const theoryById = useMemo(() => new Map(theories.map(theory => [theory.id, theory])), [theories])
 
   /**
-   * Khóa mềm: trả về TÊN các bài tiên quyết chưa đạt, không phải cờ chặn.
+   * Khóa mềm: mô tả tiên quyết, KHÔNG chặn.
    *
-   * Bài tiên quyết chưa có bài tập nào thì không tính là thiếu — giáo viên chưa
-   * phủ hết cây là chuyện bình thường, không nên vì thế mà cảnh báo học sinh.
+   * `met: null` nghĩa là chưa có bằng chứng nào để kết luận (bài tiên quyết chưa
+   * được giao bài tập). Chỉ `met === false` mới được tính là "chưa đạt" — giáo
+   * viên chưa phủ hết cây là chuyện bình thường, không nên vì thế mà cảnh báo.
    */
-  const missingPrerequisitesOf = useCallback((id: string) => (incoming.get(id) || [])
-    .filter(prerequisiteId => {
+  const prerequisitesOf = useCallback((id: string): SkillTreePrerequisite[] => (incoming.get(id) || [])
+    .map(prerequisiteId => {
+      const theory = theoryById.get(prerequisiteId)
       const stat = masteryByTheory.get(prerequisiteId)
-      if (!stat) return false
-      return !isMasteryAchieved(stat.status)
-    })
-    .map(prerequisiteId => titleById.get(prerequisiteId) || 'Bài trước'),
-  [incoming, masteryByTheory, titleById])
+      return {
+        id: prerequisiteId,
+        title: theory?.title || 'Bài trước',
+        group: theory ? groupOf(theory) : 'Khác',
+        met: stat ? isMasteryAchieved(stat.status) : null,
+      }
+    }),
+  [groupOf, incoming, masteryByTheory, theoryById])
 
   const groups = useMemo(() => [...new Set(theories.map(groupOf))].sort(), [groupOf, theories])
 
@@ -178,40 +303,60 @@ function LearnPageContent() {
    * Lọc bằng cách bỏ node khiến bố cục nhảy mỗi lần gõ phím, và học sinh không
    * bao giờ xây được bản đồ không gian của cây. Node không khớp chỉ bị làm mờ.
    */
-  const items = useMemo<SkillTreeItem[]>(() => theories.map((theory): SkillTreeItem => {
-    const value = progress.get(theory.id)
-    const stat = masteryByTheory.get(theory.id)
-    const total = value?.total || 0
-    const answered = value?.answered || 0
-    const completion = total > 0 ? Math.round((answered / total) * 100) : null
-    const missing = missingPrerequisitesOf(theory.id)
+  const items = useMemo<SkillTreeItem[]>(() => {
+    return theories.map((theory): SkillTreeItem => {
+      const value = progress.get(theory.id)
+      const stat = masteryByTheory.get(theory.id)
+      const total = value?.total || 0
+      const answered = value?.answered || 0
+      const completion = total > 0 ? Math.round((answered / total) * 100) : null
+      const prerequisites = prerequisitesOf(theory.id)
+      const missingCount = prerequisites.filter(prerequisite => prerequisite.met === false).length
 
-    return {
-      id: theory.id,
-      title: theory.title,
-      group: groupOf(theory),
-      difficulty: theory.difficulty_level,
-      progress: completion,
-      answered,
-      total,
-      pending: value?.pending || 0,
-      assignmentCount: value?.assignmentCount || 0,
-      // Trạng thái hoạt động: chỉ nói về việc đã làm bài tới đâu.
-      status: completion === null
-        ? 'no_homework'
-        : missing.length > 0 && answered === 0
-          ? 'locked'
-          : completion >= 100
-            ? 'completed'
-            : completion > 0
-              ? 'in_progress'
-              : 'available',
-      mastery: stat?.status || 'no_data',
-      accuracy: stat ? stat.accuracy : null,
-      missingPrerequisites: missing,
-      matched: matches(theory),
-    }
-  }), [groupOf, masteryByTheory, matches, missingPrerequisitesOf, progress, theories])
+      // "Đang mở" = chưa quá hạn. Bài quá hạn vẫn được đếm trong `assignmentCount`
+      // nên node phân biệt được ba ca: chưa từng được giao / còn hạn / hết hạn.
+      // Chưa đọc được đồng hồ (`now === null`, chỉ xảy ra trước lượt effect đầu)
+      // thì coi mọi bài là còn mở — thà thừa một lời mời làm bài còn hơn báo hết
+      // hạn oan cho một bài vẫn nộp được.
+      const assignments = assignmentsByTheory.get(theory.id) || []
+      const open = assignments.filter(assignment => (
+        !assignment.deadline || now === null || new Date(assignment.deadline).getTime() >= now
+      ))
+      const withDeadline = open
+        .filter((assignment): assignment is TheoryAssignmentInfo & { deadline: string } => Boolean(assignment.deadline))
+        .sort((a, b) => a.deadline.localeCompare(b.deadline))
+      const nextAssignment = withDeadline[0] || open[0] || null
+
+      return {
+        id: theory.id,
+        title: theory.title,
+        group: groupOf(theory),
+        difficulty: theory.difficulty_level,
+        progress: completion,
+        answered,
+        total,
+        pending: value?.pending || 0,
+        assignmentCount: value?.assignmentCount || 0,
+        openAssignments: open.length,
+        nextDeadline: withDeadline[0]?.deadline || null,
+        nextAssignmentId: nextAssignment?.id || null,
+        // Trạng thái hoạt động: chỉ nói về việc đã làm bài tới đâu.
+        status: completion === null
+          ? 'no_homework'
+          : missingCount > 0 && answered === 0
+            ? 'locked'
+            : completion >= 100
+              ? 'completed'
+              : completion > 0
+                ? 'in_progress'
+                : 'available',
+        mastery: stat?.status || 'no_data',
+        accuracy: stat ? stat.accuracy : null,
+        prerequisites,
+        matched: matches(theory),
+      }
+    })
+  }, [assignmentsByTheory, groupOf, masteryByTheory, matches, now, prerequisitesOf, progress, theories])
 
   const links = useMemo<SkillTreeLink[]>(() => edges.map(edge => ({
     source: edge.from_theory_id, target: edge.to_theory_id, relation: edge.relation_type,
@@ -243,87 +388,238 @@ function LearnPageContent() {
   const selectedAssignments = selectedId ? assignmentsByTheory.get(selectedId) || [] : []
   const prerequisites = selectedId ? (incoming.get(selectedId) || []).map(id => theories.find(theory => theory.id === id)).filter(Boolean) as TheoryRow[] : []
   const selectedStat = selectedId ? masteryByTheory.get(selectedId) : undefined
-  const selectedMissing = selectedId ? missingPrerequisitesOf(selectedId) : []
+  const selectedMissing = selectedId
+    ? prerequisitesOf(selectedId).filter(prerequisite => prerequisite.met === false).map(prerequisite => prerequisite.title)
+    : []
   const matchedCount = items.filter(item => item.matched).length
   const isFiltering = Boolean(group || query.trim())
 
+  // Số liệu tóm tắt cho hero. Mỗi con số neo vào dữ liệu thật; con số bằng 0 thì
+  // KHÔNG hiện dòng đó, thay vì hiện một số 0 trông như thất bại.
+  const openAssignmentTotal = items.reduce((sum, item) => sum + item.openAssignments, 0)
+  const solidCount = items.filter(item => item.mastery === 'stable' || item.mastery === 'mastered').length
+  const weakCount = items.filter(item => item.mastery === 'needs_work' || item.mastery === 'building').length
+
+  const modeButton = (value: ViewMode, label: string, Icon: typeof Route, hint: string) => (
+    <button
+      type="button"
+      onClick={() => changeMode(value)}
+      aria-pressed={mode === value}
+      title={hint}
+      className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 sm:flex-none ${
+        mode === value
+          ? 'bg-teal-600 text-white shadow-sm'
+          : 'text-slate-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-700/60'
+      }`}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      {label}
+    </button>
+  )
+
   return (
     <MathProvider>
-      <div className="space-y-4">
-        <header className="rounded-2xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 p-5 text-white shadow-xl sm:p-7">
-          <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-300"><BrainCircuit className="h-5 w-5" />Skill tree Toán học</p>
-          <h1 className="text-2xl font-bold sm:text-3xl">Tri thức và bài tập</h1>
-          <p className="mt-2 text-sm text-slate-300">Đọc bài và làm homework ngay trong một workspace.</p>
-        </header>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <label className="relative flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm bài học..." className="w-full rounded-xl border bg-white py-2.5 pl-9 pr-3 text-sm dark:bg-slate-900" /></label>
-          <select value={group} onChange={event => { setGroup(event.target.value); void preloadGroup(event.target.value) }} className="rounded-xl border bg-white px-4 py-2.5 text-sm dark:bg-slate-900"><option value="">Tất cả chuyên đề</option>{groups.map(name => <option key={name}>{name}</option>)}</select>
-          {isFiltering && (
-            <p className="text-xs text-slate-500" role="status">
-              {matchedCount > 0
-                ? `${matchedCount}/${items.length} bài khớp — các bài còn lại được làm mờ`
-                : 'Không có bài nào khớp'}
+      <div className="space-y-5">
+        <header className="soft-shadow relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 p-5 text-white sm:p-7">
+          {/* Hoạ tiết giấy kẻ ô — chất liệu lấy từ chính môn học (mục 7.2). Vẽ
+              bằng gradient nên không thêm request ảnh nào. Đây là bề mặt gradient
+              DUY NHẤT của trang. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(to right, rgba(226,232,240,0.06) 0 1px, transparent 1px 100%), repeating-linear-gradient(to bottom, rgba(226,232,240,0.06) 0 1px, transparent 1px 100%)',
+              backgroundSize: '28px 28px',
+            }}
+          />
+          <div className="relative">
+            <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-300">
+              <BrainCircuit className="h-5 w-5" aria-hidden="true" />
+              Lộ trình Toán học
             </p>
-          )}
+            <h1 className="font-baloo text-2xl font-bold sm:text-3xl">Tri thức và bài tập</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-300">
+              Đọc lý thuyết và làm bài tập được giao trong cùng một chỗ. Màu trên lộ trình là tỷ lệ trả lời
+              <span className="font-semibold text-white"> đúng</span>, không phải số câu đã làm.
+            </p>
+
+            {!loading && (
+              <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <div className="flex items-baseline gap-1.5">
+                  <dt className="sr-only">Số bài học</dt>
+                  <dd className="font-baloo text-2xl font-bold text-white">{items.length}</dd>
+                  <span className="text-slate-300">bài học</span>
+                </div>
+                {openAssignmentTotal > 0 && (
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="sr-only">Bài tập đang mở</dt>
+                    <dd className="font-baloo text-2xl font-bold text-teal-300">{openAssignmentTotal}</dd>
+                    <span className="text-slate-300">bài tập đang mở</span>
+                  </div>
+                )}
+                {solidCount > 0 && (
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="sr-only">Bài đã vững</dt>
+                    <dd className="font-baloo text-2xl font-bold text-emerald-300">{solidCount}</dd>
+                    <span className="text-slate-300">bài đã vững</span>
+                  </div>
+                )}
+                {weakCount > 0 && (
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="sr-only">Mảng cần củng cố</dt>
+                    <dd className="font-baloo text-2xl font-bold text-amber-300">{weakCount}</dd>
+                    <span className="text-slate-300">cần củng cố</span>
+                  </div>
+                )}
+              </dl>
+            )}
+
+            {/* `<dl>` chỉ nhận `<dt>`/`<dd>`/`<div>`, nên câu này phải nằm NGOÀI
+                danh sách định nghĩa chứ không lồng vào trong. */}
+            {!loading && openAssignmentTotal === 0 && solidCount === 0 && weakCount === 0 && (
+              <p className="mt-2 text-sm text-slate-300">
+                Chưa có bài tập nào được giao — bạn vẫn đọc được toàn bộ lý thuyết.
+              </p>
+            )}
+          </div>
+        </header>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="relative flex-1">
+            <span className="sr-only">Tìm bài học</span>
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden="true" />
+            <input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Tìm bài học..."
+              className="w-full rounded-xl border border-slate-200 bg-[var(--background-raised)] py-2.5 pl-9 pr-3 text-sm text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label className="sm:w-56">
+            <span className="sr-only">Lọc theo chuyên đề</span>
+            <select
+              value={group}
+              onChange={event => { setGroup(event.target.value); void preloadGroup(event.target.value) }}
+              className="w-full rounded-xl border border-slate-200 bg-[var(--background-raised)] px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="">Tất cả chuyên đề</option>
+              {groups.map(name => <option key={name}>{name}</option>)}
+            </select>
+          </label>
+          <div
+            role="group"
+            aria-label="Chế độ hiển thị cây kỹ năng"
+            className="flex rounded-xl border border-slate-200 bg-[var(--background-card)] p-1 dark:border-slate-700 dark:bg-slate-900"
+          >
+            {modeButton('path', 'Lộ trình', Route, 'Danh sách dọc theo chuyên đề — bố cục không đổi khi lọc')}
+            {modeButton('graph', 'Sơ đồ', Network, 'Đồ thị quan hệ giữa các bài học')}
+          </div>
         </div>
-        <div className={`grid gap-4 ${selectedTheory ? 'lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.65fr)]' : ''}`}>
-          <section className="h-[76vh] min-h-[620px] overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950 shadow-2xl">
+
+        {isFiltering && (
+          <p className="text-xs text-slate-500 dark:text-slate-400" role="status">
+            {matchedCount > 0
+              ? `${matchedCount}/${items.length} bài khớp — các bài còn lại được làm mờ, vị trí giữ nguyên`
+              : 'Không có bài nào khớp'}
+          </p>
+        )}
+
+        <div className={`grid gap-5 ${selectedTheory ? 'lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.65fr)]' : ''}`}>
+          <div className="min-w-0">
             {loading ? (
-              <Loader2 className="mx-auto mt-40 h-8 w-8 animate-spin text-teal-600" />
-            ) : (
-              <SkillTree
+              <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+              </div>
+            ) : mode === 'path' ? (
+              <LearningPath
                 items={items}
-                links={links}
                 selectedId={selectedId}
-                expandedId={expandedId}
-                expandedBlocks={expandedBlocks}
-                expandedBlockLinks={expandedBlockLinks}
+                filtering={isFiltering}
+                now={now}
                 onSelect={item => selectTheory(item.id)}
               />
+            ) : (
+              <section className="h-[76vh] min-h-[620px] overflow-hidden rounded-2xl border border-slate-200 shadow-xl dark:border-slate-700/70">
+                <SkillTree
+                  items={items}
+                  links={links}
+                  selectedId={selectedId}
+                  expandedId={expandedId}
+                  expandedBlocks={expandedBlocks}
+                  expandedBlockLinks={expandedBlockLinks}
+                  onSelect={item => selectTheory(item.id)}
+                />
+              </section>
             )}
-          </section>
+          </div>
+
           {selectedTheory && (
             <>
               <button aria-label="Đóng nội dung" onClick={() => router.push('/learn', { scroll: false })} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
-              <aside ref={panelRef} className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto overflow-x-hidden rounded-t-3xl border border-slate-700/70 bg-slate-950 p-5 text-slate-100 shadow-2xl lg:static lg:z-auto lg:max-h-[76vh] lg:rounded-2xl">
-                <div className="sticky -top-5 z-10 -mx-5 mb-4 border-b border-white/10 bg-slate-950/95 px-5 py-4 backdrop-blur">
+              {/*
+                Panel trước đây hardcode `bg-slate-950 text-slate-100`, tức ép dark
+                mode ngay cả khi cả trang đang sáng. Chuyển sang token nền/viền để
+                light mode là light mode thật (docs/DESIGN_TODO.md mục 0).
+              */}
+              <aside
+                ref={panelRef}
+                className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto overflow-x-hidden rounded-t-3xl border border-slate-200 bg-[var(--background-card)] p-5 text-slate-700 shadow-2xl dark:border-slate-700/70 dark:bg-slate-900 dark:text-slate-200 lg:sticky lg:top-20 lg:inset-x-auto lg:bottom-auto lg:z-auto lg:max-h-[calc(100vh-6rem)] lg:rounded-2xl"
+              >
+                <div
+                  className="sticky -top-5 z-10 -mx-5 mb-4 border-b border-slate-200 px-5 py-4 backdrop-blur dark:border-slate-700"
+                  style={{ backgroundColor: 'var(--background-overlay)' }}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-300">{groupOf(selectedTheory)}</p>
-                      <h2 className="mt-1 text-xl font-black tracking-tight text-white">{selectedTheory.title}</h2>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700 dark:text-teal-300">{groupOf(selectedTheory)}</p>
+                      <h2 className="mt-1 text-xl font-black tracking-tight text-slate-900 dark:text-white">{selectedTheory.title}</h2>
                     </div>
-                    <button onClick={() => router.push('/learn', { scroll: false })} className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
+                    <button
+                      aria-label="Đóng nội dung bài học"
+                      onClick={() => router.push('/learn', { scroll: false })}
+                      className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                    >
+                      <X className="h-5 w-5" aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
-                {selectedTheory.description && <p className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-relaxed text-slate-300">{selectedTheory.description}</p>}
+                {selectedTheory.description && <p className="mb-4 rounded-2xl border border-slate-200 bg-[var(--background)] p-4 text-sm leading-relaxed text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">{selectedTheory.description}</p>}
                 {selectedStat && (
-                  <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Năng lực của bạn ở bài này</p>
-                    <p className="mt-1.5 text-lg font-black text-white">
+                  <div className="mb-4 rounded-2xl border border-slate-200 bg-[var(--background)] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Năng lực của bạn ở bài này</p>
+                    <p className="mt-1.5 text-lg font-black text-slate-900 dark:text-white">
                       {getMasteryStatusLabel(selectedStat.status)}
-                      <span className="ml-2 text-sm font-semibold text-slate-400">{selectedStat.accuracy}% đúng</span>
+                      <span className="ml-2 text-sm font-semibold text-slate-500 dark:text-slate-400">{selectedStat.accuracy}% đúng</span>
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Tính trên {selectedStat.answeredCount} câu đã được chấm ({selectedStat.correctCount} câu đúng).
                     </p>
                   </div>
                 )}
-                {prerequisites.length > 0 && <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100"><p className="mb-1 font-semibold text-amber-200">Tiên quyết</p>{prerequisites.map(item => <button key={item.id} onClick={() => selectTheory(item.id)} className="mr-2 text-amber-100 hover:underline">{item.title}</button>)}</div>}
+                {prerequisites.length > 0 && (
+                  <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                    <p className="mb-1 font-semibold text-amber-800 dark:text-amber-200">Tiên quyết</p>
+                    {prerequisites.map(item => (
+                      <button key={item.id} onClick={() => selectTheory(item.id)} className="mr-2 font-medium underline-offset-2 hover:underline">{item.title}</button>
+                    ))}
+                  </div>
+                )}
                 {!content ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-teal-600" /></div> : (
                   <div key={selectedId} className="space-y-4">
                     {content.content_md && !blocks.length && (
-                      <div className="min-w-0 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                        <MathContent content={content.content_md} className="max-w-full text-slate-100" />
+                      <div className="min-w-0 overflow-x-auto rounded-2xl border border-slate-200 bg-[var(--background)] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                        <MathContent content={content.content_md} className="max-w-full" />
                       </div>
                     )}
                     {blocks.map(block => {
                       const style = getBlockStyle(block.block_type)
                       return (
-                        <section key={block.id} className="min-w-0 overflow-hidden rounded-2xl border bg-white/[0.035] p-4 shadow-lg shadow-black/20" style={{ borderColor: style.color }}>
+                        <section key={block.id} className="min-w-0 overflow-hidden rounded-2xl border bg-[var(--background)] p-4 shadow-sm dark:bg-white/[0.035] dark:shadow-lg dark:shadow-black/20" style={{ borderColor: style.color }}>
                           <p className="mb-2 text-xs font-black uppercase tracking-[0.16em]" style={{ color: style.color }}>{style.icon} {style.label}</p>
-                          {block.title && <h3 className="mb-3 text-lg font-black leading-snug text-white">{block.title}</h3>}
+                          {block.title && <h3 className="mb-3 text-lg font-black leading-snug text-slate-900 dark:text-white">{block.title}</h3>}
                           {block.body_md && (
-                            <div className="min-w-0 max-w-full overflow-x-auto pb-1 text-slate-100 [scrollbar-width:thin]">
+                            <div className="min-w-0 max-w-full overflow-x-auto pb-1 [scrollbar-width:thin]">
                               <MathContent content={block.body_md} className="max-w-full" />
                             </div>
                           )}
@@ -332,20 +628,24 @@ function LearnPageContent() {
                     })}
                   </div>
                 )}
-                <div className="mt-5 border-t border-white/10 pt-4">
-                  <h3 className="mb-3 flex items-center gap-2 font-semibold text-white"><ClipboardList className="h-4 w-4 text-teal-300" />Bài tập được giao</h3>
+                <div className="mt-5 border-t border-slate-200 pt-4 dark:border-white/10">
+                  <h3 className="mb-3 flex items-center gap-2 font-semibold text-slate-900 dark:text-white"><ClipboardList className="h-4 w-4 text-teal-600 dark:text-teal-300" aria-hidden="true" />Bài tập được giao</h3>
                   {selectedAssignments.map(assignment => (
-                    <div key={assignment.id} className="mb-2 rounded-xl border border-teal-300/20 bg-teal-400/10 p-3">
-                      <p className="font-medium">{assignment.title || assignment.homeworkTitle}</p>
-                      <p className="text-xs text-slate-400">{assignment.deadline ? `Hạn ${new Date(assignment.deadline).toLocaleString('vi-VN')}` : 'Không hạn nộp'}</p>
-                      <Link href={`/homework/prepare/${assignment.id}`} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-teal-300">Làm bài <ArrowRight className="h-4 w-4" /></Link>
+                    <div key={assignment.id} className="mb-2 rounded-xl border border-teal-600/25 bg-teal-50 p-3 dark:border-teal-300/20 dark:bg-teal-400/10">
+                      <p className="font-medium text-slate-800 dark:text-slate-100">{assignment.title || assignment.homeworkTitle}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{assignment.deadline ? `Hạn ${new Date(assignment.deadline).toLocaleString('vi-VN')}` : 'Không hạn nộp'}</p>
+                      <Link href={`/homework/prepare/${assignment.id}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-teal-700 hover:underline dark:text-teal-300">Làm bài <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
                     </div>
                   ))}
-                  {!selectedAssignments.length && <p className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-400">Chưa có bài tập được giao cho bài học này.</p>}
+                  {!selectedAssignments.length && (
+                    <p className="rounded-xl border border-slate-200 bg-[var(--background)] p-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                      Chưa có bài tập được giao cho bài học này — bạn vẫn đọc lý thuyết được.
+                    </p>
+                  )}
                 </div>
                 {selectedMissing.length > 0 && (
-                  <p className="mt-4 flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
-                    <LockKeyhole className="h-4 w-4 shrink-0" />
+                  <p className="mt-4 flex gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                    <LockKeyhole className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>
                       Nên học vững {selectedMissing.join(', ')} trước. Bài này vẫn mở — bạn có thể đọc và làm ngay nếu muốn.
                     </span>
@@ -355,7 +655,14 @@ function LearnPageContent() {
             </>
           )}
         </div>
-        <p className="flex items-center gap-2 text-xs text-slate-500"><BookOpen className="h-4 w-4" />Màu và phần trăm trên node là tỷ lệ trả lời đúng ở các bài tập được giao. Bài chưa được giao bài tập vẫn đọc lý thuyết được.</p>
+
+        <p className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <BookOpen className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Màu và phần trăm là tỷ lệ trả lời <strong>đúng</strong> ở các bài tập được giao, không phải số câu đã làm.
+            Bài chưa được giao bài tập vẫn đọc lý thuyết được, và không bài nào bị khoá.
+          </span>
+        </p>
       </div>
     </MathProvider>
   )
