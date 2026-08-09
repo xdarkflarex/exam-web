@@ -540,7 +540,31 @@ function LearnPageContent() {
                 onSelect={item => selectTheory(item.id)}
               />
             ) : (
-              <section className="h-[76vh] min-h-[620px] overflow-hidden rounded-2xl border border-slate-200 shadow-xl dark:border-slate-700/70">
+              <>
+                {/*
+                  Nói thẳng giới hạn thay vì để học sinh tự vật lộn. Node rộng
+                  248px trên màn 375px thì đồ thị quan hệ không đọc nổi dù canvas
+                  có vừa khung hình — đó là giới hạn của chính kiểu biểu diễn,
+                  không phải thứ chỉnh CSS chữa được. Lộ trình là chế độ mặc định
+                  và đọc tốt trên điện thoại, nên chỉ cần chỉ đường quay lại.
+                */}
+                <p
+                  className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 sm:hidden dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                  role="note"
+                >
+                  <Network className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    Sơ đồ quan hệ xem trên máy tính hoặc máy tính bảng sẽ rõ hơn nhiều.
+                    Trên điện thoại, chế độ <strong>Lộ trình</strong> dễ đọc hơn.
+                  </span>
+                </p>
+              <section className="h-[70vh] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 shadow-xl sm:min-h-[560px] lg:h-[76vh] lg:min-h-[620px] dark:border-slate-700/70">
+                {/*
+                  `min-h-[620px]` cố định là lý do chế độ Sơ đồ không dùng được
+                  trên điện thoại: nó ép một canvas pan/zoom cao hơn phần lớn
+                  khung nhìn, nên cử chỉ kéo để cuộn trang và kéo để di chuyển
+                  đồ thị tranh nhau. Hạ ngưỡng theo bề rộng màn hình.
+                */}
                 <SkillTree
                   items={items}
                   links={links}
@@ -551,6 +575,7 @@ function LearnPageContent() {
                   onSelect={item => selectTheory(item.id)}
                 />
               </section>
+              </>
             )}
           </div>
 
