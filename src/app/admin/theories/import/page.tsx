@@ -6,7 +6,7 @@ import { AdminHeader } from '@/components/admin'
 import MathContent from '@/components/MathContent'
 import { parseTexFile, parseMultipleTexFiles, parseMainFile, markdownToTexLesson } from '@/lib/theories/latex-parser'
 import type { ParsedBlock } from '@/lib/theories/latex-parser'
-import { createTheory, createKnowledgeBlock, createKnowledgeBlockEdge, getLatexTemplates } from '@/lib/theories/actions'
+import { createTheory, createKnowledgeBlock, createKnowledgeBlockEdge, getLatexTemplates, createSectionUnderCategory } from '@/lib/theories/actions'
 import { BLOCK_STYLES } from '@/lib/theories/block-style'
 import type { BlockType, LatexTemplate } from '@/types/theories'
 import { useRouter } from 'next/navigation'
@@ -69,6 +69,17 @@ export default function ImportTheoriesPage() {
   const [categories, setCategories] = useState<(TaxonomyItem & { topic_id: string })[]>([])
   const [sections, setSections] = useState<(TaxonomyItem & { category_id: string; topic_id: string })[]>([])
   const [selectedSectionId, setSelectedSectionId] = useState('')
+  /**
+   * Chế độ gắn bài lý thuyết vào đâu.
+   *
+   * `existing` là hành vi cũ: chọn một `section` đã có.
+   * `auto` là đường cho nhánh SGK (phương án B): chọn CHƯƠNG, rồi mỗi file .tex
+   * tự tạo một bài mang đúng tiêu đề mà parser đọc được. Nhờ vậy tên bài trong
+   * taxonomy không bao giờ lệch với tiêu đề lý thuyết — nếu gõ tay hai nơi thì
+   * sớm muộn cũng lệch.
+   */
+  const [assignMode, setAssignMode] = useState<'existing' | 'auto'>('existing')
+  const [selectedCategoryId, setSelectedCategoryId] = useState('')
 
   // Import state
   const [importing, setImporting] = useState(false)
@@ -189,8 +200,12 @@ export default function ImportTheoriesPage() {
   // =============================================
 
   const handleImport = async () => {
-    if (!selectedSectionId) {
-      alert('Vui lòng chọn chương (section) để gắn bài lý thuyết')
+    if (assignMode === 'existing' && !selectedSectionId) {
+      alert('Vui lòng chọn bài (section) để gắn bài lý thuyết')
+      return
+    }
+    if (assignMode === 'auto' && !selectedCategoryId) {
+      alert('Vui lòng chọn chương để tạo bài mới')
       return
     }
 
@@ -211,8 +226,22 @@ export default function ImportTheoriesPage() {
     for (let i = 0; i < toImport.length; i++) {
       const lesson = toImport[i]
       try {
+        /*
+          Ở chế độ `auto`, mỗi file .tex thành MỘT bài riêng trong chương đã
+          chọn. Tên bài lấy thẳng từ `lesson.title` do parser đọc, nên taxonomy
+          và lý thuyết luôn cùng một tên.
+        */
+        const targetSectionId =
+          assignMode === 'auto'
+            ? (await createSectionUnderCategory({
+                categoryId: selectedCategoryId,
+                name: lesson.title,
+                orderIndex: i,
+              })).id
+            : selectedSectionId
+
         const theory = await createTheory({
-          section_id: selectedSectionId,
+          section_id: targetSectionId,
           title: lesson.title,
           slug: lesson.slug,
           description: `Bài lý thuyết: ${lesson.title}`,
@@ -463,18 +492,73 @@ export default function ImportTheoriesPage() {
           {/* Section picker (dùng chung) */}
           <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-4">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Chương (Section) để import/export
+              Nơi gắn bài lý thuyết
             </label>
-            <select
-              value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none text-sm"
-            >
-              <option value="">-- Chọn chương --</option>
-              {sectionOptions.map(opt => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
-              ))}
-            </select>
+
+            {/* Chọn chế độ. Chỉ hiện khi đang import — xuất LaTeX thì luôn cần
+                một bài có sẵn, không có gì để tạo mới. */}
+            {direction === 'import' && (
+              <div role="group" aria-label="Cách gắn bài" className="mb-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignMode('existing')}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    assignMode === 'existing'
+                      ? 'bg-teal-600 text-white'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  Chọn bài có sẵn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignMode('auto')}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    assignMode === 'auto'
+                      ? 'bg-teal-600 text-white'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  Chọn chương — tự tạo bài theo file
+                </button>
+              </div>
+            )}
+
+            {direction === 'import' && assignMode === 'auto' ? (
+              <>
+                <select
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value="">-- Chọn chương --</option>
+                  {topics.flatMap(topic =>
+                    categories
+                      .filter(c => c.topic_id === topic.id)
+                      .map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {topic.name} &gt; {cat.name}
+                        </option>
+                      ))
+                  )}
+                </select>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Mỗi file <code>.tex</code> sẽ tạo một bài mới trong chương này, tên lấy
+                  từ tiêu đề trong file. Dùng cho nhánh SGK vừa tạo.
+                </p>
+              </>
+            ) : (
+              <select
+                value={selectedSectionId}
+                onChange={(e) => setSelectedSectionId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">-- Chọn bài --</option>
+                {sectionOptions.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* ============================================ */}
@@ -667,7 +751,7 @@ export default function ImportTheoriesPage() {
 
               <button
                 onClick={handleExportFromWeb}
-                disabled={!selectedSectionId}
+                disabled={(assignMode === 'auto' ? !selectedCategoryId : !selectedSectionId)}
                 className="px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
@@ -784,7 +868,7 @@ export default function ImportTheoriesPage() {
                     </button>
                     <button
                       onClick={handleImport}
-                      disabled={importing || !selectedSectionId}
+                      disabled={importing || (assignMode === 'auto' ? !selectedCategoryId : !selectedSectionId)}
                       className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
                     >
                       {importing ? (

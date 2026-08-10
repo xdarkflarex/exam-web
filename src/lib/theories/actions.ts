@@ -907,3 +907,59 @@ export async function searchTheories(query: string) {
   if (error) throw error
   return data as Theory[]
 }
+
+/**
+ * Tạo một `section` (bài) mới dưới một `category` (chương).
+ *
+ * Sinh ra cho nhánh SGK của lý thuyết (phương án B, chốt 2026-08-09): trang
+ * `/admin/theories/import` trước đây chỉ ĐỌC `sections`, nên các chương SGK vừa
+ * tạo không có bài nào để chọn và không nhập được gì vào.
+ *
+ * `sections.id` là `text` không có default, nên id do đây sinh: slug của tên bài
+ * kèm hậu tố ngắn để hai bài trùng tên ở hai chương khác nhau không đụng nhau.
+ *
+ * KHÔNG tự đoán `topic_id`: lấy từ chính `category` cha để bài không bao giờ
+ * lạc sang lớp khác với chương chứa nó.
+ */
+export async function createSectionUnderCategory(input: {
+  categoryId: string
+  name: string
+  orderIndex?: number
+}) {
+  const supabase = createClient()
+
+  const { data: category, error: catError } = await supabase
+    .from('categories')
+    .select('id, topic_id')
+    .eq('id', input.categoryId)
+    .single()
+
+  if (catError) throw catError
+  if (!category) throw new Error(`Không tìm thấy chương: ${input.categoryId}`)
+
+  const slug = input.name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+
+  const id = `${input.categoryId}-${slug || 'bai'}-${Date.now().toString(36).slice(-4)}`
+
+  const { data, error } = await supabase
+    .from('sections')
+    .insert({
+      id,
+      name: input.name,
+      category_id: category.id,
+      topic_id: category.topic_id,
+      order_index: input.orderIndex ?? 0,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as { id: string; name: string; category_id: string; topic_id: string }
+}
