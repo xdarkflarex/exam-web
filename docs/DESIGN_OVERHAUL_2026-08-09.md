@@ -127,6 +127,79 @@ nhưng đổi CSS toàn site, nên để chủ dự án quyết.
 
 ---
 
+## 3b. Cây kỹ năng mới — nền tảng thiết kế (2026-08-09)
+
+Chủ dự án quyết: **dựng lại hoàn toàn, thay CẢ HAI chế độ, gỡ ReactFlow**, và
+lấy `D:\ToanTHPT\LATEX\HethongtrithucToanTHPT` cùng taxonomy ngân hàng câu hỏi
+làm nguồn.
+
+### Nguồn thật là các file `.ttk`
+
+Hệ thống LaTeX sinh ra `filechinh-lop{10,11,12}.ttk`, và đó chính là đồ thị tri
+thức, không phải sản phẩm phụ của việc biên dịch:
+
+```
+BLOCK ĐỊNH NGHĨA {bai01-dn-daoham} {Định nghĩa đạo hàm}
+BLOCK ĐỊNH LÝ {bai01-dl-tiep-tuyen} {Phương trình tiếp tuyến của đồ thị}
+EDGE prerequisite bai01-dl-tiep-tuyen{bai01-dn-daoham}
+```
+
+Quy mô đo được:
+
+| Lớp | BLOCK | EDGE |
+|---|---:|---:|
+| 10 | 70 | 43 |
+| 11 | 110 | 98 |
+| 12 | 202 | 141 |
+| **Tổng** | **382** | **296** (292 `prerequisite`, 4 `related`) |
+
+### Chín loại BLOCK khớp 1:1 với `BlockType` của web
+
+Đây là điểm mấu chốt. `src/types/theories.ts` đã có đúng chín giá trị, chỉ khác
+cách viết:
+
+| `.ttk` | `BlockType` | Số lượng |
+|---|---|---:|
+| ĐỊNH NGHĨA | `dinh_nghia` | 62 |
+| ĐỊNH LÝ | `dinh_ly` | 15 |
+| TÍNH CHẤT | `tinh_chat` | 34 |
+| HỆ QUẢ | `he_qua` | 1 |
+| CÔNG THỨC | `cong_thuc` | 38 |
+| PHƯƠNG PHÁP | `phuong_phap` | 63 |
+| CHÚ Ý | `chu_y` | 34 |
+| VÍ DỤ | `vi_du` | 125 |
+| BÀI TẬP | `bai_tap` | 47 |
+
+Không cần migration, không cần đổi bảng: web đã mô hình hoá đúng thứ LaTeX sinh
+ra. Việc còn lại thuần là trình bày.
+
+### Hai trục, và vì sao điều đó quyết định thiết kế
+
+Loại BLOCK **không phải nhãn phân loại tuỳ ý** — chúng là một trình tự học có
+thật, và đó là thứ cây cũ bỏ lỡ hoàn toàn:
+
+```
+ĐỊNH NGHĨA → ĐỊNH LÝ / TÍNH CHẤT / HỆ QUẢ → CÔNG THỨC
+           → PHƯƠNG PHÁP → VÍ DỤ → BÀI TẬP
+```
+
+Trục thứ hai đến từ ngân hàng câu hỏi: `cognitive_level` **NB → TH → VD → VDC**
+(`LEVEL_LABELS` trong `src/lib/analytics/student-capability.ts`).
+
+Cây cũ vẽ một đồ thị quan hệ phẳng, không thể hiện trục nào trong hai trục này —
+nên nó chỉ nói "bài A nối bài B" mà không nói "học tới đâu rồi". Cây mới phải
+đọc được **trình tự** (đang ở khâu nào trong một bài) và **độ sâu** (đã lên tới
+mức nhận thức nào), vì đó mới là hai câu hỏi học sinh thật sự cần trả lời.
+
+### Ràng buộc giữ nguyên
+
+- Không đổi bảng, không migration: `theories`, `knowledge_blocks`,
+  `knowledge_block_edges`, `question_knowledge_links` giữ nguyên.
+- Màu vẫn lấy theo `mastery` (độ chính xác), không theo tiến độ — bất biến từ
+  mục 2.1 của `STUDENT_SKILL_TREE_REDESIGN.md`.
+- Gỡ `@xyflow/react` và `dagre` khỏi bundle sau khi xoá `SkillTree.tsx`.
+- Phải đọc được trên màn 375px — đây là lý do gốc khiến chủ dự án bỏ cây cũ.
+
 ## 4. Chưa xác minh được
 
 ### Lưới hoạt động trống và "Mảng cần củng cố" không hiện
