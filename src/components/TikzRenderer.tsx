@@ -1,6 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { tikzFigureKey } from '@/lib/theories/tikz-figure-key'
+
+/**
+ * Hiển thị một hình TikZ, theo thứ tự ưu tiên:
+ *
+ * 1. SVG dựng sẵn ở `public/tikz/<khoá>.svg` — do
+ *    `scripts/render-tikz-svg.mjs` biên dịch bằng LaTeX thật của thầy. Giống
+ *    hệt hình trong sách in, tải nhanh, không cần mạng ngoài.
+ * 2. TikZJax trong trình duyệt — dự phòng cho hình chưa kịp dựng. Lưu ý nó
+ *    KHÔNG có `tkz-tab` và không biết các màu riêng của bộ bài, nên bảng biến
+ *    thiên gần như chắc chắn rơi xuống bước 3.
+ * 3. Khung xổ ra mã TikZ để còn đọc được nội dung.
+ */
 
 interface TikzRendererProps {
   /** Raw TikZ code, with or without \begin{tikzpicture}...\end{tikzpicture}. */
@@ -8,6 +21,9 @@ interface TikzRendererProps {
   className?: string
   packages?: Record<string, string>
 }
+
+/** Thư mục chứa SVG dựng sẵn, tương ứng `--out` của script. */
+const PREBUILT_DIR = '/tikz'
 
 let tikzjaxLoaded = false
 let tikzjaxLoading = false
@@ -79,6 +95,14 @@ export default function TikzRenderer({
   const [fallbackMode, setFallbackMode] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
 
+  const figureKey = useMemo(() => tikzFigureKey(code), [code])
+  const [prebuilt, setPrebuilt] = useState<'checking' | 'found' | 'missing'>('checking')
+
+  // Mã hình đổi thì phải hỏi lại xem có SVG dựng sẵn không
+  useEffect(() => {
+    setPrebuilt('checking')
+  }, [figureKey])
+
   useEffect(() => {
     const element = viewportRef.current
     if (!element) return
@@ -104,6 +128,8 @@ export default function TikzRenderer({
 
   useEffect(() => {
     if (!isVisible) return
+    // Có SVG dựng sẵn (hoặc còn đang chờ ảnh trả lời) thì chưa cần TikZJax
+    if (prebuilt !== 'missing') return
 
     let cancelled = false
     let pollTimer: number | undefined
@@ -177,11 +203,44 @@ export default function TikzRenderer({
       cancelled = true
       if (pollTimer) window.clearInterval(pollTimer)
     }
-  }, [code, isVisible, packages, retryKey])
+  }, [code, isVisible, packages, prebuilt, retryKey])
+
+  /*
+    Ảnh dựng sẵn. Vẫn gắn vào cây DOM khi đang `checking` (ẩn đi) để trình
+    duyệt tải và cho biết có tệp hay không — 404 thì `onError` chuyển sang
+    TikZJax. Nền trắng cố định: SVG do LaTeX sinh ra là nét đen trên nền trong
+    suốt, để nguyên thì nền tối không nhìn thấy gì.
+  */
+  if (prebuilt !== 'missing') {
+    return (
+      <div ref={viewportRef} className={`my-4 flex justify-center ${className}`}>
+        {prebuilt === 'checking' && (
+          <div className="flex items-center gap-2 py-4 text-sm text-slate-400 dark:text-slate-500">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+            Đang tải hình...
+          </div>
+        )}
+        {/* next/image không tối ưu SVG (còn phải bật dangerouslyAllowSVG), nên <img> là đúng ở đây */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${PREBUILT_DIR}/${figureKey}.svg`}
+          alt="Hình minh hoạ"
+          loading="lazy"
+          onLoad={() => setPrebuilt('found')}
+          onError={() => setPrebuilt('missing')}
+          className={`h-auto max-w-full rounded-xl bg-white p-2 dark:ring-1 dark:ring-slate-700 ${
+            prebuilt === 'found' ? '' : 'hidden'
+          }`}
+        />
+      </div>
+    )
+  }
 
   if (fallbackMode || status === 'error') {
     return (
-      <div ref={viewportRef} className={`my-4 ${className}`}>
+      // `tex2jax_ignore`: khung dự phòng in ra mã TikZ thô, MathJax không được
+      // đụng vào nếu không lại báo "Unknown environment 'tikzpicture'".
+      <div ref={viewportRef} className={`my-4 tex2jax_ignore ${className}`}>
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="rounded bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">TikZ</span>

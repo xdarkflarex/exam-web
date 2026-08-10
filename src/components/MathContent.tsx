@@ -7,6 +7,7 @@ import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import dynamic from 'next/dynamic'
 import { normalizeLatexTablesForMarkdown } from '@/lib/theories/latex-normalize'
+import { hasHtmlMarkup, hasMarkdownSyntax } from '@/lib/markdown/content-kind'
 
 // Lazy load TikzRenderer (heavy dependency)
 const TikzRenderer = dynamic(() => import('./TikzRenderer'), {
@@ -26,11 +27,34 @@ const config = {
     displayMath: [['$$', '$$'], ['\\[', '\\]']],
     processEscapes: true,
   },
+  options: {
+    /*
+      MathJax phải chừa hình TikZ ra. TikZJax bơm SVG (và trước đó là thẻ
+      <script type="text/tikz"> chứa mã LaTeX thô) vào `.tikz-container`; nếu
+      MathJax quét vào đó nó sẽ gặp `\begin{tikzpicture}` và báo
+      "Unknown environment 'tikzpicture'".
+    */
+    ignoreHtmlClass: 'tikz-container|tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process',
+  },
 }
 
 interface MathContentProps {
   content: string
   className?: string
+  /**
+   * Định dạng của `content`.
+   *
+   * `auto` (mặc định) tự đoán — hợp cho ngân hàng câu hỏi, nơi nội dung khi thì
+   * HTML dán từ Word, khi thì Markdown, khi thì chữ thường.
+   *
+   * `markdown` là khi bên gọi BIẾT CHẮC, ví dụ `content_md` / `body_md` do
+   * parser LaTeX sinh ra. Cần nói rõ vì phép đoán không thể đúng hết: đo trên
+   * 384 khối lý thuyết thật thì 94 khối chỉ có công thức và đoạn văn, không có
+   * dấu hiệu Markdown nào (`**`, `-`, `##`), nên bị coi là chữ thường và mất
+   * hết ngắt đoạn.
+   */
+  format?: 'auto' | 'markdown'
 }
 
 export function MathProvider({ children }: { children: ReactNode }) {
@@ -41,10 +65,6 @@ export function MathProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// Detect if content has markdown syntax
-function hasMarkdown(text: string): boolean {
-  return /(?:^|\n)#{1,6}\s|(?:^|\n)[-*+]\s|(?:^|\n)\d+\.\s|\*\*.+?\*\*|__.+?__|\*.+?\*|_[^_]+_|~~.+?~~|`.+?`|(?:^|\n)>\s|(?:^|\n)```|\[.+?\]\(.+?\)|(?:^|\n)\|.+\|/.test(text)
-}
 
 // Custom code renderer that handles tikz blocks
 const markdownComponents: Components = {
@@ -101,11 +121,11 @@ const markdownComponents: Components = {
   },
 }
 
-export default function MathContent({ content, className = '' }: MathContentProps) {
+export default function MathContent({ content, className = '', format = 'auto' }: MathContentProps) {
   const normalizedContent = useMemo(() => normalizeLatexTablesForMarkdown(content), [content])
   // Check if content contains HTML tags
-  const hasHtml = /<[^>]+>/.test(normalizedContent)
-  const isMarkdown = !hasHtml && hasMarkdown(normalizedContent)
+  const hasHtml = format === 'auto' && hasHtmlMarkup(normalizedContent)
+  const isMarkdown = format === 'markdown' || (!hasHtml && hasMarkdownSyntax(normalizedContent))
 
   return (
     <MathJax className={className} dynamic>

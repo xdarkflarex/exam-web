@@ -342,7 +342,7 @@ export default function EditTheoryPage() {
               </div>
               <div className="p-4 min-h-[500px]">
                 {contentMd ? (
-                  <MathContent content={contentMd} className="text-slate-800 dark:text-slate-100" />
+                  <MathContent content={contentMd} format="markdown" className="text-slate-800 dark:text-slate-100" />
                 ) : (
                   <p className="text-slate-400 dark:text-slate-500 italic text-sm">Nội dung xem trước sẽ hiện ở đây...</p>
                 )}

@@ -952,7 +952,7 @@ export default function ImportTheoriesPage() {
                   <div className="p-6 max-h-[600px] overflow-y-auto">
                     {showPreview ? (
                       <div className="prose prose-slate dark:prose-invert max-w-none">
-                        <MathContent content={parsedLessons[previewIndex].contentMd} />
+                        <MathContent content={parsedLessons[previewIndex].contentMd} format="markdown" />
                       </div>
                     ) : (
                       <pre className="text-xs font-mono text-slate-600 dark:text-slate-300 whitespace-pre-wrap">

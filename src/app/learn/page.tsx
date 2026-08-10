@@ -634,7 +634,7 @@ function LearnPageContent() {
                   <div key={selectedId} className="space-y-4">
                     {content.content_md && !blocks.length && (
                       <div className="min-w-0 overflow-x-auto rounded-2xl border border-slate-200 bg-[var(--background)] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                        <MathContent content={content.content_md} className="max-w-full" />
+                        <MathContent content={content.content_md} format="markdown" className="max-w-full" />
                       </div>
                     )}
                     {blocks.map(block => {
@@ -645,7 +645,7 @@ function LearnPageContent() {
                           {block.title && <h3 className="mb-3 text-lg font-black leading-snug text-slate-900 dark:text-white">{block.title}</h3>}
                           {block.body_md && (
                             <div className="min-w-0 max-w-full overflow-x-auto pb-1 [scrollbar-width:thin]">
-                              <MathContent content={block.body_md} className="max-w-full" />
+                              <MathContent content={block.body_md} format="markdown" className="max-w-full" />
                             </div>
                           )}
                         </section>

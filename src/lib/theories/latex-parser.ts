@@ -1,4 +1,8 @@
-import { normalizeLatexTablesForMarkdown } from './latex-normalize'
+import {
+  TABULAR_ENV_REGEX,
+  normalizeLatexTablesForMarkdown,
+  splitLatexTableBody,
+} from './latex-normalize.ts'
 
 /**
  * LaTeX Parser: Đọc file .tex và chuyển thành cấu trúc Theory
@@ -180,18 +184,30 @@ function extractLessonId(tex: string): string {
 export function parseKnowledgeBlocks(tex: string): ParsedBlock[] {
   const blocks: ParsedBlock[] = []
   const envNames = Object.keys(ENV_TO_BLOCK_TYPE).join('|')
-  // Bắt: \begin{env}[id]{title} body \end{env}
-  const regex = new RegExp(
-    `\\\\begin\\{(${envNames})\\}(?:\\[([^\\]]*)\\])?\\{([^}]*)\\}([\\s\\S]*?)\\\\end\\{\\1\\}`,
-    'g'
-  )
+  /*
+    Bắt: \begin{env}[id]{title} body \end{env}
+
+    Tiêu đề đọc bằng bộ đếm ngoặc chứ không bằng `\{([^}]*)\}`. Có bài đặt tên
+    khối là `Phân biệt $\varnothing$, $\{0\}$ và $\{\varnothing\}$` — mẫu cũ
+    dừng ở dấu `}` của `\{0\}`, tiêu đề bị cụt và phần đuôi trôi vào thân khối,
+    kéo theo cả `\item` sau đó hỏng.
+  */
+  const openRegex = new RegExp(`\\\\begin\\{(${envNames})\\}(?:\\[([^\\]]*)\\])?\\s*`, 'g')
   let match
   let autoId = 0
-  while ((match = regex.exec(tex)) !== null) {
+
+  while ((match = openRegex.exec(tex)) !== null) {
     const env = match[1]
+    const titleArg = readBalancedArg(tex, match.index + match[0].length)
+    if (!titleArg) continue
+
+    const closeTag = `\\end{${env}}`
+    const closeAt = tex.indexOf(closeTag, titleArg.end)
+    if (closeAt === -1) continue
+
     const externalId = (match[2] || '').trim() || `auto-${env}-${autoId++}`
-    const title = (match[3] || '').trim()
-    let rawBody = match[4] || ''
+    const title = titleArg.value.trim()
+    let rawBody = tex.slice(titleArg.end, closeAt)
 
     // Trích cạnh từ body trước khi convert markdown
     const edges = extractBlockEdges(rawBody)
@@ -205,6 +221,8 @@ export function parseKnowledgeBlocks(tex: string): ParsedBlock[] {
       bodyMd: latexToMarkdown(rawBody.trim()),
       edges,
     })
+
+    openRegex.lastIndex = closeAt + closeTag.length
   }
   return blocks
 }
@@ -283,6 +301,154 @@ export function blocksToMarkdown(blocks: ParsedBlock[]): string {
 // LATEX → MARKDOWN CONVERTER
 // ==============================================
 
+/** Đọc một đối số `{...}` có ngoặc cân bằng, bắt đầu tại chỉ số của dấu `{`. */
+function readBalancedArg(src: string, openIndex: number): { value: string; end: number } | null {
+  if (src[openIndex] !== '{') return null
+  let depth = 0
+  for (let i = openIndex; i < src.length; i++) {
+    const ch = src[i]
+    if (ch === '\\') {
+      i++ // ký tự sau dấu chéo là literal: \{ \} \\
+      continue
+    }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return { value: src.slice(openIndex + 1, i), end: i + 1 }
+    }
+  }
+  return null
+}
+
+/**
+ * Thay `\name{...}` với ngoặc CÂN BẰNG.
+ *
+ * Regex `\\textbf\{([^}]+)\}` cắt ngay dấu `}` đầu tiên, nên `\textbf{$\vec{a}$}`
+ * bị bỏ sót và `\textbf` rơi nguyên vào Markdown.
+ */
+function replaceCommand(
+  src: string,
+  name: string,
+  argCount: number,
+  render: (args: string[]) => string,
+): string {
+  const marker = `\\${name}`
+  let out = ''
+  let cursor = 0
+
+  while (cursor < src.length) {
+    const at = src.indexOf(marker, cursor)
+    if (at === -1) {
+      out += src.slice(cursor)
+      break
+    }
+
+    let scan = at + marker.length
+    // `\text` không được ăn nhầm `\textbf`
+    if (/[a-zA-Z]/.test(src[scan] ?? '')) {
+      out += src.slice(cursor, scan)
+      cursor = scan
+      continue
+    }
+
+    const args: string[] = []
+    for (let i = 0; i < argCount; i++) {
+      while (src[scan] === ' ' || src[scan] === '\n') scan++
+      const arg = readBalancedArg(src, scan)
+      if (!arg) break
+      args.push(arg.value)
+      scan = arg.end
+    }
+
+    if (args.length < argCount) {
+      // Thiếu đối số: bỏ qua, giữ nguyên văn bản
+      out += src.slice(cursor, at + marker.length)
+      cursor = at + marker.length
+      continue
+    }
+
+    out += src.slice(cursor, at) + render(args)
+    cursor = scan
+  }
+
+  return out
+}
+
+/** Lệnh chỉ có nghĩa với LaTeX thật; để lại trong math thì MathJax báo lỗi. */
+function sanitizeMathBody(inner: string): string {
+  return inner
+    .replace(/\\renewcommand\s*\{[^}]*\}\s*\{[^}]*\}/g, '')
+    .replace(/\\setlength\s*\{[^}]*\}\s*\{[^}]*\}/g, '')
+}
+
+/**
+ * Trải những bảng có hình TikZ trong ô thành từng đoạn văn.
+ *
+ * Ô của bảng Markdown không chứa nổi khối ```` ```tikz ````, nên với các bảng
+ * kiểu "tên gọi | dạng đặc trưng | biểu diễn trên trục số" ta bỏ lưới kẻ và
+ * xuống dòng: nhãn cột đứng trước nội dung, hình đứng riêng một đoạn. Mất cái
+ * khung nhưng giữ đủ chữ và hình — và đọc dễ hơn trên màn 375px.
+ *
+ * Chỉ chạy khi trong bảng thật sự có hình; bảng thường vẫn thành bảng Markdown.
+ */
+function flattenTablesWithFigures(text: string): string {
+  const figureToken = /%%PROTECTED_\d+%%/
+
+  return text.replace(new RegExp(TABULAR_ENV_REGEX.source, 'g'), (match, _env: string, body: string) => {
+    if (!figureToken.test(body)) return match
+
+    const rows = splitLatexTableBody(body)
+    if (!rows.length) return match
+
+    // Dòng đầu là tiêu đề cột nếu nó không chứa hình và bảng có nhiều dòng
+    const hasHeader = rows.length > 1 && !rows[0].some(cell => figureToken.test(cell))
+    const header = hasHeader ? rows[0] : []
+    const dataRows = hasHeader ? rows.slice(1) : rows
+
+    const parts: string[] = []
+    for (const row of dataRows) {
+      const texts: string[] = []
+      const figures: string[] = []
+
+      row.forEach((cell, i) => {
+        if (!cell) return
+        // Nhãn cột thường được soạn là \textbf{...}; gỡ ra rồi tự in đậm một lần
+        const label = ['textbf', 'textit', 'emph']
+          .reduce((text, cmd) => replaceCommand(text, cmd, 1, ([inner]) => inner), header[i] || '')
+          .trim()
+        const withoutFigures = cell.replace(new RegExp(figureToken.source, 'g'), '').trim()
+        for (const found of cell.match(new RegExp(figureToken.source, 'g')) || []) {
+          figures.push(found)
+        }
+        if (!withoutFigures) return
+        // Cột đầu là tên của dòng — in đậm, không cần nhắc lại nhãn cột
+        if (i === 0) texts.push(`**${withoutFigures}**`)
+        else texts.push(label ? `**${label}:** ${withoutFigures}` : withoutFigures)
+      })
+
+      if (texts.length) parts.push(texts.join(' — '))
+      for (const figure of figures) parts.push(figure)
+    }
+
+    return '\n\n' + parts.join('\n\n') + '\n\n'
+  })
+}
+
+/** Lặp một phép thay cho tới khi không còn đổi (dùng cho môi trường lồng nhau). */
+function replaceUntilStable(
+  src: string,
+  regex: RegExp,
+  replacer: (match: string, body: string) => string,
+): string {
+  let current = src
+  for (let guard = 0; guard < 20; guard++) {
+    const next = current.replace(regex, replacer)
+    if (next === current) return current
+    current = next
+  }
+  return current
+}
+
 /**
  * Chuyển LaTeX → Markdown + MathJax
  * Giữ nguyên math syntax (MathJax hỗ trợ cả $...$ và $$...$$)
@@ -290,79 +456,103 @@ export function blocksToMarkdown(blocks: ParsedBlock[]): string {
 export function latexToMarkdown(latex: string): string {
   if (!latex) return ''
 
-  let md = normalizeLatexTablesForMarkdown(latex)
-
   // ---- Bước 0: Bảo vệ các math blocks và TikZ ----
   const protected_blocks: string[] = []
+  const protect = (value: string) => {
+    protected_blocks.push(value)
+    return `%%PROTECTED_${protected_blocks.length - 1}%%`
+  }
 
-  // Bảo vệ TikZ blocks (chuyển thành code blocks tikz)
-  md = md.replace(
+  /*
+    TikZ phải được giấu TRƯỚC khi đụng tới bảng. Trong bộ bài này có hình nằm
+    ngay trong ô của `tabular` (bảng các tập con của R, lớp 10 bài 2); nếu đổi
+    bảng trước thì `cleanupTableCell` bóp cả hình xuống một dòng và thoát dấu
+    `|`, hình hỏng không cứu lại được.
+  */
+  let md = latex.replace(
     /\\begin\{tikzpicture\}([\s\S]*?)\\end\{tikzpicture\}/g,
     (_match, inner) => {
-      const idx = protected_blocks.length
       const tikzCode = `\\begin{tikzpicture}${inner}\\end{tikzpicture}`
-      protected_blocks.push(`\n\n\`\`\`tikz\n${tikzCode.trim()}\n\`\`\`\n\n`)
-      return `%%PROTECTED_${idx}%%`
+      return protect(`\n\n\`\`\`tikz\n${tikzCode.trim()}\n\`\`\`\n\n`)
     }
   )
 
-  // Bảo vệ display math: \[...\] → $$...$$
+  // Bảng có hình bên trong: trải thành từng dòng (ô bảng Markdown không chứa
+  // nổi khối ```tikz). Phải chạy trước khi đổi các bảng còn lại.
+  md = flattenTablesWithFigures(md)
+
+  md = normalizeLatexTablesForMarkdown(md)
+
+  // Bảo vệ display math: \[...\] → $$...$$  (gồm cả \boxed{...} nhiều dòng)
   md = md.replace(
     /\\\[([\s\S]*?)\\\]/g,
-    (_match, inner) => {
-      const idx = protected_blocks.length
-      protected_blocks.push(`\n\n$$\n${inner.trim()}\n$$\n\n`)
-      return `%%PROTECTED_${idx}%%`
-    }
+    (_match, inner) => protect(`\n\n$$\n${sanitizeMathBody(inner).trim()}\n$$\n\n`)
   )
 
   // Bảo vệ align/aligned/array/cases environments
   md = md.replace(
     /\\begin\{(align\*?|aligned|array|cases|gather\*?|equation\*?)\}([\s\S]*?)\\end\{\1\}/g,
-    (_match, env, inner) => {
-      const idx = protected_blocks.length
-      protected_blocks.push(
-        `\n\n$$\n\\begin{${env}}${inner}\\end{${env}}\n$$\n\n`
-      )
-      return `%%PROTECTED_${idx}%%`
-    }
+    (_match, env, inner) =>
+      protect(`\n\n$$\n\\begin{${env}}${sanitizeMathBody(inner)}\\end{${env}}\n$$\n\n`)
   )
 
-  // Bảo vệ \boxed{...} (có thể nhiều dòng)
+  /*
+    Bảo vệ luôn math trong dòng `$...$`. Không có bước này thì các bước dọn dẹp
+    phía dưới (`\quad` → dấu cách, `\,` → dấu cách, xoá `\underline`...) chui
+    vào trong công thức và đổi nghĩa. Từ chối đoạn có dòng trống ở giữa vì đó
+    gần như chắc chắn là hai dấu `$` lẻ chứ không phải một công thức.
+  */
   md = md.replace(
-    /\\\[([\s\S]*?\\boxed\{[\s\S]*?\}[\s\S]*?)\\\]/g,
-    (_match, inner) => {
-      const idx = protected_blocks.length
-      protected_blocks.push(`\n\n$$\n${inner.trim()}\n$$\n\n`)
-      return `%%PROTECTED_${idx}%%`
-    }
+    /(?<!\\)\$(?!\$)([^$]+?)(?<!\\)\$/g,
+    (match, inner: string) => (inner.includes('\n\n') ? match : protect(match))
   )
 
   // ---- Bước 1: Headings ----
-  md = md.replace(/\\TheoryHeading\{([^}]+)\}/g, '\n## $1\n')
+  md = replaceCommand(md, 'TheoryHeading', 1, ([text]) => `\n## ${text}\n`)
   md = md.replace(/\\subsection\*?\{([^}]+)\}/g, '\n## $1\n')
   md = md.replace(/\\subsubsection\*?\{([^}]+)\}/g, '\n### $1\n')
 
   // ---- Bước 2: Text formatting ----
-  md = md.replace(/\\textbf\{([^}]+)\}/g, '**$1**')
-  md = md.replace(/\\textit\{([^}]+)\}/g, '*$1*')
-  md = md.replace(/\\texttt\{([^}]+)\}/g, '`$1`')
-  md = md.replace(/\\emph\{([^}]+)\}/g, '*$1*')
-  md = md.replace(/\\underline\{([^}]+)\}/g, '$1')
+  md = replaceCommand(md, 'textbf', 1, ([text]) => `**${text}**`)
+  md = replaceCommand(md, 'textit', 1, ([text]) => `*${text}*`)
+  md = replaceCommand(md, 'texttt', 1, ([text]) => `\`${text}\``)
+  md = replaceCommand(md, 'emph', 1, ([text]) => `*${text}*`)
+  md = replaceCommand(md, 'underline', 1, ([text]) => text)
+
+  // Câu trắc nghiệm của ex_test.sty: \choice{A}{B}{C}{D}
+  // Xuống dòng cứng (hai dấu cách cuối dòng) để đọc được trên màn 375px.
+  md = replaceCommand(md, 'choice', 4, args =>
+    '  \n' +
+    args
+      .map((arg, i) => `**${'ABCD'[i]}.** ${arg.replace(/\s*\n\s*/g, ' ').trim()}`)
+      .join('  \n')
+  )
 
   // ---- Bước 3: Lists ----
-  // itemize
-  md = md.replace(/\\begin\{itemize\}(\[.*?\])?/g, '')
-  md = md.replace(/\\end\{itemize\}/g, '')
+  // enumerate → danh sách đánh số. Xử lý từ trong ra ngoài để chịu được lồng nhau.
+  md = replaceUntilStable(
+    md,
+    /\\begin\{enumerate\}(?:\[[^\]]*\])?((?:(?!\\begin\{enumerate\})[\s\S])*?)\\end\{enumerate\}/g,
+    (_match: string, body: string) => {
+      let n = 0
+      return '\n' + body.replace(/\\item\s*/g, () => `\n${++n}. `) + '\n'
+    }
+  )
+
+  // itemize → gạch đầu dòng
+  md = replaceUntilStable(
+    md,
+    /\\begin\{itemize\}(?:\[[^\]]*\])?((?:(?!\\begin\{itemize\})[\s\S])*?)\\end\{itemize\}/g,
+    (_match: string, body: string) => '\n' + body.replace(/\\item\s*/g, '\n- ') + '\n'
+  )
+
+  // \item còn sót ngoài mọi môi trường danh sách
+  md = md.replace(/\\begin\{(itemize|enumerate)\}(\[.*?\])?/g, '')
+  md = md.replace(/\\end\{(itemize|enumerate)\}/g, '')
   md = md.replace(/\\item\s*/g, '- ')
 
-  // enumerate
-  md = md.replace(/\\begin\{enumerate\}(\[.*?\])?/g, '')
-  md = md.replace(/\\end\{enumerate\}/g, '')
-  // Items in enumerate → numbered (simplified: just use -)
-  // Already handled by \item above
-
   // ---- Bước 4: Spacing & layout ----
+  md = md.replace(/\\\\(\[[^\]]*\])?/g, '\n') // ngắt dòng LaTeX ngoài math
   md = md.replace(/\\medskip/g, '\n')
   md = md.replace(/\\bigskip/g, '\n\n')
   md = md.replace(/\\smallskip/g, '\n')
@@ -401,12 +591,22 @@ export function latexToMarkdown(latex: string): string {
   md = md.replace(/\\ref\{[^}]*\}/g, '')
   md = md.replace(/\\color\{[^}]*\}/g, '')
   md = md.replace(/\\fontfamily\{[^}]*\}\\selectfont/g, '')
-  md = md.replace(/\\node\[.*?\]/g, '') // leftover from removed tikz
+  // Lệnh chỉnh cỡ chữ: không có nghĩa gì trên web
+  md = md.replace(/\\(tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge)\b/g, '')
+
+  /*
+    Không còn dòng xoá `\node[...]` của bản cũ. Mọi TikZ đã được giấu ở bước 0
+    nên nó chẳng còn gì để dọn, mà mẫu `.*?` của nó thì nuốt được cả văn bản
+    thường nếu bài soạn tình cờ có chữ "node[".
+  */
 
   // ---- Bước 8: Restore protected blocks ----
-  for (let i = 0; i < protected_blocks.length; i++) {
-    md = md.replace(`%%PROTECTED_${i}%%`, protected_blocks[i])
-  }
+  // Dùng hàm thay thế: chuỗi thay thế coi `$$` là một dấu `$`, mà nội dung ở
+  // đây toàn công thức — chính lỗi này làm mọi display math tụt xuống inline.
+  md = md.replace(
+    /%%PROTECTED_(\d+)%%/g,
+    (match, index: string) => protected_blocks[Number(index)] ?? match
+  )
 
   // ---- Bước 9: Clean up ----
   // Multiple blank lines → max 2

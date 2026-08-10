@@ -18,8 +18,19 @@ function protect(text: string, regex: RegExp, store: string[]) {
   })
 }
 
+/**
+ * Khôi phục các đoạn đã giấu.
+ *
+ * Bắt buộc dùng HÀM thay thế. Nếu truyền chuỗi, `String.replace` coi `$$`,
+ * `$&`, "$`", "$'" là ký hiệu đặc biệt — mà nội dung LaTeX thì đầy dấu `$`.
+ * Chính lỗi này từng biến mọi `$$...$$` thành `$...$`.
+ */
 function restore(text: string, store: string[]) {
-  return store.reduce((current, value, index) => current.replace(`${PROTECTED_PREFIX}${index}%%`, value), text)
+  if (!store.length) return text
+  return text.replace(
+    new RegExp(`${PROTECTED_PREFIX}(\\d+)%%`, 'g'),
+    (match, index: string) => store[Number(index)] ?? match,
+  )
 }
 
 function splitLatexRows(body: string) {
@@ -35,6 +46,18 @@ function splitLatexCells(row: string) {
   return row
     .split(/(?<!\\)&/g)
     .map(cell => cleanupTableCell(cell))
+}
+
+/**
+ * Tách thân một môi trường bảng thành lưới ô, KHÔNG dọn dẹp gì thêm.
+ *
+ * Dùng cho những bảng không dựng được thành bảng Markdown (ví dụ có hình TikZ
+ * trong ô) — bên gọi tự quyết định trình bày.
+ */
+export function splitLatexTableBody(body: string): string[][] {
+  return splitLatexRows(body)
+    .map(row => row.split(/(?<!\\)&/g).map(cell => cell.trim()))
+    .filter(row => row.some(Boolean))
 }
 
 function cleanupTableCell(cell: string) {
@@ -80,9 +103,18 @@ function rowsToMarkdownTable(rows: string[][]) {
   ].join('\n')
 }
 
+/**
+ * `\begin{tabular}` + đối số vị trí + khai báo cột.
+ *
+ * Khai báo cột chịu được một mức ngoặc lồng: `{|p{0.40\textwidth}|p{0.24\textwidth}|}`
+ * là kiểu soạn có thật trong bộ bài, mẫu `\{[^{}]*\}` cũ trượt hoàn toàn.
+ */
+export const TABULAR_ENV_REGEX =
+  /\\begin\{(tabular\*?|tabularx|longtable)\}(?:\[[^\]]*\])?(?:\{(?:[^{}]|\{[^{}]*\})*\}){1,3}([\s\S]*?)\\end\{\1\}/g
+
 function convertTabularToMarkdown(text: string) {
   return text.replace(
-    /\\begin\{(tabular\*?|tabularx|longtable)\}(?:\[[^\]]*\])?(?:\{[^{}]*\}){1,3}([\s\S]*?)\\end\{\1\}/g,
+    new RegExp(TABULAR_ENV_REGEX.source, 'g'),
     (_match, _env, body) => {
       const rows = splitLatexRows(body).map(splitLatexCells).filter(row => row.some(Boolean))
       return rowsToMarkdownTable(rows)
