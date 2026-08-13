@@ -2,6 +2,8 @@
 
 Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn sự thật nhỏ, có chủ sở hữu rõ và đủ để người hoặc AI tìm đúng code trước khi sửa.
 
+**Mở phiên làm việc mới thì bắt đầu ở [`VIEC_DANG_MO.md`](VIEC_DANG_MO.md)**: danh sách việc đang mở, mỗi việc kèm sẵn câu mở phiên copy-paste được. File đó chỉ điều phối và trỏ sang tài liệu chi tiết; làm xong việc nào thì xoá mục đó khỏi nó.
+
 ## Thứ tự đọc
 
 1. [`../README.md`](../README.md): mục tiêu và chạy nhanh.
