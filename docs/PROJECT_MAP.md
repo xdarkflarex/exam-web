@@ -69,7 +69,7 @@ docs/                  tài liệu chuẩn
 | Pilot tự luận | `docs/ESSAY_GRADING.md`, `src/app/admin/questions/essay/new/page.tsx`, `src/components/admin/EssayGradingPanel.tsx`, `src/lib/essay-grading/prompt.ts` |
 | Practice | `src/app/practice/**`, `src/components/PracticeRunner.tsx` |
 | Homework | `src/app/homework/**`, `src/components/HomeworkRunner.tsx`, `src/lib/homework/actions.ts` |
-| Knowledge | `src/app/learn/page.tsx`, `src/components/theories/SkillTree.tsx`, `src/lib/theories/actions.ts` |
+| Knowledge | `src/app/learn/page.tsx`, `src/components/theories/LearningPath.tsx`, `src/types/skill-tree.ts`, `src/lib/theories/actions.ts` |
 | Analytics | `src/lib/analytics/student-capability.ts`, admin/student analytics pages |
 | Question bank | `src/app/admin/questions/**`, `src/components/admin/QuestionEditor.tsx` |
 | Database evolution | `supabase/migrations/**`, sau đó đối chiếu `database/SUPABASE_SCHEMA.sql` |
@@ -255,7 +255,7 @@ Các bước server-side ở trên dựa vào hardening 20260722, đã live từ
 1. `theories` tạo cây qua `theory_edges`.
 2. Mỗi theory có `knowledge_blocks` và `knowledge_block_edges`.
 3. `question_knowledge_links` nối question với theory/block/cognitive level.
-4. `/learn` ghép content, graph, homework target và activity.
+4. `/learn` ghép content, khâu học trong bài (`learning-stage.ts` + `TheoryStages`), homework target và activity. Chế độ Sơ đồ ReactFlow đã gỡ 2026-08-11; `/learn/map` và `/learn/graph` cũ redirect về `/learn`.
 
 ## Fast path khi sửa lỗi
 
@@ -267,7 +267,7 @@ Các bước server-side ở trên dựa vào hardening 20260722, đã live từ
 | Homework sai tiến độ | homework runner + admin results | homework questions/attempt counters |
 | Sai quyền | middleware + page/action + RLS | profiles, classes, site_settings |
 | Dashboard sai thống kê | analytics service + page | cả exam và homework domains |
-| Kiến thức không hiện | `/learn`, theory actions, SkillTree | theories, blocks, edges, links |
+| Kiến thức không hiện | `/learn`, theory actions, `LearningPath`, `TheoryStages` | theories, blocks, edges, links |
 | Math/TikZ lỗi | `MathContent`, `TikzRenderer`, theory LaTeX libs | content/solution/tikz URL |
 
 Lệnh tạo dependency/data neighborhood chính xác hơn:

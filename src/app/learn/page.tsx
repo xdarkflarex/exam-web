@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import gsap from 'gsap'
@@ -12,29 +11,21 @@ import {
   ClipboardList,
   Loader2,
   LockKeyhole,
-  Network,
-  Route,
   Search,
   X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import MathContent, { MathProvider } from '@/components/MathContent'
-import { getBlockStyle } from '@/lib/theories/block-style'
 import { getMasteryStatusLabel, isMasteryAchieved, type MasteryStat } from '@/lib/analytics/knowledge-mastery'
 import { loadTheoryMastery, type TheoryAssignmentInfo, type TheoryProgress } from '@/lib/analytics/theory-mastery-data'
 import LearningPath from '@/components/theories/LearningPath'
-import type { KnowledgeBlock, KnowledgeBlockEdge } from '@/types/theories'
+import TheoryStages from '@/components/theories/TheoryStages'
+import type { KnowledgeBlock } from '@/types/theories'
 import type {
-  SkillTreeBlockLink,
   SkillTreeItem,
   SkillTreeLink,
   SkillTreePrerequisite,
-} from '@/components/theories/SkillTree'
-
-const SkillTree = dynamic(() => import('@/components/theories/SkillTree'), {
-  ssr: false,
-  loading: () => <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>,
-})
+} from '@/types/skill-tree'
 
 interface TheoryRow {
   id: string
@@ -48,49 +39,11 @@ interface TheoryRow {
 interface EdgeRow { from_theory_id: string; to_theory_id: string; relation_type: SkillTreeLink['relation'] }
 
 /**
- * Hai chế độ xem cây kỹ năng (docs/STUDENT_SKILL_TREE_REDESIGN.md mục 1).
- *
- * `path` là MẶC ĐỊNH: DOM thường, bố cục bất biến, bàn phím và trình đọc màn
- * hình chạy tự nhiên. `graph` là tuỳ chọn thứ hai cho ai muốn nhìn quan hệ.
+ * Chế độ Sơ đồ (ReactFlow) bị gỡ ngày 2026-08-11: node rộng 248px không đọc nổi
+ * trên màn 375px, và đồ thị phẳng không nói được "học tới khâu nào" — hai trục
+ * mà cây mới phải diễn đạt. Xem docs/DESIGN_OVERHAUL_2026-08-09.md mục 3b.
+ * `/learn` giờ chỉ còn Lộ trình, nên không còn công tắc chế độ nào để nhớ.
  */
-type ViewMode = 'path' | 'graph'
-
-const VIEW_MODE_KEY = 'learnViewMode'
-const VIEW_MODE_EVENT = 'minhmath:learn-view-mode'
-
-/**
- * Bản nhớ tạm khi `localStorage` bị chặn (chế độ duyệt riêng tư).
- *
- * Không có nó thì ở những trình duyệt đó nút đổi chế độ bấm không ăn: ghi hỏng
- * nên snapshot không bao giờ đổi. Ghi nhớ mất sau khi tải lại trang là chấp
- * nhận được; nút bấm không phản hồi thì không.
- */
-let viewModeFallback: ViewMode = 'path'
-
-function subscribeToViewMode(onChange: () => void) {
-  // `storage` bắn khi tab KHÁC ghi; sự kiện riêng bắn cho chính tab này.
-  window.addEventListener('storage', onChange)
-  window.addEventListener(VIEW_MODE_EVENT, onChange)
-  return () => {
-    window.removeEventListener('storage', onChange)
-    window.removeEventListener(VIEW_MODE_EVENT, onChange)
-  }
-}
-
-function getViewModeSnapshot(): ViewMode {
-  try {
-    const saved = window.localStorage.getItem(VIEW_MODE_KEY)
-    if (saved === 'path' || saved === 'graph') return saved
-  } catch {
-    // Trình duyệt chặn đọc. Rơi về bản nhớ trong bộ nhớ.
-  }
-  return viewModeFallback
-}
-
-/** Trên server không có `localStorage`, và mặc định đã chốt là Lộ trình. */
-function getViewModeServerSnapshot(): ViewMode {
-  return 'path'
-}
 
 /**
  * Đồng hồ của trang, đọc bằng `useSyncExternalStore`.
@@ -160,34 +113,14 @@ function LearnPageContent() {
   const [assignmentsByTheory, setAssignmentsByTheory] = useState<Map<string, TheoryAssignmentInfo[]>>(new Map())
   const [contentCache, setContentCache] = useState<Map<string, TheoryRow>>(new Map())
   const [blockCache, setBlockCache] = useState<Map<string, KnowledgeBlock[]>>(new Map())
-  const [blockEdgeCache, setBlockEdgeCache] = useState<Map<string, KnowledgeBlockEdge[]>>(new Map())
   const [loadedGroups, setLoadedGroups] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState('')
-  /**
-   * Chế độ xem đọc thẳng từ `localStorage` qua `useSyncExternalStore`.
-   *
-   * Đọc lúc render sẽ lệch hydration (server không có `localStorage`); đọc
-   * trong effect rồi `setState` thì tạo lượt render dây chuyền. `getServerSnapshot`
-   * trả đúng mặc định đã chốt nên lượt vẽ đầu luôn khớp hai bên.
-   */
-  const mode = useSyncExternalStore(subscribeToViewMode, getViewModeSnapshot, getViewModeServerSnapshot)
   /** Mốc thời gian dùng chung để phân loại bài tập còn hạn / hết hạn. */
   const now = useSyncExternalStore(subscribeToClock, getClockSnapshot, getClockServerSnapshot)
   const selectedId = searchParams.get('theory')
   const groupOf = useCallback((theory: TheoryRow) => theory.sections?.categories?.name || theory.sections?.name || 'Khác', [])
-
-  const changeMode = useCallback((next: ViewMode) => {
-    viewModeFallback = next
-    try {
-      window.localStorage.setItem(VIEW_MODE_KEY, next)
-    } catch {
-      // Chế độ duyệt web riêng tư có thể chặn ghi. Bản nhớ tạm ở trên đã giữ
-      // lựa chọn cho phiên này, nên nút vẫn phản hồi.
-    }
-    window.dispatchEvent(new Event(VIEW_MODE_EVENT))
-  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -222,10 +155,6 @@ function LearnPageContent() {
       supabase.from('knowledge_blocks').select('*').in('theory_id', ids).order('order_index'),
     ])
     const loadedBlocks = (blocksRes.data || []) as KnowledgeBlock[]
-    const blockIds = loadedBlocks.map(block => block.id)
-    const { data: edgeRows } = blockIds.length
-      ? await supabase.from('knowledge_block_edges').select('from_block_id, to_block_id, relation_type').in('from_block_id', blockIds).in('to_block_id', blockIds)
-      : { data: [] }
     setContentCache(current => {
       const next = new Map(current)
       for (const row of (contentRes.data || []) as TheoryRow[]) next.set(row.id, row)
@@ -235,18 +164,6 @@ function LearnPageContent() {
       const next = new Map(current)
       for (const id of ids) next.set(id, [])
       for (const block of loadedBlocks) next.set(block.theory_id, [...(next.get(block.theory_id) || []), block])
-      return next
-    })
-    setBlockEdgeCache(current => {
-      const next = new Map(current)
-      const theoryByBlock = new Map(loadedBlocks.map(block => [block.id, block.theory_id]))
-      for (const id of ids) next.set(id, [])
-      for (const edge of (edgeRows || []) as KnowledgeBlockEdge[]) {
-        const fromTheoryId = theoryByBlock.get(edge.from_block_id)
-        const toTheoryId = theoryByBlock.get(edge.to_block_id)
-        if (!fromTheoryId || fromTheoryId !== toTheoryId) continue
-        next.set(fromTheoryId, [...(next.get(fromTheoryId) || []), edge])
-      }
       return next
     })
   }, [groupOf, loadedGroups, supabase, theories])
@@ -358,30 +275,9 @@ function LearnPageContent() {
     })
   }, [assignmentsByTheory, groupOf, masteryByTheory, matches, now, prerequisitesOf, progress, theories])
 
-  const links = useMemo<SkillTreeLink[]>(() => edges.map(edge => ({
-    source: edge.from_theory_id, target: edge.to_theory_id, relation: edge.relation_type,
-  })), [edges])
-
   const selectTheory = useCallback((id: string) => {
     router.push(`/learn?theory=${id}`, { scroll: false })
   }, [router])
-
-  const expandedId = selectedId
-  // Memo hoá: `SkillTree` có effect đồng bộ prop này vào state, nên trả về mảng
-  // mới mỗi lần render sẽ tạo vòng lặp set-state.
-  const expandedBlocks = useMemo(
-    () => (expandedId ? blockCache.get(expandedId) || [] : []),
-    [blockCache, expandedId]
-  )
-  const expandedBlockLinks = useMemo<SkillTreeBlockLink[]>(() => (
-    expandedId
-      ? (blockEdgeCache.get(expandedId) || []).map(edge => ({
-        source: edge.from_block_id,
-        target: edge.to_block_id,
-        relation: edge.relation_type,
-      }))
-      : []
-  ), [blockEdgeCache, expandedId])
 
   const content = selectedId ? contentCache.get(selectedId) : null
   const blocks = selectedId ? blockCache.get(selectedId) || [] : []
@@ -399,23 +295,6 @@ function LearnPageContent() {
   const openAssignmentTotal = items.reduce((sum, item) => sum + item.openAssignments, 0)
   const solidCount = items.filter(item => item.mastery === 'stable' || item.mastery === 'mastered').length
   const weakCount = items.filter(item => item.mastery === 'needs_work' || item.mastery === 'building').length
-
-  const modeButton = (value: ViewMode, label: string, Icon: typeof Route, hint: string) => (
-    <button
-      type="button"
-      onClick={() => changeMode(value)}
-      aria-pressed={mode === value}
-      title={hint}
-      className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 sm:flex-none ${
-        mode === value
-          ? 'bg-teal-600 text-white shadow-sm'
-          : 'text-slate-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-700/60'
-      }`}
-    >
-      <Icon className="h-4 w-4" aria-hidden="true" />
-      {label}
-    </button>
-  )
 
   return (
     <MathProvider>
@@ -507,14 +386,6 @@ function LearnPageContent() {
               {groups.map(name => <option key={name}>{name}</option>)}
             </select>
           </label>
-          <div
-            role="group"
-            aria-label="Chế độ hiển thị cây kỹ năng"
-            className="flex rounded-xl border border-slate-200 bg-[var(--background-card)] p-1 dark:border-slate-700 dark:bg-slate-900"
-          >
-            {modeButton('path', 'Lộ trình', Route, 'Danh sách dọc theo chuyên đề — bố cục không đổi khi lọc')}
-            {modeButton('graph', 'Sơ đồ', Network, 'Đồ thị quan hệ giữa các bài học')}
-          </div>
         </div>
 
         {isFiltering && (
@@ -531,7 +402,7 @@ function LearnPageContent() {
               <div className="flex min-h-[50vh] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
               </div>
-            ) : mode === 'path' ? (
+            ) : (
               <LearningPath
                 items={items}
                 selectedId={selectedId}
@@ -539,43 +410,6 @@ function LearnPageContent() {
                 now={now}
                 onSelect={item => selectTheory(item.id)}
               />
-            ) : (
-              <>
-                {/*
-                  Nói thẳng giới hạn thay vì để học sinh tự vật lộn. Node rộng
-                  248px trên màn 375px thì đồ thị quan hệ không đọc nổi dù canvas
-                  có vừa khung hình — đó là giới hạn của chính kiểu biểu diễn,
-                  không phải thứ chỉnh CSS chữa được. Lộ trình là chế độ mặc định
-                  và đọc tốt trên điện thoại, nên chỉ cần chỉ đường quay lại.
-                */}
-                <p
-                  className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 sm:hidden dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-                  role="note"
-                >
-                  <Network className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>
-                    Sơ đồ quan hệ xem trên máy tính hoặc máy tính bảng sẽ rõ hơn nhiều.
-                    Trên điện thoại, chế độ <strong>Lộ trình</strong> dễ đọc hơn.
-                  </span>
-                </p>
-              <section className="h-[70vh] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 shadow-xl sm:min-h-[560px] lg:h-[76vh] lg:min-h-[620px] dark:border-slate-700/70">
-                {/*
-                  `min-h-[620px]` cố định là lý do chế độ Sơ đồ không dùng được
-                  trên điện thoại: nó ép một canvas pan/zoom cao hơn phần lớn
-                  khung nhìn, nên cử chỉ kéo để cuộn trang và kéo để di chuyển
-                  đồ thị tranh nhau. Hạ ngưỡng theo bề rộng màn hình.
-                */}
-                <SkillTree
-                  items={items}
-                  links={links}
-                  selectedId={selectedId}
-                  expandedId={expandedId}
-                  expandedBlocks={expandedBlocks}
-                  expandedBlockLinks={expandedBlockLinks}
-                  onSelect={item => selectTheory(item.id)}
-                />
-              </section>
-              </>
             )}
           </div>
 
@@ -637,20 +471,9 @@ function LearnPageContent() {
                         <MathContent content={content.content_md} format="markdown" className="max-w-full" />
                       </div>
                     )}
-                    {blocks.map(block => {
-                      const style = getBlockStyle(block.block_type)
-                      return (
-                        <section key={block.id} className="min-w-0 overflow-hidden rounded-2xl border bg-[var(--background)] p-4 shadow-sm dark:bg-white/[0.035] dark:shadow-lg dark:shadow-black/20" style={{ borderColor: style.color }}>
-                          <p className="mb-2 text-xs font-black uppercase tracking-[0.16em]" style={{ color: style.color }}>{style.icon} {style.label}</p>
-                          {block.title && <h3 className="mb-3 text-lg font-black leading-snug text-slate-900 dark:text-white">{block.title}</h3>}
-                          {block.body_md && (
-                            <div className="min-w-0 max-w-full overflow-x-auto pb-1 [scrollbar-width:thin]">
-                              <MathContent content={block.body_md} format="markdown" className="max-w-full" />
-                            </div>
-                          )}
-                        </section>
-                      )
-                    })}
+                    {/* Khối lý thuyết đọc theo khâu học (ĐỊNH NGHĨA → … → BÀI TẬP),
+                        xem docs/DESIGN_OVERHAUL_2026-08-09.md mục 3b. */}
+                    <TheoryStages blocks={blocks} />
                   </div>
                 )}
                 <div className="mt-5 border-t border-slate-200 pt-4 dark:border-white/10">

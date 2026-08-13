@@ -47,7 +47,7 @@ import {
   getMasteryStatusLabel,
   type MasteryStatus,
 } from '@/lib/analytics/knowledge-mastery'
-import type { SkillTreeItem, SkillTreePrerequisite } from '@/components/theories/SkillTree'
+import type { SkillTreeItem, SkillTreePrerequisite } from '@/types/skill-tree'
 
 interface StatusFace {
   Icon: LucideIcon

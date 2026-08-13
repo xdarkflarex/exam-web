@@ -200,6 +200,47 @@ mức nhận thức nào), vì đó mới là hai câu hỏi học sinh thật s
 - Gỡ `@xyflow/react` và `dagre` khỏi bundle sau khi xoá `SkillTree.tsx`.
 - Phải đọc được trên màn 375px — đây là lý do gốc khiến chủ dự án bỏ cây cũ.
 
+### Đã làm (2026-08-11)
+
+1. Kiểu dùng chung tách ra `src/types/skill-tree.ts`; `/learn` và `LearningPath`
+   đã nối vào đó.
+2. Chế độ Sơ đồ gỡ khỏi `/learn`, `SkillTree.tsx` đã xoá. Kéo theo: công tắc
+   chế độ + bộ nhớ `localStorage` `learnViewMode`, và truy vấn
+   `knowledge_block_edges` trong `preloadGroup` — chỉ chế độ Sơ đồ dùng, nên
+   giờ là một round-trip Supabase thừa. Khâu học trong mỗi bài (việc 4) sẽ đọc
+   lại bảng này khi cần.
+3. `@xyflow/react`, `dagre`, `@types/dagre` gỡ khỏi `package.json` (npm gỡ 24
+   gói). `tsc`, `eslint`, `next build` đều sạch.
+4. **Khâu học trong mỗi bài.** `src/lib/theories/learning-stage.ts` (logic
+   thuần, 10 test) + `src/components/theories/TheoryStages.tsx` (panel của
+   `/learn`). Sáu khâu: Khái niệm → Kết quả lý thuyết → Công thức → Phương pháp
+   → Ví dụ → Bài tập; ĐỊNH LÝ/TÍNH CHẤT/HỆ QUẢ gộp một khâu, CHÚ Ý không phải
+   khâu mà nhập vào khâu đang đọc.
+
+Ba quyết định của việc 4, cùng lý do:
+
+- **Không sắp lại khối.** Component chỉ chèn tiêu đề khâu vào chỗ khâu đổi, thứ
+  tự đọc vẫn là `order_index`. Dữ liệu thật cho thấy vì sao: "CỰC TRỊ CỦA HÀM
+  SỐ" và "GIÁ TRỊ LỚN NHẤT…" đều đi Phương pháp → Ví dụ → Phương pháp → Ví dụ
+  (mỗi cặp một dạng bài), còn "ÔN TẬP ĐẠO HÀM" đi Định lý → Công thức → Tính
+  chất. Gom theo khâu sẽ trộn hai dạng bài vào nhau và tách chú ý khỏi ví dụ mà
+  nó nói về.
+- **Không đánh số khâu.** Bài nào cũng chỉ có bốn trong sáu khâu; ghi "Khâu 5"
+  cạnh một dải bốn mục làm học sinh đi tìm phần không tồn tại. Dải khâu cũng chỉ
+  liệt kê khâu CÓ, không hiện khâu vắng kèm nhãn "chưa có".
+- **Dải khâu không phải thanh tiến độ.** Nó nói bài này có những khâu nào, không
+  nói học sinh đã qua khâu nào. Năng lực hiện đo theo BÀI (`mastery` từ
+  `question_knowledge_links` gộp lên theory), chưa đo theo KHỐI, nên tô "đã
+  xong" cho từng khâu là suy đoán — đúng loại lỗi mục 7.1 cấm. Muốn có thật thì
+  phải gộp năng lực theo `knowledge_block_id`, là một việc riêng.
+
+Kiểm bằng dữ liệu thật trên `/learn` (bốn bài Chương 1 lớp 12): dải khâu, tiêu
+đề khâu và thứ tự khối đều đúng; 375px không tràn ngang; dark mode đạt tương
+phản. Nút nhảy tới khâu gọi đúng `scrollIntoView` trên đúng `<section>` — không
+quan sát được cú cuộn vì trình duyệt kiểm thử không dựng khung hình nên
+`behavior: 'smooth'` đứng yên (`'auto'` cuộn bình thường), đây là giới hạn của
+môi trường kiểm, không phải của trang.
+
 ## 4. Chưa xác minh được
 
 ### Lưới hoạt động trống và "Mảng cần củng cố" không hiện
