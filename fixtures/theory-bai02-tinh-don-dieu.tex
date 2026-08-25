@@ -1,0 +1,249 @@
+\LessonBox[lop12-bai02]{TÍNH ĐƠN ĐIỆU CỦA HÀM SỐ}
+
+\begin{dinhnghia}[bai02-dn-tinh-don-dieu]{Định nghĩa tính đơn điệu của hàm số}
+Cho hàm số $y=f(x)$ xác định trên khoảng $K$.
+
+\begin{itemize}[leftmargin=2em]
+\item Hàm số $f$ gọi là \textit{đồng biến} trên $K$ nếu với mọi $x_1,x_2\in K$,
+$x_1<x_2$ thì $f(x_1)<f(x_2)$.
+\item Hàm số $f$ gọi là \textit{nghịch biến} trên $K$ nếu với mọi $x_1,x_2\in K$,
+$x_1<x_2$ thì $f(x_1)>f(x_2)$.
+\end{itemize}
+
+\begin{center}
+\begin{minipage}{0.48\textwidth}
+\centering
+\begin{tikzpicture}[x=0.72cm,y=0.58cm,>=Stealth]
+\draw[->,thick] (-0.4,0) -- (6.2,0) node[below] {$x$};
+\draw[->,thick] (0,-0.4) -- (0,5.4) node[left] {$y$};
+\draw[Accent,very thick,domain=0.7:5.7,samples=100,smooth]
+plot (\x,{0.11*(\x-0.6)^2+0.75});
+\coordinate (A) at (1.6,{0.11*(1.6-0.6)^2+0.75});
+\coordinate (B) at (4.7,{0.11*(4.7-0.6)^2+0.75});
+\fill[Accent] (A) circle (2pt);
+\fill[Accent] (B) circle (2pt);
+\draw[dashed,TextGray] (A) -- (1.6,0) node[below,black] {$x_1$};
+\draw[dashed,TextGray] (A) -- (0,{0.11*(1.6-0.6)^2+0.75})
+node[left,black] {$f(x_1)$};
+\draw[dashed,TextGray] (B) -- (4.7,0) node[below,black] {$x_2$};
+\draw[dashed,TextGray] (B) -- (0,{0.11*(4.7-0.6)^2+0.75})
+node[left,black] {$f(x_2)$};
+\draw[->,Accent,thick] (2.0,1.55) to[bend left=18] (4.25,2.9);
+\node[Primary] at (3.45,5.1) {$x_1<x_2\Rightarrow f(x_1)<f(x_2)$};
+\node[Primary] at (3.45,4.55) {Hàm số đồng biến};
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\begin{tikzpicture}[x=0.72cm,y=0.58cm,>=Stealth]
+\draw[->,thick] (-0.4,0) -- (6.2,0) node[below] {$x$};
+\draw[->,thick] (0,-0.4) -- (0,5.4) node[left] {$y$};
+\draw[Accent,very thick,domain=0.7:5.7,samples=100,smooth]
+plot (\x,{4.2-0.11*(\x-0.6)^2});
+\coordinate (C) at (1.6,{4.2-0.11*(1.6-0.6)^2});
+\coordinate (D) at (4.7,{4.2-0.11*(4.7-0.6)^2});
+\fill[Accent] (C) circle (2pt);
+\fill[Accent] (D) circle (2pt);
+\draw[dashed,TextGray] (C) -- (1.6,0) node[below,black] {$x_1$};
+\draw[dashed,TextGray] (C) -- (0,{4.2-0.11*(1.6-0.6)^2})
+node[left,black] {$f(x_1)$};
+\draw[dashed,TextGray] (D) -- (4.7,0) node[below,black] {$x_2$};
+\draw[dashed,TextGray] (D) -- (0,{4.2-0.11*(4.7-0.6)^2})
+node[left,black] {$f(x_2)$};
+\draw[->,Accent,thick] (2.0,3.45) to[bend right=18] (4.25,2.1);
+\node[Primary] at (3.45,5.1) {$x_1<x_2\Rightarrow f(x_1)>f(x_2)$};
+\node[Primary] at (3.45,4.55) {Hàm số nghịch biến};
+\end{tikzpicture}
+\end{minipage}
+\end{center}
+\end{dinhnghia}
+
+\begin{dinhly}[bai02-dl-dao-ham-don-dieu]{Xác định tính đơn điệu bằng đạo hàm}
+Cho hàm số $y=f(x)$ có đạo hàm trên khoảng $K$.
+
+\begin{itemize}[leftmargin=2em]
+\item Nếu $f'(x)>0$ với mọi $x\in K$ thì hàm số $f$ đồng biến trên $K$.
+\item Nếu $f'(x)<0$ với mọi $x\in K$ thì hàm số $f$ nghịch biến trên $K$.
+\end{itemize}
+
+Nếu $f'(x)\ge0$ hoặc $f'(x)\le0$ với mọi $x\in K$ và dấu bằng chỉ xảy ra tại một
+số hữu hạn điểm thì kết luận tương ứng vẫn đúng.
+\tienquyet{bai02-dn-tinh-don-dieu}
+\end{dinhly}
+
+\begin{phuongphap}[bai02-pp-xet-don-dieu]{Các bước xét tính đơn điệu}
+\begin{enumerate}[leftmargin=2.3em]
+\item Tìm tập xác định của hàm số.
+\item Tính đạo hàm $y'=f'(x)$ và giải phương trình $y'=0$.
+\item Lập bảng xét dấu của $y'$ hoặc bảng biến thiên.
+\item Kết luận các khoảng đồng biến, nghịch biến.
+\end{enumerate}
+\tienquyet{bai02-dl-dao-ham-don-dieu}
+\end{phuongphap}
+
+\begin{vidu}[bai02-vd-bac-ba-hai-nghiem]{Hàm bậc ba có đạo hàm với hai nghiệm phân biệt}
+Xét tính đơn điệu của hàm số
+\[
+y=x^3-3x.
+\]
+Tập xác định: $\mathcal{D}=\mathbb{R}$. Ta có
+\[
+y'=3x^2-3=3(x-1)(x+1).
+\]
+Phương trình $y'=0$ có hai nghiệm phân biệt $x=-1$, $x=1$.
+
+\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=2,espcl=2.5]
+{$x$/1,$y'$/1,$y$/2}
+{$-\infty$,$-1$,$1$,$+\infty$}
+\tkzTabLine{,+,z,-,z,+,}
+\tkzTabVar{-/$-\infty$,+/$2$,-/$-2$,+/$+\infty$}
+\end{tikzpicture}
+\end{center}
+
+Hàm số đồng biến trên $(-\infty;-1)$ và $(1;+\infty)$; nghịch biến trên $(-1;1)$.
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{vidu}
+
+\begin{vidu}[bai02-vd-bac-ba-nghiem-kep]{Hàm bậc ba có đạo hàm với nghiệm kép}
+Xét tính đơn điệu của hàm số
+\[
+y=x^3.
+\]
+Tập xác định: $\mathcal{D}=\mathbb{R}$. Ta có
+\[
+y'=3x^2,\qquad y'=0\Leftrightarrow x=0.
+\]
+Nghiệm $x=0$ là nghiệm kép và $y'\ge0$ với mọi $x\in\mathbb{R}$.
+
+\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=2,espcl=3]
+{$x$/1,$y'$/1,$y$/2}
+{$-\infty$,$0$,$+\infty$}
+\tkzTabLine{,+,z,+,}
+\tkzTabVar{-/$-\infty$,R/,+/$+\infty$}
+\tkzTabIma{1}{3}{2}{$0$}
+\end{tikzpicture}
+\end{center}
+
+Hàm số đồng biến trên $\mathbb{R}$.
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{vidu}
+
+\begin{vidu}[bai02-vd-bac-ba-vo-nghiem]{Hàm bậc ba có đạo hàm vô nghiệm}
+Xét tính đơn điệu của hàm số
+\[
+y=x^3+3x.
+\]
+Tập xác định: $\mathcal{D}=\mathbb{R}$. Ta có
+\[
+y'=3x^2+3>0,\qquad \forall x\in\mathbb{R}.
+\]
+
+\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=2,espcl=4]
+{$x$/1,$y'$/1,$y$/2}
+{$-\infty$,$+\infty$}
+\tkzTabLine{,+,}
+\tkzTabVar{-/$-\infty$,+/$+\infty$}
+\end{tikzpicture}
+\end{center}
+
+Hàm số đồng biến trên $\mathbb{R}$.
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{vidu}
+
+\begin{vidu}[bai02-vd-bac-nhat-chia-bac-nhat]{Hàm bậc nhất chia bậc nhất}
+Xét tính đơn điệu của hàm số
+\[
+y=\frac{2x+1}{x-1}.
+\]
+Tập xác định: $\mathcal{D}=\mathbb{R}\setminus\{1\}$. Ta có
+\[
+y'=\frac{2\cdot(-1)-1\cdot1}{(x-1)^2}
+=-\frac{3}{(x-1)^2}<0,\qquad \forall x\ne1.
+\]
+
+\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=2,espcl=3]
+{$x$/1,$y'$/1,$y$/2}
+{$-\infty$,$1$,$+\infty$}
+\tkzTabLine{,-,d,-,}
+\tkzTabVar{+/$2$,-D+/$-\infty$/$+\infty$,-/$2$}
+\end{tikzpicture}
+\end{center}
+
+Hàm số nghịch biến trên $(-\infty;1)$ và $(1;+\infty)$.
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{vidu}
+
+\begin{vidu}[bai02-vd-bac-hai-chia-bac-nhat-hai-nghiem]{Hàm bậc hai chia bậc nhất có đạo hàm với hai nghiệm phân biệt}
+Xét tính đơn điệu của hàm số
+\[
+y=\frac{x^2+1}{x-1}.
+\]
+Tập xác định: $\mathcal{D}=\mathbb{R}\setminus\{1\}$. Ta có
+\[
+y'=\frac{2x(x-1)-(x^2+1)}{(x-1)^2}
+=\frac{x^2-2x-1}{(x-1)^2}.
+\]
+Phương trình $y'=0$ có hai nghiệm $x=1-\sqrt2$, $x=1+\sqrt2$.
+
+\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=2,espcl=2.1]
+{$x$/1,$y'$/1,$y$/2}
+{$-\infty$,$1-\sqrt2$,$1$,$1+\sqrt2$,$+\infty$}
+\tkzTabLine{,+,z,-,d,-,z,+,}
+\tkzTabVar{-/$-\infty$,+/$2-2\sqrt2$,-D+/$-\infty$/$+\infty$,
+-/$2+2\sqrt2$,+/$+\infty$}
+\end{tikzpicture}
+\end{center}
+
+Hàm số đồng biến trên $(-\infty;1-\sqrt2)$ và $(1+\sqrt2;+\infty)$; nghịch biến
+trên $(1-\sqrt2;1)$ và $(1;1+\sqrt2)$.
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{vidu}
+
+\begin{vidu}[bai02-vd-bac-hai-chia-bac-nhat-vo-nghiem]{Hàm bậc hai chia bậc nhất có đạo hàm vô nghiệm}
+Xét tính đơn điệu của hàm số
+\[
+y=\frac{x^2-2x}{x-1}.
+\]
+Tập xác định: $\mathcal{D}=\mathbb{R}\setminus\{1\}$. Ta có
+\[
+y'=\frac{(2x-2)(x-1)-(x^2-2x)}{(x-1)^2}
+=\frac{x^2-2x+2}{(x-1)^2}
+=\frac{(x-1)^2+1}{(x-1)^2}>0,\qquad \forall x\ne1.
+\]
+
+\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=2,espcl=3]
+{$x$/1,$y'$/1,$y$/2}
+{$-\infty$,$1$,$+\infty$}
+\tkzTabLine{,+,d,+,}
+\tkzTabVar{-/$-\infty$,+D-/$+\infty$/$-\infty$,+/$+\infty$}
+\end{tikzpicture}
+\end{center}
+
+Hàm số đồng biến trên $(-\infty;1)$ và $(1;+\infty)$.
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{vidu}
+
+\begin{chuy}[bai02-chu-y]{Chú ý khi xét tính đơn điệu}
+\begin{itemize}[leftmargin=2em]
+\item Không kết luận hàm số đồng biến hoặc nghịch biến trên toàn tập xác định nếu
+tập xác định bị tách bởi điểm không xác định.
+\item Với hàm phân thức, cần đưa điểm làm mẫu bằng $0$ vào bảng biến thiên dưới dạng
+đường gián đoạn.
+\item Nghiệm kép của $f'(x)=0$ thường không làm đổi dấu đạo hàm, nên chiều biến
+thiên có thể không đổi qua nghiệm đó.
+\end{itemize}
+\tienquyet{bai02-pp-xet-don-dieu}
+\end{chuy}

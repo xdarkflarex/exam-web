@@ -1,0 +1,556 @@
+{
+  "generatedAt": "2026-08-10T17:20:55.827Z",
+  "chaptersDir": "D:\\ToanTHPT\\LATEX\\HethongtrithucToanTHPT\\chapters",
+  "figures": [
+    {
+      "key": "12dc9df4c582e0a8",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 14364
+    },
+    {
+      "key": "17416f0162ac06dd",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 2418
+    },
+    {
+      "key": "631f5dbe2df67b52",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 3551
+    },
+    {
+      "key": "7d5f9a17811b8903",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 5397
+    },
+    {
+      "key": "907005fc58a72128",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 7032
+    },
+    {
+      "key": "9bb7ad939f44cc97",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 151567
+    },
+    {
+      "key": "9fbe0fa5efaa4ce1",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 5680
+    },
+    {
+      "key": "b8d8016aee69ae46",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 2436
+    },
+    {
+      "key": "c2b0f4c328caf647",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 5321
+    },
+    {
+      "key": "c59a2e1a26723d76",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 5095
+    },
+    {
+      "key": "c6937be2e0d1147e",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 3840
+    },
+    {
+      "key": "d0711cd41609c050",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 3534
+    },
+    {
+      "key": "d6fa167c4cea1d48",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 3245
+    },
+    {
+      "key": "dd2e9467a715443b",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 7383
+    },
+    {
+      "key": "dd4a75474131dccb",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 2744
+    },
+    {
+      "key": "e1e49ee0d5573f6c",
+      "source": "lop10/chuong01-menh-de-va-tap-hop/bai02-tap-hop-va-cac-phep-toan.tex",
+      "bytes": 2692
+    },
+    {
+      "key": "2d25283e6b73a7ea",
+      "source": "lop10/chuong02-bat-phuong-trinh-va-he-bat-phuong-trinh-bac-nhat-hai-an/bai03-bat-phuong-trinh-bac-nhat-hai-an.tex",
+      "bytes": 21190
+    },
+    {
+      "key": "42c397aaf4f99b7e",
+      "source": "lop10/chuong02-bat-phuong-trinh-va-he-bat-phuong-trinh-bac-nhat-hai-an/bai03-bat-phuong-trinh-bac-nhat-hai-an.tex",
+      "bytes": 28694
+    },
+    {
+      "key": "7b51df55caa10319",
+      "source": "lop10/chuong02-bat-phuong-trinh-va-he-bat-phuong-trinh-bac-nhat-hai-an/bai03-bat-phuong-trinh-bac-nhat-hai-an.tex",
+      "bytes": 19135
+    },
+    {
+      "key": "005489ef78f8423b",
+      "source": "lop10/chuong02-bat-phuong-trinh-va-he-bat-phuong-trinh-bac-nhat-hai-an/bai04-he-bat-phuong-trinh-bac-nhat-hai-an.tex",
+      "bytes": 22027
+    },
+    {
+      "key": "5c27443b68bfec67",
+      "source": "lop10/chuong02-bat-phuong-trinh-va-he-bat-phuong-trinh-bac-nhat-hai-an/bai04-he-bat-phuong-trinh-bac-nhat-hai-an.tex",
+      "bytes": 29741
+    },
+    {
+      "key": "bc7bce22f979068e",
+      "source": "lop10/chuong02-bat-phuong-trinh-va-he-bat-phuong-trinh-bac-nhat-hai-an/bai04-he-bat-phuong-trinh-bac-nhat-hai-an.tex",
+      "bytes": 38931
+    },
+    {
+      "key": "cf669f4bfff30907",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai01-gia-tri-luong-giac-cua-goc-luong-giac.tex",
+      "bytes": 12828
+    },
+    {
+      "key": "791a72756fdd9d39",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai02-cong-thuc-luong-giac.tex",
+      "bytes": 26081
+    },
+    {
+      "key": "74d64a786d9714c4",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai03-ham-so-luong-giac-va-do-thi.tex",
+      "bytes": 23017
+    },
+    {
+      "key": "92cec4a61540393a",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai03-ham-so-luong-giac-va-do-thi.tex",
+      "bytes": 28800
+    },
+    {
+      "key": "c00557747708f8b8",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai03-ham-so-luong-giac-va-do-thi.tex",
+      "bytes": 28657
+    },
+    {
+      "key": "d3a90d3a4aabcc5e",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai03-ham-so-luong-giac-va-do-thi.tex",
+      "bytes": 28535
+    },
+    {
+      "key": "1ed61da7474c6a43",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai04-phuong-trinh-luong-giac-co-ban.tex",
+      "bytes": 11176
+    },
+    {
+      "key": "902de1b651b9e082",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai04-phuong-trinh-luong-giac-co-ban.tex",
+      "bytes": 20774
+    },
+    {
+      "key": "990611d2d0f81dfe",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai04-phuong-trinh-luong-giac-co-ban.tex",
+      "bytes": 11617
+    },
+    {
+      "key": "fe28e10c2981fef0",
+      "source": "lop11/chuong01-ham-so-luong-giac-va-phuong-trinh-luong-giac/bai04-phuong-trinh-luong-giac-co-ban.tex",
+      "bytes": 19563
+    },
+    {
+      "key": "abead4f9bcd3abed",
+      "source": "lop11/chuong02-day-so-cap-so-cong-va-cap-so-nhan/bai-tap-cuoi-chuong02.tex",
+      "bytes": 18052
+    },
+    {
+      "key": "f377c202f24aa686",
+      "source": "lop11/chuong02-day-so-cap-so-cong-va-cap-so-nhan/bai-tap-cuoi-chuong02.tex",
+      "bytes": 35658
+    },
+    {
+      "key": "2117ec37e593b89b",
+      "source": "lop11/chuong02-day-so-cap-so-cong-va-cap-so-nhan/bai05-day-so.tex",
+      "bytes": 25620
+    },
+    {
+      "key": "28e53f1a9e13cee6",
+      "source": "lop11/chuong02-day-so-cap-so-cong-va-cap-so-nhan/bai06-cap-so-cong.tex",
+      "bytes": 21650
+    },
+    {
+      "key": "c825e2c195e31ffd",
+      "source": "lop11/chuong02-day-so-cap-so-cong-va-cap-so-nhan/bai07-cap-so-nhan.tex",
+      "bytes": 10829
+    },
+    {
+      "key": "00fd5a5d500beb11",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 12038
+    },
+    {
+      "key": "34e202eaafe02cbe",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 49258
+    },
+    {
+      "key": "7e43cf4c42026cd0",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 48024
+    },
+    {
+      "key": "ab11f7ce1f3bd782",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 30479
+    },
+    {
+      "key": "b80aab7a5350c106",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 15659
+    },
+    {
+      "key": "c5eeaa0ccc136520",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 13878
+    },
+    {
+      "key": "e6e52333cda352e7",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 14497
+    },
+    {
+      "key": "ec735774529a4020",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai02-tinh-don-dieu-cua-ham-so.tex",
+      "bytes": 18508
+    },
+    {
+      "key": "2129eb9f53ed74b3",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai03-cuc-tri-cua-ham-so.tex",
+      "bytes": 23539
+    },
+    {
+      "key": "45ada1c155b1487d",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai03-cuc-tri-cua-ham-so.tex",
+      "bytes": 21653
+    },
+    {
+      "key": "4e878995b14f4501",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai03-cuc-tri-cua-ham-so.tex",
+      "bytes": 23531
+    },
+    {
+      "key": "7ca0a91f2e6afb13",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai03-cuc-tri-cua-ham-so.tex",
+      "bytes": 25249
+    },
+    {
+      "key": "00e08d4950ef831d",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai04-gia-tri-lon-nhat-nho-nhat.tex",
+      "bytes": 14586
+    },
+    {
+      "key": "3673502f42aac7a3",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai04-gia-tri-lon-nhat-nho-nhat.tex",
+      "bytes": 21008
+    },
+    {
+      "key": "a4adc11a04caa41e",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai04-gia-tri-lon-nhat-nho-nhat.tex",
+      "bytes": 24522
+    },
+    {
+      "key": "f384c63a5a048e3e",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai04-gia-tri-lon-nhat-nho-nhat.tex",
+      "bytes": 23168
+    },
+    {
+      "key": "0389ec33ec7034bf",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai05-duong-tiem-can-cua-do-thi-ham-so.tex",
+      "bytes": 17455
+    },
+    {
+      "key": "bb4e23a4688d4fd0",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai05-duong-tiem-can-cua-do-thi-ham-so.tex",
+      "bytes": 23525
+    },
+    {
+      "key": "2bafc8b827060cac",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 23248
+    },
+    {
+      "key": "30dea84cbed10378",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 43207
+    },
+    {
+      "key": "459ef109c38a6c2d",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 27423
+    },
+    {
+      "key": "48dc6b49f16f3d55",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 18002
+    },
+    {
+      "key": "53acaeb30dc887df",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 13459
+    },
+    {
+      "key": "6d8822196d5b23d5",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 27773
+    },
+    {
+      "key": "75af4b2cef0f0608",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 159364
+    },
+    {
+      "key": "b0e3cc84d2a1ede8",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 85583
+    },
+    {
+      "key": "ba1466e96a0c840d",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 40372
+    },
+    {
+      "key": "c14263b2c02bbe4e",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai06-khao-sat-su-bien-thien-va-ve-do-thi-ham-so.tex",
+      "bytes": 76621
+    },
+    {
+      "key": "0013cd3ac1c5cd86",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 30895
+    },
+    {
+      "key": "1f45b6511cfb2add",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 29646
+    },
+    {
+      "key": "24cc4080c38270bc",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 14818
+    },
+    {
+      "key": "425e43c151a89abd",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 51436
+    },
+    {
+      "key": "6e814b9c9d12c010",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 25529
+    },
+    {
+      "key": "972a5c808c5c18a4",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 49475
+    },
+    {
+      "key": "9d6624e8058a4dac",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 23499
+    },
+    {
+      "key": "acde57dc4fe4cd30",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 23536
+    },
+    {
+      "key": "e2dd41c0e4975fd4",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 8967
+    },
+    {
+      "key": "fef09d41c7d5819d",
+      "source": "lop12/chuong01-ung-dung-dao-ham/bai07-ung-dung-dao-ham-giai-bai-toan-thuc-te.tex",
+      "bytes": 28140
+    },
+    {
+      "key": "1be6886e3d888f52",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai01-vecto-trong-khong-gian.tex",
+      "bytes": 19881
+    },
+    {
+      "key": "337147e715545f3b",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai01-vecto-trong-khong-gian.tex",
+      "bytes": 6855
+    },
+    {
+      "key": "9a9173966682c22a",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai01-vecto-trong-khong-gian.tex",
+      "bytes": 9296
+    },
+    {
+      "key": "a088a07a36e7001e",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai01-vecto-trong-khong-gian.tex",
+      "bytes": 46672
+    },
+    {
+      "key": "edd22f3f2cf511ab",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai01-vecto-trong-khong-gian.tex",
+      "bytes": 12543
+    },
+    {
+      "key": "02505b4444539c30",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai02-he-truc-toa-do-trong-khong-gian.tex",
+      "bytes": 19571
+    },
+    {
+      "key": "2f53d6a405049110",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai02-he-truc-toa-do-trong-khong-gian.tex",
+      "bytes": 22901
+    },
+    {
+      "key": "a7b4684109359035",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai02-he-truc-toa-do-trong-khong-gian.tex",
+      "bytes": 11450
+    },
+    {
+      "key": "4a9aaf3d73cbc401",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai03-bieu-thuc-toa-do-cua-cac-phep-toan-vecto.tex",
+      "bytes": 21522
+    },
+    {
+      "key": "32c0f8230d08a9b7",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai04-bai-tap-cuoi-chuong.tex",
+      "bytes": 15898
+    },
+    {
+      "key": "696239861d236222",
+      "source": "lop12/chuong02-vecto-va-he-truc-toa-do/bai04-bai-tap-cuoi-chuong.tex",
+      "bytes": 129483
+    },
+    {
+      "key": "fc87d870fadb29bc",
+      "source": "lop12/chuong03-thong-ke/bai01-khoang-bien-thien-va-khoang-tu-phan-vi.tex",
+      "bytes": 39735
+    },
+    {
+      "key": "c4cdef4bb9ef5b87",
+      "source": "lop12/chuong03-thong-ke/bai03-bai-tap-cuoi-chuong.tex",
+      "bytes": 110963
+    },
+    {
+      "key": "29f2c8f48a27a870",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 38526
+    },
+    {
+      "key": "37d1055a54225aa6",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 3981
+    },
+    {
+      "key": "3acc3667b06d91d3",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 4062
+    },
+    {
+      "key": "4bca539c7f4b1b50",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 40882
+    },
+    {
+      "key": "7fc42bcdf2eeaa09",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 4392
+    },
+    {
+      "key": "80dc3818b94b6d34",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 53920
+    },
+    {
+      "key": "a676ee1f64274e8b",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 3051
+    },
+    {
+      "key": "b24a290b169e7297",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 3695
+    },
+    {
+      "key": "b6343c3485d882f8",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 19251
+    },
+    {
+      "key": "e41e202d6903fc61",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 18034
+    },
+    {
+      "key": "e9af7ddb2999fb67",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 5982
+    },
+    {
+      "key": "ee686e216a14b28d",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 3849
+    },
+    {
+      "key": "f782bc14dc0cf9d8",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 7527
+    },
+    {
+      "key": "fdef90a860e6eff4",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-a-hinh-hoc-thcs.tex",
+      "bytes": 9068
+    },
+    {
+      "key": "27e9160993be531d",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-b-dai-so-toi-uu-lop10.tex",
+      "bytes": 10026
+    },
+    {
+      "key": "6bcfd27e7389dbb2",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-b-dai-so-toi-uu-lop10.tex",
+      "bytes": 26071
+    },
+    {
+      "key": "b335f69b0c016387",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-b-dai-so-toi-uu-lop10.tex",
+      "bytes": 28355
+    },
+    {
+      "key": "d0d64673ab7a1eb7",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-b-dai-so-toi-uu-lop10.tex",
+      "bytes": 79589
+    },
+    {
+      "key": "ff9de147c1d6ee43",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-b-dai-so-toi-uu-lop10.tex",
+      "bytes": 40272
+    },
+    {
+      "key": "45480e6e8346440a",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-c-conic-lop10.tex",
+      "bytes": 19607
+    },
+    {
+      "key": "dbf6064e8cf520d2",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-c-conic-lop10.tex",
+      "bytes": 18201
+    },
+    {
+      "key": "e45a1d8fbcd31f73",
+      "source": "lop12/phu-luc-kien-thuc-nen/phu-luc-c-conic-lop10.tex",
+      "bytes": 13334
+    }
+  ]
+}

@@ -48,6 +48,8 @@ npx.cmd tsc --noEmit --incremental false
 npm.cmd run lint
 npm.cmd run build
 npm.cmd run start
+npm.cmd test
+npm.cmd run tikz:svg -- --chapters "D:/ToanTHPT/LATEX/HethongtrithucToanTHPT"
 ```
 
 Baseline 2026-07-19:
@@ -575,4 +577,65 @@ Nếu `tsc` báo lỗi trong `.next/dev/types/**`, dừng dev server, xóa đún
 - Không deploy pilot essay/hardening trước khi preflight, RLS/trigger/RPC negative tests và teacher-review smoke pass. `20260722` đã live nên practice và homework chấm ở RPC server; JWT negative test vẫn còn thiếu.
 - Nếu commit có chạm đường tính điểm: `20260806` đã áp chưa, postflight `must_be_zero=0` chưa, và phép thử 3/4 ý một câu Đúng/Sai ra 0,5 chưa. Xem [`SCORING.md`](SCORING.md).
 - Không deploy `.env`, `.ai-cache`, `.next`, tool index hoặc dữ liệu học sinh.
+- **Có** deploy `public/tikz/` (110 SVG, 3,0 MB). Thiếu là mọi hình lý thuyết rơi xuống khung dự phòng.
 - Smoke landing, login, một route student, một route admin và các API bảo mật sau deploy.
+
+## 12. Hình TikZ của bài lý thuyết
+
+### Dựng SVG
+
+```powershell
+npm.cmd run tikz:svg -- --chapters "D:/ToanTHPT/LATEX/HethongtrithucToanTHPT"
+```
+
+Cần `pdflatex` + `dvisvgm` trong PATH (MiKTeX đã có trên máy chủ dự án). Script
+đọc `preamble.tex` + `tri-thuc.sty` để lấy màu, `\usetikzlibrary` và khối
+`\tikzset`, biên dịch từng `tikzpicture` rồi ghi ra `public/tikz/<khoá>.svg`.
+
+- Chạy lại nhiều lần thoải mái: hình đã có SVG thì bỏ qua. `--force` để làm lại tất cả.
+- **Sửa hình trong `.tex` thì phải chạy lại**, nếu không web vẫn hiện hình cũ.
+- Xem lại toàn bộ hình đã dựng: mở `/tikz/_preview.html`.
+- Trạng thái 2026-08-11: 110/110 hình dựng thành công.
+
+### ĐANG HỎNG: hình chưa hiện trên web (2026-08-11)
+
+SVG đã dựng đủ và parser đã sinh đúng khối ```` ```tikz ````, nhưng **hình vẫn
+chưa hiện khi xem thật trên trình duyệt**. Chưa tìm ra nguyên nhân — dừng ở đây
+để làm tiếp sau. Không có gì phải rollback: các phần khác của màn nhập lý thuyết
+đã chạy ổn.
+
+Đường đi của một hình, để soi cho đúng chỗ:
+
+```
+file .tex  →  latexToMarkdown() bọc thành ```tikz
+           →  MathContent: react-markdown gọi component `code`
+           →  <TikzRenderer code={...}>
+           →  tikzFigureKey(code)  →  <img src="/tikz/<khoá>.svg">
+           →  onError  →  TikZJax  →  khung xổ mã
+```
+
+Nghi can, xếp theo thứ tự nên kiểm:
+
+1. **Lệch khoá.** Đây là nghi can số một vì nó hỏng *im lặng*: web đi tìm tệp
+   không có, `onError` bắn, rơi thẳng xuống TikZJax mà không báo gì. Script băm
+   mã lấy trực tiếp từ `.tex`; component băm chuỗi mà react-markdown truyền vào
+   (`String(children).replace(/\n$/, '')`). Hai chuỗi đó **chưa được kiểm là
+   giống nhau trên trình duyệt**. Cách đo nhanh: mở DevTools → Network, lọc
+   `tikz`, xem có request `/tikz/*.svg` nào 404 không, rồi so khoá trong URL với
+   `public/tikz/manifest.json`.
+2. **Dữ liệu cũ trong database.** Các bài lý thuyết nạp từ tháng 6 mang
+   `content_md` sinh bởi parser CŨ (display math tụt thành `$`, và với 19/30
+   file thì nội dung vốn đã hỏng). Xem trang `/learn` sẽ thấy bản cũ chứ không
+   phải kết quả của parser mới. **Phải nhập lại** mới đánh giá được.
+3. **Dev server chưa thấy tệp mới.** `public/tikz/` được thêm sau khi server
+   đang chạy — dừng `npm run dev` và chạy lại.
+4. **`format="markdown"` mới thêm.** Nếu thử trước lúc đó thì nội dung không đi
+   qua react-markdown, nên `code` component không chạy và TikZ chỉ là chữ.
+5. **`<img>` kẹt ở trạng thái `checking`.** `TikzRenderer` ẩn ảnh cho tới khi
+   `onLoad` bắn. Nếu thấy vòng xoay "Đang tải hình..." đứng mãi thì là nhánh này.
+
+Nếu cuối cùng phải bỏ `<img>`: phương án thay thế là nhúng thẳng nội dung SVG
+vào DOM (fetch rồi `innerHTML` trong `.tikz-container`, class đó đã nằm trong
+`ignoreHtmlClass` của MathJax). Đổi lại là mất cache ảnh của trình duyệt.
+
+Bối cảnh đầy đủ và lý do không dùng TikZJax: [`LATEX_PARSER_DEBUG.md`](LATEX_PARSER_DEBUG.md).

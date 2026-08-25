@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Kiểm tra SVG TikZ</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 24px; }
+  h1 { font-size: 18px; }
+  .grid { display: grid; gap: 16px; }
+  figure { margin: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; }
+  figcaption { font: 12px ui-monospace, monospace; color: #475569; margin-bottom: 8px; }
+  img { max-width: 100%; height: auto; display: block; }
+</style>
+<h1>SVG dựng sẵn từ TikZ</h1>
+<div class="grid" id="grid"></div>
+<script>
+fetch('manifest.json').then(r => r.json()).then(data => {
+  document.getElementById('grid').innerHTML = data.figures.map(f =>
+    `<figure><figcaption>${f.key} — ${f.source} — ${(f.bytes/1024).toFixed(0)} KB</figcaption>` +
+    `<img src="${f.key}.svg" alt=""></figure>`
+  ).join('')
+})
+</script>
