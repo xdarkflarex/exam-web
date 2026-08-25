@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { toPoints } from './geometry.ts'
+import { toPoints, radarPoint, radarPolygon, polygonPoints, radarLabelAnchor } from './geometry.ts'
 
 test('dưới hai điểm thì không có toạ độ nào', () => {
   assert.deepEqual(toPoints([], 100, 40, 4), [])
@@ -59,4 +59,62 @@ test('khoảng cách ngang giữa các điểm là đều nhau', () => {
   const points = toPoints([1, 2, 3, 4, 5], 100, 40, 0)
   const gaps = points.slice(1).map((point, index) => point.x - points[index].x)
   for (const gap of gaps) assert.ok(Math.abs(gap - gaps[0]) < 1e-9)
+})
+
+/* ==========================================================================
+   RADAR
+   ========================================================================== */
+
+test('radar: trục đầu tiên nằm ở 12 giờ', () => {
+  const center = { x: 100, y: 100 }
+  const p = radarPoint(0, 4, 1, 50, center)
+  assert.ok(Math.abs(p.x - 100) < 1e-9, 'phải thẳng trục dọc')
+  assert.equal(Number(p.y.toFixed(6)), 50, 'phải ở PHÍA TRÊN tâm')
+})
+
+test('radar: đi thuận chiều kim đồng hồ', () => {
+  const center = { x: 0, y: 0 }
+  // Trục thứ hai của hình 4 cạnh phải ở 3 giờ (x dương, y = 0).
+  const p = radarPoint(1, 4, 1, 10, center)
+  assert.equal(Number(p.x.toFixed(6)), 10)
+  assert.ok(Math.abs(p.y) < 1e-9)
+})
+
+test('radar: ratio kẹp về 0..1 để số hỏng không vẽ ra ngoài khung', () => {
+  const center = { x: 0, y: 0 }
+  assert.equal(radarPoint(0, 3, 5, 10, center).y, -10, 'trên 1 bị kẹp về 1')
+  assert.equal(radarPoint(0, 3, -2, 10, center).y, 0, 'dưới 0 bị kẹp về 0 (về tâm)')
+})
+
+test('radar: ratio 0 nằm đúng tâm', () => {
+  const center = { x: 7, y: 9 }
+  const p = radarPoint(2, 5, 0, 40, center)
+  assert.equal(Number(p.x.toFixed(6)), 7)
+  assert.equal(Number(p.y.toFixed(6)), 9)
+})
+
+test('radar: polygon trả đúng số đỉnh', () => {
+  const pts = radarPolygon([0.2, 0.5, 1, 0.8, 0.1], 50, { x: 0, y: 0 })
+  assert.equal(pts.length, 5)
+})
+
+test('radar: count = 0 không chia cho 0', () => {
+  const center = { x: 3, y: 4 }
+  assert.deepEqual(radarPoint(0, 0, 1, 10, center), center)
+  assert.deepEqual(radarPolygon([], 10, center), [])
+})
+
+test('radar: nhãn nửa phải căn trái, nửa trái căn phải, trên/dưới căn giữa', () => {
+  assert.equal(radarLabelAnchor(0, 4), 'middle', '12 giờ')
+  assert.equal(radarLabelAnchor(1, 4), 'start', '3 giờ')
+  assert.equal(radarLabelAnchor(2, 4), 'middle', '6 giờ')
+  assert.equal(radarLabelAnchor(3, 4), 'end', '9 giờ')
+})
+
+test('polygonPoints: định dạng được cho thẻ SVG', () => {
+  const s = polygonPoints([
+    { x: 1.234, y: 5.678 },
+    { x: 0, y: 10 },
+  ])
+  assert.equal(s, '1.23,5.68 0.00,10.00')
 })

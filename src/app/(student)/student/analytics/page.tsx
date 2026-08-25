@@ -37,6 +37,8 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ProgressRing, { type RingTone } from '@/components/viz/ProgressRing'
+import RadarChart, { type RadarAxis } from '@/components/viz/RadarChart'
+import { MIN_EVIDENCE } from '@/lib/analytics/knowledge-mastery'
 import { MASTERY_BAR_TONE, MASTERY_CHIP_TONE } from '@/lib/analytics/mastery-tone'
 import {
   getCapabilityStatusLabel,
@@ -268,11 +270,14 @@ export default function StudentAnalyticsPage() {
 
           {activeTab === 'overview' && <OverviewTab summary={summary} />}
           {activeTab === 'knowledge' && (
-            <StatList
-              title="Năng lực theo kiến thức"
-              items={summary.knowledgeStats}
-              emptyText="Chưa có dữ liệu liên kết câu hỏi với kiến thức."
-            />
+            <div className="space-y-5">
+              <KnowledgeRadar stats={summary.knowledgeStats} />
+              <StatList
+                title="Năng lực theo kiến thức"
+                items={summary.knowledgeStats}
+                emptyText="Chưa có dữ liệu liên kết câu hỏi với kiến thức."
+              />
+            </div>
           )}
           {activeTab === 'levels' && (
             <StatList
@@ -362,6 +367,64 @@ function OverviewTab({ summary }: { summary: StudentCapabilitySummary }) {
       <StatList title="Mảng cần ưu tiên" items={weakKnowledge} emptyText="Chưa có mảng yếu rõ ràng." compact />
       <HomeworkList items={summary.homeworks.slice(0, 5)} compact />
     </div>
+  )
+}
+
+/**
+ * Chọn trục cho radar năng lực.
+ *
+ * Số chuyên đề trong ngân hàng có thể lên vài chục; vẽ hết thì nhãn chồng nhau
+ * và hình mất hẳn ý nghĩa. Chọn tối đa MAX_AXES trục, ƯU TIÊN chuyên đề đã đủ
+ * bằng chứng — radar mà phần lớn trục là "chưa đủ dữ liệu" thì không nói được
+ * gì, chỉ làm người đọc tưởng mình yếu toàn diện.
+ *
+ * Sau khi chọn thì sắp lại theo TÊN: thứ tự trục phải ổn định giữa các lần tải,
+ * nếu không hình sẽ xoay mỗi lần học sinh làm thêm một câu và không so sánh
+ * được với lần trước.
+ */
+const MAX_AXES = 8
+
+function KnowledgeRadar({ stats }: { stats: CapabilityStat[] }) {
+  const withData = stats.filter((item) => item.total > 0)
+  if (withData.length < 3) return null
+
+  const enough = withData
+    .filter((item) => item.total >= MIN_EVIDENCE)
+    .sort((a, b) => b.total - a.total)
+  const rest = withData
+    .filter((item) => item.total < MIN_EVIDENCE)
+    .sort((a, b) => b.total - a.total)
+
+  const chosen = [...enough, ...rest].slice(0, MAX_AXES)
+  if (chosen.length < 3) return null
+
+  const axes: RadarAxis[] = [...chosen]
+    .sort((a, b) => a.label.localeCompare(b.label, 'vi'))
+    .map((item) => ({ label: item.label, correct: item.correct, total: item.total }))
+
+  const measured = axes.filter((axis) => axis.total >= MIN_EVIDENCE)
+  const summaryText = measured.length
+    ? measured
+        .map((axis) => `${axis.label} ${Math.round((axis.correct / axis.total) * 100)}%`)
+        .join(', ')
+    : 'chưa chuyên đề nào đủ dữ liệu'
+
+  return (
+    <section className="bento-tile p-5">
+      <h2 className="font-bold text-slate-800 dark:text-white">Phân tích theo năng lực</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        Mỗi trục là một chuyên đề em đã làm. Càng ra xa tâm thì tỉ lệ đúng càng cao.
+      </p>
+      <div className="mt-4">
+        <RadarChart axes={axes} ariaLabel={`Tỉ lệ đúng theo chuyên đề: ${summaryText}`} />
+      </div>
+      {withData.length > chosen.length && (
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Hiển thị {chosen.length} chuyên đề có nhiều dữ liệu nhất trong tổng số{' '}
+          {withData.length}. Danh sách đầy đủ ở bảng bên dưới.
+        </p>
+      )}
+    </section>
   )
 }
 
