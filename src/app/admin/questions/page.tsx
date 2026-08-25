@@ -7,9 +7,10 @@ import {
   HelpCircle, Search, FileText, CheckCircle, Eye, X,
   Filter, Tag, BookOpen, Layers, MessageSquare,
   BarChart3, Brain, AlertCircle, ChevronRight,
-  Download, CheckSquare, Square, PenLine
+  Download, CheckSquare, Square, PenLine, FolderTree, Loader2
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
+import BulkTaxonomyDialog from '@/components/admin/BulkTaxonomyDialog'
 import MathContent from '@/components/MathContent'
 import { buildExBlocks, ExportQuestion } from '@/lib/export/questionToLatex'
 import { downloadTextFile } from '@/lib/export/download'
@@ -67,6 +68,33 @@ interface QuestionTaxonomy {
   subsection?: Subsection
 }
 
+/**
+ * Số câu mỗi lượt tải.
+ *
+ * 50 chứ không phải 500: mỗi câu kéo theo đáp án, taxonomy, tag, phản hồi và
+ * số lần được dùng trong đề, nên 500 câu là vài nghìn dòng dựng DOM một lượt —
+ * đủ để đơ máy cấu hình vừa.
+ */
+const PAGE_SIZE = 50
+
+/** Hàng thô từ bảng `questions`, trước khi ghép đáp án/taxonomy/tag. */
+interface QuestionRow {
+  id: string
+  content: string
+  question_type: string
+  difficulty: number
+  cognitive_level: string | null
+  source_exam: string | null
+  explanation: string | null
+  solution: string | null
+  tikz_code: string | null
+  tikz_image_url: string | null
+  solution_tikz_image_url: string | null
+  solution_tikz_image_url_2: string | null
+  created_at: string
+  updated_at: string
+}
+
 interface QuestionFull {
   id: string
   content: string
@@ -101,6 +129,7 @@ export default function AdminQuestionsPage() {
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionFull | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [taxonomyDialogOpen, setTaxonomyDialogOpen] = useState(false)
   
   // Filter states
   const [topics, setTopics] = useState<Topic[]>([])
@@ -114,80 +143,123 @@ export default function AdminQuestionsPage() {
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [selectedSubsectionId, setSelectedSubsectionId] = useState<string>('')
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('')
+  const [selectedQuestionType, setSelectedQuestionType] = useState<string>('')
+  /** Tổng số câu KHỚP BỘ LỌC trên server, không phải số câu đã tải về. */
+  const [totalCount, setTotalCount] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
+  /*
+    Ô tìm kiếm giờ bắn truy vấn xuống server, nên phải hoãn: gõ "nguyên hàm" mà
+    không hoãn là 10 truy vấn liên tiếp, và câu trả lời về không đúng thứ tự thì
+    kết quả nhấp nháy.
+  */
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedTagId, setSelectedTagId] = useState<string>('')
 
   // ==================== FETCH DATA ====================
-  const fetchQuestions = useCallback(async () => {
+  /*
+    TẢI THEO TRANG, LỌC Ở SERVER.
+
+    Bản trước tải 500 câu mới nhất rồi lọc trong trình duyệt. Hai hậu quả, và
+    cả hai đều đã gặp thật:
+
+      1. Đơ máy. 500 câu kéo theo đáp án, taxonomy, tag, phản hồi, số lần dùng
+         — vài nghìn dòng dựng thành DOM một lượt.
+      2. Bộ lọc NÓI SAI. Lọc trên 500 câu mới nhất nên một nguồn có 81 câu cũ
+         chỉ hiện ra vài câu, mà giao diện không hề nói là đang thiếu.
+
+    Giờ mỗi lượt lấy PAGE_SIZE câu, mọi điều kiện lọc đẩy xuống PostgREST, và
+    `count: 'exact'` cho biết TỔNG số câu khớp — nên "hiện 50 / 1.234" là con số
+    thật chứ không phải phần đã kịp tải.
+
+    Lọc theo taxonomy/tag dùng embed `!inner`: nó biến quan hệ thành phép nối
+    trong ngay trên server. Cách khác là truy vấn lấy danh sách question_id rồi
+    `.in(...)`, nhưng vài nghìn id nhét vào URL sẽ vượt giới hạn độ dài và trả 414.
+  */
+  const fetchQuestions = useCallback(async (offset: number, append: boolean) => {
+    // Trang đầu dùng chung cờ `loading` với phần taxonomy: nếu không, danh sách
+    // rỗng lọt ra giữa hai lượt tải và giao diện nháy "Không có câu hỏi nào".
+    if (append) setLoadingMore(true)
+    else setLoading(true)
     try {
-      // Step 1: Fetch questions
-      const { data: questionsData, error: qError } = await supabase
+      const taxonomyFilterActive = Boolean(
+        selectedTopicId || selectedCategoryId || selectedSectionId || selectedSubsectionId
+      )
+
+      const embeds: string[] = []
+      if (taxonomyFilterActive) embeds.push('question_taxonomy!inner(question_id)')
+      if (selectedTagId) embeds.push('question_tags!inner(question_id)')
+
+      const columns = [
+        'id', 'content', 'question_type', 'difficulty', 'cognitive_level',
+        'source_exam', 'explanation', 'solution', 'tikz_code', 'tikz_image_url',
+        'solution_tikz_image_url', 'solution_tikz_image_url_2',
+        'created_at', 'updated_at',
+        ...embeds,
+      ].join(', ')
+
+      let query = supabase
         .from('questions')
-        .select(`
-          id, content, question_type, difficulty, cognitive_level, 
-          source_exam, explanation, solution, tikz_code, tikz_image_url,
-          solution_tikz_image_url, solution_tikz_image_url_2,
-          created_at, updated_at
-        `)
+        .select(columns, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(500)
+        .range(offset, offset + PAGE_SIZE - 1)
+
+      if (debouncedSearch) {
+        // `%` và `_` là ký tự đại diện của LIKE. Người dùng gõ chúng để tìm
+        // đúng ký tự đó, không phải để làm mẫu khớp — nên phải thoát.
+        const safe = debouncedSearch.replace(/[%_]/g, (c) => '\\' + c)
+        query = query.ilike('content', '%' + safe + '%')
+      }
+      if (selectedDifficulty) query = query.eq('difficulty', parseInt(selectedDifficulty))
+      if (selectedQuestionType) query = query.eq('question_type', selectedQuestionType)
+      if (selectedTopicId) query = query.eq('question_taxonomy.topic_id', selectedTopicId)
+      if (selectedCategoryId) query = query.eq('question_taxonomy.category_id', selectedCategoryId)
+      if (selectedSectionId) query = query.eq('question_taxonomy.section_id', selectedSectionId)
+      if (selectedSubsectionId) query = query.eq('question_taxonomy.subsection_id', selectedSubsectionId)
+      if (selectedTagId) query = query.eq('question_tags.tag_id', selectedTagId)
+
+      const { data: rawRows, error: qError, count } = await query
 
       if (qError) {
         console.error('Fetch questions error:', qError)
         return
       }
 
-      if (!questionsData || questionsData.length === 0) {
-        setQuestions([])
+      setTotalCount(count ?? 0)
+
+      const questionsData = (rawRows ?? []) as unknown as QuestionRow[]
+
+      if (questionsData.length === 0) {
+        if (!append) setQuestions([])
         return
       }
 
-      const questionIds = questionsData.map(q => q.id)
+      const questionIds = questionsData.map((q) => q.id)
 
-      // Step 2: Fetch all related data in parallel
-      // Đáp án fetch riêng bằng helper phân trang để tránh bị cắt ở mốc 1000 dòng.
-      const [allAnswers, taxonomyRes, questionTagsRes, feedbacksRes, examCountRes] = await Promise.all([
-        fetchAllAnswers(supabase, questionIds),
-        
-        // Taxonomy with joins
-        supabase
-          .from('question_taxonomy')
-          .select(`
-            question_id,
-            topic_id, category_id, section_id, subsection_id,
-            topics:topic_id(id, name),
-            categories:category_id(id, name),
-            sections:section_id(id, name),
-            subsections:subsection_id(id, name)
-          `)
-          .in('question_id', questionIds),
-        
-        // Question tags
-        supabase
-          .from('question_tags')
-          .select(`
-            question_id,
-            tags:tag_id(id, name)
-          `)
-          .in('question_id', questionIds),
-        
-        // Feedbacks
-        supabase
-          .from('question_feedbacks')
-          .select(`
-            id, question_id, message, status, created_at,
-            profiles:student_id(full_name)
-          `)
-          .in('question_id', questionIds)
-          .order('created_at', { ascending: false }),
-        
-        // Exam count - count per question
-        supabase
-          .from('exam_questions')
-          .select('question_id')
-          .in('question_id', questionIds)
-      ])
+      const [allAnswers, taxonomyRes, questionTagsRes, feedbacksRes, examCountRes] =
+        await Promise.all([
+          fetchAllAnswers(supabase, questionIds),
 
-      // Build lookup maps
+          supabase
+            .from('question_taxonomy')
+            .select(
+              'question_id, topic_id, category_id, section_id, subsection_id, topics:topic_id(id, name), categories:category_id(id, name), sections:section_id(id, name), subsections:subsection_id(id, name)'
+            )
+            .in('question_id', questionIds),
+
+          supabase
+            .from('question_tags')
+            .select('question_id, tags:tag_id(id, name)')
+            .in('question_id', questionIds),
+
+          supabase
+            .from('question_feedbacks')
+            .select('id, question_id, message, status, created_at, profiles:student_id(full_name)')
+            .in('question_id', questionIds)
+            .order('created_at', { ascending: false }),
+
+          supabase.from('exam_questions').select('question_id').in('question_id', questionIds),
+        ])
+
       const answersMap: Record<string, Answer[]> = {}
       for (const a of allAnswers) {
         if (!answersMap[a.question_id]) answersMap[a.question_id] = []
@@ -195,10 +267,9 @@ export default function AdminQuestionsPage() {
           id: a.id,
           content: a.content,
           is_correct: a.is_correct,
-          order_index: a.order_index
+          order_index: a.order_index,
         })
       }
-      // Đảm bảo đáp án luôn theo đúng thứ tự order_index
       for (const id of Object.keys(answersMap)) {
         answersMap[id].sort((x, y) => x.order_index - y.order_index)
       }
@@ -209,16 +280,14 @@ export default function AdminQuestionsPage() {
           topic: t.topics as unknown as Topic,
           category: t.categories as unknown as Category,
           section: t.sections as unknown as Section,
-          subsection: t.subsections as unknown as Subsection
+          subsection: t.subsections as unknown as Subsection,
         }
       }
 
       const tagsMap: Record<string, TagItem[]> = {}
       for (const qt of questionTagsRes.data || []) {
         if (!tagsMap[qt.question_id]) tagsMap[qt.question_id] = []
-        if (qt.tags) {
-          tagsMap[qt.question_id].push(qt.tags as unknown as TagItem)
-        }
+        if (qt.tags) tagsMap[qt.question_id].push(qt.tags as unknown as TagItem)
       }
 
       const feedbacksMap: Record<string, Feedback[]> = {}
@@ -231,31 +300,60 @@ export default function AdminQuestionsPage() {
           created_at: f.created_at,
           student_name: Array.isArray(f.profiles)
             ? f.profiles[0]?.full_name
-            : (f.profiles as { full_name?: string } | null)?.full_name
+            : (f.profiles as { full_name?: string } | null)?.full_name,
         })
       }
 
-      // Count exams per question
       const examCountMap: Record<string, number> = {}
       for (const eq of examCountRes.data || []) {
         examCountMap[eq.question_id] = (examCountMap[eq.question_id] || 0) + 1
       }
 
-      // Build full questions
-      const fullQuestions: QuestionFull[] = questionsData.map(q => ({
-        ...q,
+      /*
+        Lấy CỘT TƯỜNG MINH thay vì trải `...q`. Khi có embed `!inner`, hàng trả
+        về mang thêm khoá của phép nối; trải nguyên hàng vào `QuestionFull` là
+        nhét dữ liệu lạ vào kiểu.
+      */
+      const page: QuestionFull[] = questionsData.map((q) => ({
+        id: q.id,
+        content: q.content,
+        question_type: q.question_type,
+        difficulty: q.difficulty,
+        cognitive_level: q.cognitive_level,
+        source_exam: q.source_exam,
+        explanation: q.explanation,
+        solution: q.solution,
+        tikz_code: q.tikz_code,
+        tikz_image_url: q.tikz_image_url,
+        solution_tikz_image_url: q.solution_tikz_image_url,
+        solution_tikz_image_url_2: q.solution_tikz_image_url_2,
+        created_at: q.created_at,
+        updated_at: q.updated_at,
         answers: answersMap[q.id] || [],
         taxonomy: taxonomyMap[q.id] || null,
         tags: tagsMap[q.id] || [],
         feedbacks: feedbacksMap[q.id] || [],
-        exam_count: examCountMap[q.id] || 0
+        exam_count: examCountMap[q.id] || 0,
       }))
 
-      setQuestions(fullQuestions)
+      setQuestions((prev) => (append ? [...prev, ...page] : page))
     } catch (err) {
       console.error('Unexpected error:', err)
+    } finally {
+      if (append) setLoadingMore(false)
+      else setLoading(false)
     }
-  }, [supabase])
+  }, [
+    supabase,
+    debouncedSearch,
+    selectedDifficulty,
+    selectedQuestionType,
+    selectedTopicId,
+    selectedCategoryId,
+    selectedSectionId,
+    selectedSubsectionId,
+    selectedTagId,
+  ])
 
   const fetchAllData = useCallback(async () => {
     setLoading(true)
@@ -273,12 +371,11 @@ export default function AdminQuestionsPage() {
       setSections(sectionsRes.data || [])
       setSubsections(subsectionsRes.data || [])
       setAllTags(tagsRes.data || [])
-      await fetchQuestions()
     } catch (err) {
       console.error('Error fetching data:', err)
     }
     setLoading(false)
-  }, [fetchQuestions, supabase])
+  }, [supabase])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -286,6 +383,21 @@ export default function AdminQuestionsPage() {
     }, 0)
     return () => window.clearTimeout(timeoutId)
   }, [fetchAllData])
+
+  // Hoãn ô tìm kiếm: mỗi lần gõ giờ là một truy vấn xuống server.
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebouncedSearch(searchTerm), 300)
+    return () => window.clearTimeout(timeoutId)
+  }, [searchTerm])
+
+  /*
+    Đổi bộ lọc là tải lại TỪ TRANG ĐẦU. `fetchQuestions` được memo theo đúng tập
+    biến lọc, nên chỉ cần phụ thuộc vào chính nó — đổi bất kỳ bộ lọc nào thì
+    tham chiếu đổi và effect chạy lại.
+  */
+  useEffect(() => {
+    void fetchQuestions(0, false)
+  }, [fetchQuestions])
 
   // ==================== FILTERED DATA ====================
   const filteredCategories = useMemo(() => {
@@ -303,46 +415,13 @@ export default function AdminQuestionsPage() {
     return subsections.filter(s => s.section_id === selectedSectionId)
   }, [subsections, selectedSectionId])
 
-  const filteredQuestions = useMemo(() => {
-    return questions.filter(q => {
-      // Search filter
-      if (searchTerm && !q.content.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return false
-      }
-      
-      // Topic filter
-      if (selectedTopicId && q.taxonomy?.topic?.id !== selectedTopicId) {
-        return false
-      }
-      
-      // Category filter
-      if (selectedCategoryId && q.taxonomy?.category?.id !== selectedCategoryId) {
-        return false
-      }
-      
-      // Section filter
-      if (selectedSectionId && q.taxonomy?.section?.id !== selectedSectionId) {
-        return false
-      }
-      
-      // Subsection filter
-      if (selectedSubsectionId && q.taxonomy?.subsection?.id !== selectedSubsectionId) {
-        return false
-      }
-      
-      // Difficulty filter
-      if (selectedDifficulty && q.difficulty !== parseInt(selectedDifficulty)) {
-        return false
-      }
-      
-      // Tag filter
-      if (selectedTagId && !q.tags.some(t => t.id === selectedTagId)) {
-        return false
-      }
-      
-      return true
-    })
-  }, [questions, searchTerm, selectedTopicId, selectedCategoryId, selectedSectionId, selectedSubsectionId, selectedDifficulty, selectedTagId])
+  /*
+    Lọc đã chuyển hết xuống server (xem `fetchQuestions`), nên `questions` CHÍNH
+    LÀ danh sách đã lọc. Giữ tên cũ để các chỗ dùng bên dưới không phải đổi, và
+    để không ai vô tình thêm lại một tầng lọc thứ hai ở client — hai tầng lọc là
+    hai nguồn sự thật, đúng thứ vừa gây ra chuyện "nguồn 81 câu chỉ hiện 6".
+  */
+  const filteredQuestions = questions
 
   // ==================== HANDLERS ====================
   const handleViewDetail = (question: QuestionFull) => {
@@ -403,10 +482,11 @@ export default function AdminQuestionsPage() {
     setSelectedSubsectionId('')
     setSelectedDifficulty('')
     setSelectedTagId('')
+    setSelectedQuestionType('')
     setSearchTerm('')
   }
 
-  const hasActiveFilters = selectedTopicId || selectedCategoryId || selectedSectionId || selectedSubsectionId || selectedDifficulty || selectedTagId || searchTerm
+  const hasActiveFilters = selectedTopicId || selectedCategoryId || selectedSectionId || selectedSubsectionId || selectedDifficulty || selectedTagId || selectedQuestionType || searchTerm
 
   // ==================== HELPERS ====================
   const formatDate = (dateString: string) => {
@@ -608,19 +688,61 @@ export default function AdminQuestionsPage() {
               <option value="3">Vận dụng</option>
               <option value="4">Vận dụng cao</option>
             </select>
+
+            {/*
+              Lọc theo DẠNG CÂU. Giá trị phải trùng đúng bốn giá trị trong
+              source (`AGENTS.md` mục 4): multiple_choice, true_false,
+              short_answer, essay. Nhãn hiển thị kèm số phần của đề Bộ GD&ĐT
+              để khớp với thứ giáo viên thấy khi ráp đề.
+            */}
+            <select
+              value={selectedQuestionType}
+              onChange={(e) => setSelectedQuestionType(e.target.value)}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
+            >
+              <option value="">Tất cả dạng câu</option>
+              <option value="multiple_choice">Trắc nghiệm (Phần 1)</option>
+              <option value="true_false">Đúng / Sai (Phần 2)</option>
+              <option value="short_answer">Trả lời ngắn (Phần 3)</option>
+              <option value="essay">Tự luận</option>
+            </select>
           </div>
         </div>
 
         {/* Results count + Export toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          {/*
+            Nói rõ ĐÃ TẢI bao nhiêu trên TỔNG bao nhiêu. Bản trước chỉ in số câu
+            đang có trong bộ nhớ, nên khi nó bị cắt ở 500 thì giao diện im lặng
+            và người dùng tưởng ngân hàng chỉ có bấy nhiêu.
+          */}
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Hiển thị <span className="font-medium text-slate-700 dark:text-slate-300">{filteredQuestions.length}</span> câu hỏi
-            {hasActiveFilters && <span> (đã lọc)</span>}
+            Đã tải{' '}
+            <span className="font-medium text-slate-700 dark:text-slate-300 tabular-nums">
+              {questions.length.toLocaleString('vi-VN')}
+            </span>
+            {' / '}
+            <span className="font-medium text-slate-700 dark:text-slate-300 tabular-nums">
+              {totalCount.toLocaleString('vi-VN')}
+            </span>{' '}
+            câu
+            {hasActiveFilters && <span> khớp bộ lọc</span>}
             {selectedIds.size > 0 && (
               <span className="ml-2 text-teal-600 dark:text-teal-400">• Đã chọn {selectedIds.size}</span>
             )}
           </p>
           <div className="flex items-center gap-2">
+            {/* Phân loại lại: chỉ bật khi đã chọn câu — hành động ghi đè hàng
+                loạt không nên bấm được lúc chưa rõ nó tác động lên cái gì. */}
+            <button
+              onClick={() => setTaxonomyDialogOpen(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={selectedIds.size === 0 ? 'Chọn câu hỏi trước' : `Phân loại lại ${selectedIds.size} câu`}
+            >
+              <FolderTree className="w-4 h-4" />
+              Phân loại lại{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+            </button>
             <button
               onClick={toggleSelectAll}
               disabled={filteredQuestions.length === 0}
@@ -675,6 +797,27 @@ export default function AdminQuestionsPage() {
             ))}
           </div>
         )}
+
+        {/*
+          Tải thêm theo yêu cầu, không cuộn-vô-tận. Người soạn cần biết mình
+          đang xem bao nhiêu và chủ động quyết định tải thêm; cuộn vô tận sẽ
+          lặng lẽ kéo cả nghìn câu về đúng như bản cũ.
+        */}
+        {questions.length > 0 && questions.length < totalCount && (
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <button
+              onClick={() => void fetchQuestions(questions.length, true)}
+              disabled={loadingMore}
+              className="btn-action inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-teal-400 disabled:opacity-50"
+            >
+              {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+              Tải thêm {Math.min(PAGE_SIZE, totalCount - questions.length)} câu
+            </button>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Còn {(totalCount - questions.length).toLocaleString('vi-VN')} câu chưa tải
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Detail Modal */}
@@ -687,6 +830,25 @@ export default function AdminQuestionsPage() {
           formatDate={formatDate}
         />
       )}
+
+      {/* Phân loại lại hàng loạt cho các câu đang chọn. Chỉ truyền id + nội
+          dung: hộp thoại cần nội dung để chạy bảng luật gợi ý, không cần gì
+          thêm của câu hỏi. */}
+      <BulkTaxonomyDialog
+        open={taxonomyDialogOpen}
+        onClose={() => setTaxonomyDialogOpen(false)}
+        questions={questions
+          .filter((question) => selectedIds.has(question.id))
+          .map((question) => ({ id: question.id, content: question.content }))}
+        topics={topics}
+        categories={categories}
+        sections={sections}
+        subsections={subsections}
+        onApplied={() => {
+          setSelectedIds(new Set())
+          void fetchQuestions(0, false)
+        }}
+      />
     </div>
   )
 }
