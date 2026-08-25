@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Trophy, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare, Sparkles } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare, Sparkles, ListFilter } from 'lucide-react'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import QuestionImage from '@/components/QuestionImage'
 import FeedbackModal from '@/components/FeedbackModal'
@@ -18,6 +18,8 @@ import {
   RawStudentAnswer
 } from '@/lib/attempts/attemptView'
 import { getExamAttemptQuestionBundle } from '@/lib/exam/questions'
+import ProgressRing from '@/components/viz/ProgressRing'
+import ResultQuestionMap from '@/components/result/ResultQuestionMap'
 
 interface ExamAttempt {
   id: string
@@ -54,6 +56,17 @@ export default function ResultPage() {
     questionNumber: number
   }>({ isOpen: false, questionId: '', questionNumber: 0 })
   const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Set<string>>(new Set())
+  const [onlyWrong, setOnlyWrong] = useState(false)
+  /*
+    Muc tieu nhay mang kem `seq` chu khong phai so cau tran.
+
+    Hai ly do. Mot: bam lai DUNG cau vua bam phai cuon lai lan nua, ma neu state
+    chi la so thi gia tri khong doi nen effect khong chay. Hai: sau khi cuon
+    xong KHONG duoc `setState(null)` de don dep — do la setState trong than
+    effect, dung cai bay ma `react-hooks/set-state-in-effect` da chan o
+    ScrollRevealClient.
+  */
+  const [jumpTarget, setJumpTarget] = useState<{ n: number; seq: number } | null>(null)
   const [toast, setToast] = useState<{
     message: string
     type: 'success' | 'error'
@@ -141,6 +154,25 @@ export default function ResultPage() {
     }
     return `${mins} phút`
   }
+
+  /*
+    Nhay toi mot cau tu ban do.
+
+    Phai TAT bo loc truoc: neu dang o che do "chi xem cau sai" ma bam vao mot
+    cau dung thi phan tu do khong ton tai trong DOM, `scrollIntoView` se im
+    lang khong lam gi va nguoi dung tuong nut hong.
+  */
+  const jumpToQuestion = useCallback((questionNumber: number) => {
+    setOnlyWrong(false)
+    setJumpTarget((prev) => ({ n: questionNumber, seq: (prev?.seq ?? 0) + 1 }))
+  }, [])
+
+  useEffect(() => {
+    if (!jumpTarget) return
+    document
+      .getElementById(`cau-${jumpTarget.n}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [jumpTarget])
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type, isVisible: true })
@@ -241,7 +273,7 @@ export default function ResultPage() {
           : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'
 
       return (
-        <div key={question.questionId} className="mb-4 rounded-xl border border-slate-300 bg-slate-200 p-6 dark:border-slate-700 dark:bg-slate-800">
+        <div key={question.questionId} id={`cau-${index + 1}`} className="bento-tile mb-4 scroll-mt-24 p-6">
           <div className="flex items-start gap-3">
             <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${iconTone}`}>
               {approved ? <CheckCircle2 className="h-5 w-5" /> : aiGraded ? <Sparkles className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
@@ -299,7 +331,7 @@ export default function ResultPage() {
 
     if (!attempt?.answer_key_revealed) {
       return (
-        <div key={question.questionId} className="mb-4 rounded-xl border border-slate-300 bg-slate-200 p-6 dark:border-slate-700 dark:bg-slate-800">
+        <div key={question.questionId} id={`cau-${index + 1}`} className="bento-tile mb-4 scroll-mt-24 p-6">
           <div className="mb-2 text-sm font-medium text-slate-500">Câu {index + 1} • {questionTypeLabel}</div>
           <MathContent content={question.content} className="mb-3 text-slate-800 dark:text-slate-200" />
           <div className="rounded-lg bg-white/70 p-3 dark:bg-slate-900/60">
@@ -312,7 +344,14 @@ export default function ResultPage() {
     }
 
     return (
-      <div key={question.questionId} className="bg-slate-200 dark:bg-slate-800 rounded-xl p-6 mb-4 border border-slate-300 dark:border-slate-700">
+      <div
+        key={question.questionId}
+        id={`cau-${index + 1}`}
+        /* Dai mau trai thay cho viec ca hai loai the deu giong nhau: cuon
+           doc danh sach la thay ngay cho nao sai, khong phai doc tung icon. */
+        className="bento-tile bento-rail mb-4 scroll-mt-24 py-6 pl-7 pr-6"
+        style={{ '--rail': question.isCorrect ? '#10b981' : '#f43f5e' } as React.CSSProperties}
+      >
         <div className="flex items-start gap-3 mb-4">
           <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
             question.isCorrect
@@ -411,7 +450,7 @@ export default function ResultPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
           <p className="text-slate-500 dark:text-slate-400">Đang tải kết quả...</p>
@@ -422,7 +461,7 @@ export default function ResultPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-8 max-w-md text-center">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
@@ -443,9 +482,20 @@ export default function ResultPage() {
   // từng câu.
   const hasAiGradedEssay = questions.some((question) => question.gradingStatus === 'ai_graded')
 
+  const wrongCount = objectiveQuestions.filter((question) => question.isCorrect === false).length
+  /*
+    Giu INDEX GOC khi loc. Nhan "Cau 13" la vi tri trong ca de; danh so lai theo
+    danh sach da loc se bien cau 13 thanh cau 2, va ban do o tren tro sai cho.
+  */
+  const visibleQuestions = questions
+    .map((question, index) => ({ question, index }))
+    .filter(({ question }) =>
+      !onlyWrong || (question.questionType !== 'essay' && question.isCorrect === false)
+    )
+
   return (
     <MathProvider>
-      <div className="min-h-screen bg-slate-100 dark:bg-slate-900">
+      <div className="min-h-screen">
         <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-4 sm:px-6 py-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <button
@@ -459,90 +509,144 @@ export default function ResultPage() {
         </div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-lg p-6 sm:p-8 mb-8 text-center border border-slate-300 dark:border-slate-700">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-teal-600 dark:text-teal-400" />
-            </div>
-            
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white mb-2">
-              Kết quả bài thi
+          {/*
+            HERO: hai vùng, không phải một khối căn giữa.
+
+            Bản cũ là Trophy + điểm to + bốn ô số ngang nhau. Ba vấn đề: cúp
+            vàng cho một bài 3,0 điểm là sai giọng; "đúng" và "sai" là CÙNG một
+            thông tin viết hai lần (đúng + sai = tổng); và không có gì nói cho
+            học sinh biết nên làm gì tiếp.
+
+            Giờ trái là điểm + nhận định, phải là vòng tỉ lệ đúng — hai con số
+            khác nhau về bản chất nên được tách hẳn: điểm đã tính theo trọng số
+            của Bộ, còn tỉ lệ đúng là đếm câu. Gộp chung một chỗ là mời người
+            đọc nhầm cái này ra cái kia.
+          */}
+          <div className="bento-tile-lead mb-6 p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+              Kết quả bài làm
+            </p>
+            <h1 className="mt-1 font-baloo text-xl font-bold leading-snug text-slate-800 dark:text-white sm:text-2xl">
+              {examTitle}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">{examTitle}</p>
 
-            {attempt?.grading_status === 'pending_review' ? (
-              <>
-                <div className="mb-3 text-3xl font-bold text-amber-600 dark:text-amber-400">Đang chờ chấm tự luận</div>
-                <p className="mb-6 text-slate-500 dark:text-slate-400">
-                  Còn {attempt.pending_grading_count} câu cần giáo viên duyệt; chưa công bố điểm tổng.
-                </p>
-              </>
-            ) : !attempt?.result_released ? (
-              <div className="mb-6 text-lg font-semibold text-amber-600 dark:text-amber-400">
-                Giáo viên chưa công bố kết quả
-              </div>
-            ) : (
-              <>
-                <div className={`text-4xl sm:text-6xl font-bold mb-4 tabular-nums ${getScoreColor(attempt?.score ?? null)}`}>
-                  {/* `score` có thể null dù đã công bố (dữ liệu cũ, chốt lỗi giữa
-                      đường). Trước đây `?.toFixed(1)` render ra ô trống không giải
-                      thích gì — nói thẳng là chưa có điểm thay vì để khoảng trắng. */}
-                  {typeof attempt?.score === 'number' ? attempt.score.toFixed(1) : '—'}
-                </div>
-                <p className="text-slate-500 dark:text-slate-400 mb-6">
-                  {typeof attempt?.score === 'number'
-                    ? 'trên thang điểm 10'
-                    : 'Chưa có điểm tổng cho lượt thi này. Hãy liên hệ giáo viên.'}
-                </p>
-                {hasAiGradedEssay && (
-                  <div className="mx-auto mb-6 flex max-w-md items-start gap-2 rounded-lg bg-violet-50 p-3 text-left text-sm text-violet-900 dark:bg-violet-900/20 dark:text-violet-200">
-                    <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                    <span>Điểm này có phần do AI chấm và có thể thay đổi sau khi giáo viên xem lại.</span>
+            <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                {attempt?.grading_status === 'pending_review' ? (
+                  <>
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 sm:text-3xl">
+                      Đang chờ chấm tự luận
+                    </div>
+                    <p className="mt-2 text-slate-500 dark:text-slate-400">
+                      Còn {attempt.pending_grading_count} câu cần giáo viên duyệt; chưa công bố điểm tổng.
+                    </p>
+                  </>
+                ) : !attempt?.result_released ? (
+                  <div className="text-lg font-semibold text-amber-600 dark:text-amber-400">
+                    Giáo viên chưa công bố kết quả
                   </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      {/* `score` có thể null dù đã công bố (dữ liệu cũ, chốt lỗi giữa
+                          đường). Trước đây `?.toFixed(1)` render ra ô trống không giải
+                          thích gì — nói thẳng là chưa có điểm thay vì để khoảng trắng. */}
+                      <span
+                        className={`font-baloo text-5xl font-bold tabular-nums sm:text-6xl ${getScoreColor(attempt?.score ?? null)}`}
+                      >
+                        {typeof attempt?.score === 'number' ? attempt.score.toFixed(1) : '—'}
+                      </span>
+                      {typeof attempt?.score === 'number' && (
+                        <span className="text-lg text-slate-500 dark:text-slate-400">/ 10</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      {typeof attempt?.score === 'number'
+                        ? 'Điểm tính theo trọng số của đề'
+                        : 'Chưa có điểm tổng cho lượt thi này. Hãy liên hệ giáo viên.'}
+                    </p>
+                  </>
                 )}
-              </>
-            )}
 
-            {attempt?.answer_key_revealed ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
-                  {objectiveCorrect}
+                <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600 dark:text-slate-300">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                    {getTimeSpent()}
+                  </span>
+                  {essayQuestionCount > 0 && (
+                    <span className="tabular-nums">{essayQuestionCount} câu tự luận</span>
+                  )}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu khách quan đúng</div>
               </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">
-                  {objectiveQuestions.length - objectiveCorrect}
+
+              {/* Vòng chỉ vẽ khi đáp án đã công bố. Chưa công bố mà vẫn vẽ tỉ lệ
+                  đúng là để lộ kết quả đi vòng qua chính sách của đề. */}
+              {attempt?.answer_key_revealed && objectiveQuestions.length > 0 && (
+                <div className="shrink-0 text-center">
+                  <ProgressRing
+                    value={Math.round((objectiveCorrect / objectiveQuestions.length) * 100)}
+                    size={104}
+                    tone={
+                      objectiveCorrect / objectiveQuestions.length >= 0.8
+                        ? 'emerald'
+                        : objectiveCorrect / objectiveQuestions.length >= 0.5
+                          ? 'teal'
+                          : 'amber'
+                    }
+                    caption="đúng"
+                    animate
+                    ariaLabel={`Làm đúng ${objectiveCorrect} trên ${objectiveQuestions.length} câu khách quan`}
+                  />
+                  <p className="mt-2 text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                    {objectiveCorrect}/{objectiveQuestions.length} câu khách quan
+                  </p>
                 </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu khách quan sai</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-slate-600 dark:text-slate-400">
-                  {essayQuestionCount}
-                </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Câu tự luận</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                  {getTimeSpent()}
-                </div>
-                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Thời gian</div>
-              </div>
+              )}
             </div>
-            ) : (
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Chi tiết đúng/sai và lời giải chỉ hiện khi chính sách của đề cho phép.
+
+            {hasAiGradedEssay && attempt?.result_released && (
+              <div className="mt-6 flex items-start gap-2 rounded-lg bg-violet-50 p-3 text-sm text-violet-900 dark:bg-violet-900/20 dark:text-violet-200">
+                <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span>Điểm này có phần do AI chấm và có thể thay đổi sau khi giáo viên xem lại.</span>
               </div>
             )}
           </div>
 
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-            <BookOpen className="w-5 h-5" />
-            Chi tiết bài làm
-          </h2>
+          {/* Bản đồ câu: trả lời "mình sai câu nào" trong một lần nhìn, thay vì
+              bắt cuộn hết 22 câu rồi tự nhớ. */}
+          <div className="bento-tile mb-8 p-5 sm:p-6">
+            <ResultQuestionMap
+              questions={questions}
+              revealed={attempt?.answer_key_revealed === true}
+              onJump={jumpToQuestion}
+            />
+          </div>
 
-          {questions.map((q, idx) => renderQuestionResult(q, idx))}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 font-baloo text-lg font-bold text-slate-800 dark:text-white sm:text-xl">
+              <BookOpen className="h-5 w-5" />
+              Chi tiết bài làm
+            </h2>
+            {/* Lọc chỉ hiện khi có câu sai VÀ đáp án đã công bố — nút lọc "câu
+                sai" lúc chưa công bố sẽ tự nó tiết lộ có bao nhiêu câu sai. */}
+            {attempt?.answer_key_revealed && wrongCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setOnlyWrong((value) => !value)}
+                aria-pressed={onlyWrong}
+                className={`btn-action inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${
+                  onlyWrong
+                    ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                    : 'border-slate-300 text-slate-600 hover:border-teal-400 dark:border-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <ListFilter className="h-4 w-4" aria-hidden="true" />
+                {onlyWrong ? `Đang xem ${wrongCount} câu sai` : `Chỉ xem ${wrongCount} câu sai`}
+              </button>
+            )}
+          </div>
+
+          {visibleQuestions.map(({ question, index }) => renderQuestionResult(question, index))}
         </div>
 
         {/* Feedback Modal */}
