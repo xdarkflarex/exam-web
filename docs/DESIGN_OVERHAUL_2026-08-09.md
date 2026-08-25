@@ -267,10 +267,31 @@ Chưa kiểm được vì không có quyền truy vấn database. Cách kiểm n
 `/student/analytics` — nếu phần thống kê theo kiến thức **cũng** trống thì đúng
 là RPC, và đó là nợ có sẵn chứ không phải do đợt làm đẹp này.
 
-**Việc phải làm bất kể nguyên nhân là gì:** hiện tại khi không có dữ liệu, lưới
-vẫn vẽ đủ 28 ô xám — trông như "bốn tuần qua bạn không học buổi nào", một câu
-**sai** nếu nguyên nhân thật là thiếu dữ liệu. Đúng loại lỗi mà mục 7.1 của bản
-thiết kế cấm. Phải đổi thành trạng thái "chưa ghi nhận hoạt động" tường minh.
-Ghi ở đây vì lúc phát hiện thì `src/components/student/**` đang do một luồng
-khác giữ; xử lý ở bước tích hợp cuối.
+**Việc phải làm bất kể nguyên nhân là gì:** ~~hiện tại khi không có dữ liệu, lưới
+vẫn vẽ đủ 28 ô xám~~ — **ĐÃ SỬA 2026-08-14** ở `TodayHero.tsx`: khi không có
+ngày nào trong 28 ngày có hoạt động, hero hiện ô "Chưa ghi nhận hoạt động" thay
+vì vẽ lưới. Lưới rỗng và "chưa lấy được số liệu" có cùng hình dạng, nên vẽ lưới
+là phát biểu một kết luận mà dữ liệu không đỡ được. Mốc "có hoạt động" tính bằng
+`buildHeatmap(...).some(cell => cell.count > 0)` — đúng cửa sổ 28 ngày đang vẽ,
+không phải "có bất kỳ timestamp nào".
+
+**Bổ sung 2026-08-14 — vì sao "Mảng cần củng cố" trống, đọc từ source:** hai
+nghi can ở trên (feature gate, lệch kiểu id) **chưa loại trừ được** vì vẫn cần
+tài khoản thật để kiểm. Nhưng có một nguyên nhân thứ ba **đủ để giải thích
+triệu chứng mà không cần RPC hỏng**, và nó nằm ngay trong logic hiển thị:
+
+- `WeakAreas.tsx` chỉ nhận `status ∈ {needs_work, building}`; `collecting` bị
+  loại (đúng thiết kế — chưa đủ bằng chứng thì không kết luận).
+- `getMasteryStatus()` trả `collecting` khi `evidence < MIN_EVIDENCE` (= **4**),
+  tính **cho từng chuyên đề**, và một câu chỉ đóng góp tổng cộng **một** đơn vị
+  bằng chứng chia theo `weight` cho các liên kết của nó.
+- `student-capability.ts` bỏ qua hoàn toàn câu **không có** `question_knowledge_links`
+  (`if (!links.length) continue`).
+
+Hệ quả: với 30 câu rải trên nhiều chuyên đề — và chỉ phần nào trong số đó đã
+được nối link — rất dễ **không chuyên đề nào** đạt nổi 4 đơn vị bằng chứng, nên
+dải trống **dù mọi thứ chạy đúng**. Nói cách khác: dải này trống không chứng minh
+được là có lỗi. Trước khi sửa RPC, hãy kiểm phủ sóng `question_knowledge_links`
+cho các câu đã làm; nếu thưa thì đây là chuyện dữ liệu, không phải chuyện code.
+
 - **Chưa xem bằng mắt ở light mode** cho các trang cần đăng nhập.

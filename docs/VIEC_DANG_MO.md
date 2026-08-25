@@ -43,24 +43,24 @@ bốn bài.
 > hình…". Tìm chỗ đứt giữa `TikzRenderer` và tệp SVG, sửa, rồi mở `/learn` xem
 > tận mắt một bài có hình để xác nhận.
 
-## 2. ĐANG HỎNG — trang học sinh nói sai một câu
+## 2. Còn lại phần cần tài khoản thật — "Mảng cần củng cố" trống
 
-Lưới hoạt động vẽ đủ 28 ô xám, đọc thành "bốn tuần qua không học buổi nào",
-trong khi sự thật là **chưa lấy được số liệu**. Cùng lúc, dải "Mảng cần củng cố"
-không hiện dù vòng tiến độ vẫn có số (17% / 30 câu).
+**Lưới hoạt động: đã sửa 2026-08-14.** `TodayHero.tsx` không còn vẽ 28 ô xám khi
+không có hoạt động; nó hiện ô "Chưa ghi nhận hoạt động". Không cần làm lại.
 
-Hai phần đó lấy từ hai nguồn khác nhau nên lệch được. Cách phân biệt nhanh: mở
-`/student/analytics` bằng tài khoản test — nếu phần thống kê theo kiến thức
-**cũng** trống thì lỗi nằm ở nguồn dữ liệu, không phải ở đợt làm đẹp.
+**Còn treo:** dải "Mảng cần củng cố" không hiện dù vòng tiến độ có số. Đọc source
+ngày 2026-08-14 cho thấy dải trống **có thể là hành vi đúng**: `WeakAreas` loại
+mức `collecting`, mà một chuyên đề cần `MIN_EVIDENCE = 4` đơn vị bằng chứng mới
+thoát mức đó, trong khi câu không có `question_knowledge_links` thì bị bỏ qua
+hoàn toàn. 30 câu rải mỏng trên nhiều chuyên đề rất dễ không chuyên đề nào đủ 4.
 
-Việc phải làm **bất kể nguyên nhân là gì**: khi không có dữ liệu thì phải nói
-"chưa ghi nhận hoạt động", không được vẽ 28 ô xám như một kết luận.
+Vậy nên **đừng sửa RPC trước**. Việc cần làm là đo phủ sóng link rồi mới kết luận.
 
-> Đọc `docs/DESIGN_OVERHAUL_2026-08-09.md` mục 4. Sửa lưới hoạt động ở
-> `src/components/student/**`: khi không có dữ liệu phải hiện trạng thái "chưa
-> ghi nhận hoạt động" thay vì 28 ô xám trông như "không học buổi nào". Đồng thời
-> mở `/student/analytics` để xác định phần "Mảng cần củng cố" trống là do feature
-> gate hay do lệch kiểu dữ liệu, rồi ghi kết luận vào mục 4 của tài liệu trên.
+> Đọc `docs/DESIGN_OVERHAUL_2026-08-09.md` mục 4 (đã ghi đủ ba nghi can và lý do
+> loại trừ). Mở `/student/analytics` bằng tài khoản học sinh thật, và đếm xem
+> trong các câu học sinh đã làm có bao nhiêu câu thực sự có
+> `question_knowledge_links`. Nếu thưa thì đây là việc nối link dữ liệu, không
+> phải lỗi code — kết luận nào cũng ghi ngược lại vào mục 4 của tài liệu trên.
 
 ## 3. Giao diện tối ở khu quản trị — còn phần lớn
 

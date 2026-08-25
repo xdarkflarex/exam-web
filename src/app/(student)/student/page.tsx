@@ -595,7 +595,7 @@ export default function StudentPage() {
           <button
             type="button"
             onClick={() => void fetchDashboardData()}
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
+            className="btn-action mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
           >
             <RefreshCcw className="h-4 w-4" />
             Thử lại
@@ -656,28 +656,39 @@ export default function StudentPage() {
               </span>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            {/* `.animate-list-stagger` đã có sẵn trong globals.css (tới 20 phần
+                tử) và đã nằm trong lưới `prefers-reduced-motion`. */}
+            <div className="animate-list-stagger grid gap-3 md:grid-cols-2">
               {activeInProgressAttempts.map((attempt) => {
                 const isSimulation = attempt.examMode === 'simulation'
                 return (
+                  /*
+                    Việc đang làm là ưu tiên số một của trang, nhưng trước đây
+                    nó dùng ĐÚNG khuôn của mọi thẻ khác: `rounded-2xl border p-4`
+                    + ô icon `h-10 w-10`. Đổi sang dải màu 4px bên trái
+                    (`.bento-rail`, đã dùng cho card đề ở trang chủ) và bỏ hẳn ô
+                    icon — icon chuyển vào cạnh nhãn. Khác nhau về HÌNH chứ
+                    không chỉ khác màu viền.
+                  */
                   <article
                     key={attempt.id}
-                    className={`rounded-2xl border p-4 ${
+                    className={`bento-rail rounded-2xl border py-4 pl-6 pr-4 ${
                       isSimulation
                         ? 'border-teal-200 bg-teal-50/80 dark:border-teal-800 dark:bg-teal-950/30'
                         : 'border-indigo-200 bg-indigo-50/80 dark:border-indigo-800 dark:bg-indigo-950/30'
                     }`}
+                    style={{ '--rail': isSimulation ? '#14b8a6' : '#6366f1' } as React.CSSProperties}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
-                        isSimulation
-                          ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300'
-                          : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300'
-                      }`}>
-                        {isSimulation ? <Timer className="h-5 w-5" /> : <PenTool className="h-5 w-5" />}
-                      </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <p className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                          isSimulation
+                            ? 'text-teal-700 dark:text-teal-300'
+                            : 'text-indigo-700 dark:text-indigo-300'
+                        }`}>
+                          {isSimulation
+                            ? <Timer className="h-3.5 w-3.5" aria-hidden="true" />
+                            : <PenTool className="h-3.5 w-3.5" aria-hidden="true" />}
                           {isSimulation ? 'Thi thử đang diễn ra' : 'Ôn tập đang làm'}
                         </p>
                         <h3 className="mt-0.5 truncate font-semibold text-slate-800 dark:text-white">
@@ -700,7 +711,7 @@ export default function StudentPage() {
                           ? `/exam/prepare/${attempt.examId}`
                           : `/practice/${attempt.id}`
                       )}
-                      className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                      className={`btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
                         isSimulation
                           ? 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500'
                           : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
@@ -741,7 +752,7 @@ export default function StudentPage() {
               )}
             </div>
 
-            <div className="space-y-3">
+            <div className="animate-list-stagger space-y-3">
               {dueHomeworks.slice(0, 4).map((task) => (
                 <HomeworkCard key={task.assignmentId} task={task} mode="start" />
               ))}
@@ -776,7 +787,7 @@ export default function StudentPage() {
                   <button
                     type="button"
                     onClick={() => router.push(`/exam/prepare/${exam.id}`)}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
+                    className="btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
                   >
                     <Play className="h-4 w-4" />
                     Xem và bắt đầu
@@ -924,27 +935,40 @@ function HomeworkCard({ task, mode }: {
     ? Math.min(100, Math.max(0, Math.round(task.answeredCount / task.totalQuestions * 100)))
     : 0
 
+  /*
+    Hai chế độ cố ý KHÁC NHAU VỀ HÌNH, không chỉ khác màu.
+
+    `continue` thuộc khối "Ưu tiên trước" nên dùng dải màu 4px bên trái
+    (`.bento-rail`) và bỏ ô icon; `start` thuộc khối "Việc cần làm" nên giữ ô
+    icon vuông. Nhờ vậy cuộn qua trang là phân biệt được hai khối ngay cả khi
+    không đọc tiêu đề — trước đây cả hai dùng chung một khuôn và chỉ khác màu
+    viền, tức là chỉ khác nếu người dùng đã biết mã màu.
+  */
+  const isContinue = mode === 'continue'
+
   return (
-    <article className={`rounded-2xl border p-4 transition-colors ${
-      mode === 'continue'
-        ? 'border-amber-200 bg-amber-50/80 hover:border-amber-300 dark:border-amber-800 dark:bg-amber-950/30 dark:hover:border-amber-700'
-        : 'border-slate-200 bg-slate-50 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-teal-700'
-    }`}>
+    <article
+      className={`rounded-2xl border transition-colors ${
+        isContinue
+          ? 'bento-rail py-4 pl-6 pr-4 border-amber-200 bg-amber-50/80 hover:border-amber-300 dark:border-amber-800 dark:bg-amber-950/30 dark:hover:border-amber-700'
+          : 'p-4 border-slate-200 bg-slate-50 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-teal-700'
+      }`}
+      style={isContinue ? ({ '--rail': '#f59e0b' } as React.CSSProperties) : undefined}
+    >
       <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
-          mode === 'continue'
-            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
-            : 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
-        }`}>
-          <ClipboardList className="h-5 w-5" />
-        </div>
+        {!isContinue && (
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+            <ClipboardList className="h-5 w-5" />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
-          <p className={`text-xs font-semibold ${
-            mode === 'continue'
+          <p className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+            isContinue
               ? 'text-amber-700 dark:text-amber-300'
               : 'text-teal-600 dark:text-teal-400'
           }`}>
-            {mode === 'continue' ? 'Bài tập đang làm' : 'Bài tập được giao'}
+            {isContinue && <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />}
+            {isContinue ? 'Bài tập đang làm' : 'Bài tập được giao'}
           </p>
           <h3 className="mt-0.5 font-semibold text-slate-800 dark:text-white">{task.title}</h3>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -971,21 +995,24 @@ function HomeworkCard({ task, mode }: {
               aria-valuemax={100}
               aria-valuenow={progress}
             >
-              <div className="h-full rounded-full bg-teal-500" style={{ width: `${progress}%` }} />
+              <div
+                className="progress-fill-animate h-full rounded-full bg-teal-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           )}
         </div>
       </div>
       <Link
         href={`/homework/prepare/${task.assignmentId}`}
-        className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
-          mode === 'continue'
+        className={`btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+          isContinue
             ? 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'
             : 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500'
         }`}
       >
         <Play className="h-4 w-4" />
-        {mode === 'continue' ? 'Làm tiếp' : 'Bắt đầu'}
+        {isContinue ? 'Làm tiếp' : 'Bắt đầu'}
       </Link>
     </article>
   )

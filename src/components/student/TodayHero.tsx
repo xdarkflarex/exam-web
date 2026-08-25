@@ -24,7 +24,8 @@ import Link from 'next/link'
 import { ArrowRight, Flame } from 'lucide-react'
 import ProgressRing, { type RingTone } from '@/components/viz/ProgressRing'
 import ActivityHeatmap from '@/components/viz/ActivityHeatmap'
-import { countByDay, currentStreak } from '@/lib/analytics/activity-streak'
+import CountUpNumber from '@/components/motion/CountUpNumber'
+import { buildHeatmap, countByDay, currentStreak } from '@/lib/analytics/activity-streak'
 import type { StudentCapabilitySummary } from '@/lib/analytics/student-capability'
 
 interface Props {
@@ -73,6 +74,11 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
 
   const counts = countByDay(summary?.activityTimestamps ?? [])
   const streak = currentStreak(counts, new Date(now))
+  // Có ngày nào trong 28 ngày qua thực sự có hoạt động không. Lưới rỗng toàn ô
+  // xám đọc thành kết luận "bốn tuần không học buổi nào"; nhưng lưới rỗng cũng
+  // là hình dạng của "chưa lấy được số liệu". Khi không có bằng chứng thì nói
+  // thẳng "chưa ghi nhận hoạt động", không vẽ lưới như một kết luận.
+  const hasActivity = buildHeatmap(counts, 28, new Date(now)).some((cell) => cell.count > 0)
   const action = summary?.recommendedAction
 
   return (
@@ -130,6 +136,11 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
                   size={92}
                   tone={accuracyTone(accuracy)}
                   caption="đúng"
+                  /* Vòng này là điểm nhìn đầu tiên của trang "Hôm nay", và nó
+                     chỉ hiện khi `summary` tải xong — vẽ dần lúc đó biến một
+                     lần nhảy thành một lần xuất hiện. Các chỗ dùng khác của
+                     ProgressRing (analytics, history) giữ mặc định đứng yên. */
+                  animate
                   ariaLabel={
                     hasEvidence
                       ? `Độ chính xác ${accuracy}%, tính trên ${summary.totals.answered} câu đã làm`
@@ -141,20 +152,41 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
                     nào cũng đã được chấm. Ghi "đã chấm" là nói quá về dữ liệu —
                     đúng loại nhầm lẫn mà mục 2.1 của kế hoạch đã dính một lần. */}
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {hasEvidence ? `${summary.totals.answered} câu đã làm` : 'Chưa có dữ liệu'}
+                  {hasEvidence ? (
+                    <>
+                      <CountUpNumber
+                        value={summary.totals.answered}
+                        className="tabular-nums"
+                      />
+                      {' câu đã làm'}
+                    </>
+                  ) : (
+                    'Chưa có dữ liệu'
+                  )}
                 </p>
               </div>
 
               <div>
-                <ActivityHeatmap counts={counts} days={28} today={new Date(now)} />
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">4 tuần gần đây</p>
-                {/* Chuỗi 1 ngày không phải thành tích — mục 7.4 yêu cầu chỉ hiện
-                    từ 2 ngày trở lên để không khoe một con số vô nghĩa. */}
-                {streak >= 2 && (
-                  <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                    <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-                    {streak} ngày liên tiếp
-                  </p>
+                {hasActivity ? (
+                  <>
+                    <ActivityHeatmap counts={counts} days={28} today={new Date(now)} />
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">4 tuần gần đây</p>
+                    {/* Chuỗi 1 ngày không phải thành tích — mục 7.4 yêu cầu chỉ hiện
+                        từ 2 ngày trở lên để không khoe một con số vô nghĩa. */}
+                    {streak >= 2 && (
+                      <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                        {streak} ngày liên tiếp
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex h-[105px] w-24 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 px-2 text-center dark:border-slate-600">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Chưa ghi nhận hoạt động
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">4 tuần gần đây</p>
+                  </div>
                 )}
               </div>
             </div>
