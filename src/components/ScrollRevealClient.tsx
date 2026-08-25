@@ -52,12 +52,27 @@ export default function ScrollRevealClient({
     }
   }
 
+  /*
+    `scroll-reveal` là móc cho lưới reduced-motion trong `globals.css`.
+
+    Trạng thái ban đầu ở đây là `opacity-0` + `translate` — utility class, KHÔNG
+    phải animation. Nên lưới an toàn cuối `globals.css` không chạm tới được: nó
+    chỉ rút ngắn `animation-duration`/`transition-duration`, và ép `opacity: 1`
+    cho đúng hai lớp `.stagger-children` / `.animate-list-stagger`. Thiếu móc
+    này thì bật "giảm chuyển động" xong nội dung vẫn trượt vào khi cuộn.
+
+    Xử lý bằng CSS chứ không phải `matchMedia` trong effect, vì hai lý do: đọc
+    media query rồi `setState` ngay trong thân effect là cascading render (quy
+    tắc `react-hooks/set-state-in-effect` chặn, và `CountUpNumber` đã tránh đúng
+    bẫy này), còn tính ở `useState(() => …)` thì server render ra `false` và
+    client render ra `true` — lệch hydration.
+  */
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${className} ${
-        isVisible 
-          ? 'opacity-100 translate-x-0 translate-y-0' 
+      className={`scroll-reveal transition-all duration-700 ease-out ${className} ${
+        isVisible
+          ? 'opacity-100 translate-x-0 translate-y-0'
           : `opacity-0 ${getInitialTransform()}`
       }`}
     >
