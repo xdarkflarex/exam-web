@@ -1,5 +1,5 @@
 import { BookOpen, GraduationCap, Newspaper, Layers } from 'lucide-react'
-import CountUpNumber from './CountUpNumber'
+import CountUpNumber from '@/components/motion/CountUpNumber'
 import { surfaceClass, type SectionSurface } from './sectionSurface'
 
 /**

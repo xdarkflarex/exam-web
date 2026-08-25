@@ -26,6 +26,18 @@ function format(value: number) {
   return value.toLocaleString('vi-VN')
 }
 
+/**
+ * Dưới ngưỡng này thì hiện thẳng số, không đếm.
+ *
+ * Đếm từ 0 lên 3 không đọc ra là "đang đếm" — nó đọc ra là số bị nhấp nháy. Hiệu
+ * ứng chỉ có nghĩa khi quãng đường đủ dài để mắt thấy được chiều tăng.
+ *
+ * Đặt ngưỡng ở ĐÂY chứ không phải ở từng chỗ dùng là có chủ đích: chỗ dùng
+ * thường không biết trước giá trị (số câu đã làm, số đề — đều là dữ liệu chạy),
+ * nên để mỗi nơi tự đoán sẽ ra mỗi nơi một luật.
+ */
+const MIN_DE_DEM = 10
+
 export default function CountUpNumber({
   value,
   durationMs = 900,
@@ -43,7 +55,7 @@ export default function CountUpNumber({
     // người dùng bật reduced-motion (hoặc số bằng 0) thì giá trị đúng đã có sẵn
     // trên màn hình — gọi setState chỉ tạo thêm một lượt render vô ích.
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (prefersReduced || value <= 0) return
+    if (prefersReduced || value < MIN_DE_DEM) return
 
     let frame = 0
     let startedAt = 0

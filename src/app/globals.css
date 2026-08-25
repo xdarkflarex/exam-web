@@ -12,40 +12,76 @@
 
 /* Light Mode - Soft neutral palette (reduced glare)
  *
- * Nguyên tắc: nền KHÔNG bao giờ là #fff. Màn hình trắng tinh ở độ sáng phòng học
- * buổi tối là nguồn chói chính; hạ nền xuống một bậc xám-xanh nhạt giảm chói mà
- * gần như không ảnh hưởng khả năng đọc.
+ * NguyÃªn táº¯c: ná»n KHÃ”NG bao giá» lÃ  #fff. MÃ n hÃ¬nh tráº¯ng tinh á»Ÿ Ä‘á»™ sÃ¡ng phÃ²ng há»c
+ * buá»•i tá»‘i lÃ  nguá»“n chÃ³i chÃ­nh; háº¡ ná»n xuá»‘ng má»™t báº­c xÃ¡m-xanh nháº¡t giáº£m chÃ³i mÃ 
+ * gáº§n nhÆ° khÃ´ng áº£nh hÆ°á»Ÿng kháº£ nÄƒng Ä‘á»c.
  *
- * Thang nền ba bậc, ngược với thói quen thường gặp (card sáng hơn nền):
- *   --background       nền trang, tối nhất trong ba
- *   --background-card  thẻ/panel nổi lên trên nền
- *   --background-raised ô nhập, vùng nội dung cần nổi rõ nhất
- * Làm card SÁNG HƠN nền cho cảm giác "nổi lên" tự nhiên dưới ánh sáng từ trên,
- * và tránh việc mọi thứ đều trắng như nhau rồi phải kẻ viền khắp nơi.
+ * Thang ná»n ba báº­c, ngÆ°á»£c vá»›i thÃ³i quen thÆ°á»ng gáº·p (card sÃ¡ng hÆ¡n ná»n):
+ *   --background       ná»n trang, tá»‘i nháº¥t trong ba
+ *   --background-card  tháº»/panel ná»•i lÃªn trÃªn ná»n
+ *   --background-raised Ã´ nháº­p, vÃ¹ng ná»™i dung cáº§n ná»•i rÃµ nháº¥t
+ * LÃ m card SÃNG HÆ N ná»n cho cáº£m giÃ¡c "ná»•i lÃªn" tá»± nhiÃªn dÆ°á»›i Ã¡nh sÃ¡ng tá»« trÃªn,
+ * vÃ  trÃ¡nh viá»‡c má»i thá»© Ä‘á»u tráº¯ng nhÆ° nhau rá»“i pháº£i káº» viá»n kháº¯p nÆ¡i.
  */
 :root {
-  --background: #eef1f6;        /* nền trang: xám-xanh nhạt, dịu hơn slate-100 */
-  --background-card: #f7f9fc;   /* thẻ nổi lên trên nền, vẫn không phải #fff */
-  --background-raised: #ffffff; /* chỉ dùng cho ô nhập/vùng cần nổi nhất */
+  --background: #eef1f6;        /* ná»n trang: xÃ¡m-xanh nháº¡t, dá»‹u hÆ¡n slate-100 */
+  --background-card: #f7f9fc;   /* tháº» ná»•i lÃªn trÃªn ná»n, váº«n khÃ´ng pháº£i #fff */
+  --background-raised: #ffffff; /* chá»‰ dÃ¹ng cho Ã´ nháº­p/vÃ¹ng cáº§n ná»•i nháº¥t */
   --background-overlay: rgba(238, 241, 246, 0.92);
   --foreground: #1e293b;        /* slate-800 - not pure black */
   --foreground-secondary: #475569; /* slate-600 */
   --foreground-muted: #64748b;  /* slate-500 */
-  --border: #dbe1ea;            /* viền nhạt, đủ tách khối mà không tạo lưới rối */
+  --border: #dbe1ea;            /* viá»n nháº¡t, Ä‘á»§ tÃ¡ch khá»‘i mÃ  khÃ´ng táº¡o lÆ°á»›i rá»‘i */
   --border-strong: #94a3b8;     /* slate-400 */
-  /* Teal-700 thay vì teal-600: trên nền sáng, teal-600 đủ tương phản cho khối
-     lớn nhưng chữ trắng trên nút teal-600 chỉ đạt ~3.9:1, dưới chuẩn 4.5:1. */
+  /* Teal-700 thay vÃ¬ teal-600: trÃªn ná»n sÃ¡ng, teal-600 Ä‘á»§ tÆ°Æ¡ng pháº£n cho khá»‘i
+     lá»›n nhÆ°ng chá»¯ tráº¯ng trÃªn nÃºt teal-600 chá»‰ Ä‘áº¡t ~3.9:1, dÆ°á»›i chuáº©n 4.5:1. */
   --accent: #0f766e;            /* teal-700 */
   --accent-hover: #115e59;      /* teal-800 */
-  --accent-soft: #ccfbf1;       /* nền nhạt cho badge/nút phụ, teal-100 */
-  --accent-soft-text: #115e59;  /* chữ trên nền accent-soft, teal-800 */
+  --accent-soft: #ccfbf1;       /* ná»n nháº¡t cho badge/nÃºt phá»¥, teal-100 */
+  --accent-soft-text: #115e59;  /* chá»¯ trÃªn ná»n accent-soft, teal-800 */
+
+  /* ---------------------------------------------------------------
+     TOKEN CHUYá»‚N Äá»˜NG
+
+     Ba báº­c thá»i lÆ°á»£ng + ba Ä‘Æ°á»ng cong. Ba `cubic-bezier` dÆ°á»›i Ä‘Ã¢y KHÃ”NG pháº£i
+     giÃ¡ trá»‹ má»›i: chÃºng Ä‘Ã£ náº±m ráº£i rÃ¡c trong chÃ­nh file nÃ y (page-enter,
+     bounce-in, fade-in-up) â€” Ä‘Ã¢y lÃ  gom vá» má»™t chá»— Ä‘á»ƒ pháº§n CSS thÃªm sau khÃ´ng
+     ráº£i tiáº¿p sá»‘ láº».
+
+     PHáº M VI, nÃ³i rÃµ Ä‘á»ƒ khÃ´ng ai trÃ´ng Ä‘á»£i nháº§m: token nÃ y chá»‰ phá»¥c vá»¥ CSS viáº¿t
+     tay trong file nÃ y. NÃ³ KHÃ”NG áº£nh hÆ°á»Ÿng cÃ¡c utility Tailwind kiá»ƒu
+     `duration-300` náº±m trong component, vÃ¬ Tailwind v4 á»Ÿ dá»± Ã¡n nÃ y biÃªn dá»‹ch
+     utility thÃ nh giÃ¡ trá»‹ cá»©ng â€” cÃ¹ng lÃ½ do Ä‘Ã£ ghi á»Ÿ khá»‘i "Sá»¬A TÆ¯Æ NG PHáº¢N"
+     bÃªn dÆ°á»›i.
+
+     KhÃ´ng Ä‘áº·t trong `html.dark`: chuyá»ƒn Ä‘á»™ng khÃ´ng phá»¥ thuá»™c theme.
+
+     Báº®T BUá»˜C DÃ™NG TIá»€N Tá» `--mm-`. Tailwind v4 coi `--ease-*` lÃ  NAMESPACE
+     THEME cá»§a nÃ³: utility `ease-out` biÃªn dá»‹ch thÃ nh `var(--mm-ease-out)`, vÃ 
+     `:root` cá»§a file nÃ y náº±m sau `@import "tailwindcss"` nÃªn sáº½ ghi Ä‘Ã¨. Báº£n Ä‘áº§u
+     cá»§a khá»‘i nÃ y Ä‘áº·t tháº³ng `--ease-out` vÃ  Ä‘Ã£ Ã¢m tháº§m Ä‘á»•i Ä‘Æ°á»ng cong cá»§a Má»ŒI
+     utility `ease-out` trong toÃ n app (Ä‘o lÃºc cháº¡y ngÃ y 2026-08-15:
+     `cubic-bezier(0,0,.2,1)` -> `cubic-bezier(.25,.46,.45,.94)`).
+
+     CÃ¡c namespace khÃ¡c cá»§a Tailwind v4 cÅ©ng pháº£i trÃ¡nh khi Ä‘áº·t token má»›i:
+     `--color-*`, `--font-*`, `--text-*`, `--spacing-*`, `--radius-*`,
+     `--shadow-*`, `--blur-*`, `--animate-*`, `--breakpoint-*`, `--tracking-*`,
+     `--leading-*`, `--aspect-*`.
+     --------------------------------------------------------------- */
+  --mm-motion-fast: 0.18s;   /* hover, focus, chip */
+  --mm-motion-base: 0.32s;   /* card, panel, nÃºt */
+  --mm-motion-slow: 0.6s;    /* reveal khi cuá»™n, váº½ vÃ²ng tiáº¿n Ä‘á»™ */
+
+  --mm-ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --mm-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --mm-ease-back: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 /* Dark Mode - Soft dark palette */
 html.dark {
   --background: #0f172a;        /* slate-900 */
   --background-card: #1e293b;   /* slate-800 */
-  --background-raised: #334155; /* slate-700 - ô nhập nổi trên card */
+  --background-raised: #334155; /* slate-700 - Ã´ nháº­p ná»•i trÃªn card */
   --background-overlay: rgba(15, 23, 42, 0.9);
   --foreground: #e2e8f0;        /* slate-200 - not pure white */
   --foreground-secondary: #94a3b8; /* slate-400 */
@@ -59,121 +95,121 @@ html.dark {
 }
 
 /* =============================================
-   SỬA TƯƠNG PHẢN CHO LIGHT MODE
+   Sá»¬A TÆ¯Æ NG PHáº¢N CHO LIGHT MODE
    =============================================
 
-   Đo ngày 2026-08-07 trên trang chủ: 27 phần tử chữ dưới chuẩn WCAG AA ở light
-   mode. Ba khuôn mẫu lặp đi lặp lại, và chúng xuất hiện ~600 lần trong ~100 file:
+   Äo ngÃ y 2026-08-07 trÃªn trang chá»§: 27 pháº§n tá»­ chá»¯ dÆ°á»›i chuáº©n WCAG AA á»Ÿ light
+   mode. Ba khuÃ´n máº«u láº·p Ä‘i láº·p láº¡i, vÃ  chÃºng xuáº¥t hiá»‡n ~600 láº§n trong ~100 file:
 
-     text-teal-600  trên nền sáng  -> 2.98:1  (cần 4.5)
-     bg-teal-600 + text-white      -> 3.67:1  (cần 4.5)
-     text-slate-400 trên nền sáng  -> 2.13:1  (cần 4.5)
-     text-red-500                  -> 3.70:1  (cần 4.5)
+     text-teal-600  trÃªn ná»n sÃ¡ng  -> 2.98:1  (cáº§n 4.5)
+     bg-teal-600 + text-white      -> 3.67:1  (cáº§n 4.5)
+     text-slate-400 trÃªn ná»n sÃ¡ng  -> 2.13:1  (cáº§n 4.5)
+     text-red-500                  -> 3.70:1  (cáº§n 4.5)
 
-   Sửa bằng cách đổi Ý NGHĨA CỦA TOKEN trong light mode, không đi sửa 600 chỗ
-   dùng. Tailwind v4 để lộ bảng màu dưới dạng biến CSS nên ghi đè được, và cách
-   này có ba cái lợi: một nơi để đọc, một nơi để hoàn tác, và không đụng vào
-   `dark:` (biến chỉ đổi khi KHÔNG có class `dark`).
+   Sá»­a báº±ng cÃ¡ch Ä‘á»•i Ã NGHÄ¨A Cá»¦A TOKEN trong light mode, khÃ´ng Ä‘i sá»­a 600 chá»—
+   dÃ¹ng. Tailwind v4 Ä‘á»ƒ lá»™ báº£ng mÃ u dÆ°á»›i dáº¡ng biáº¿n CSS nÃªn ghi Ä‘Ã¨ Ä‘Æ°á»£c, vÃ  cÃ¡ch
+   nÃ y cÃ³ ba cÃ¡i lá»£i: má»™t nÆ¡i Ä‘á»ƒ Ä‘á»c, má»™t nÆ¡i Ä‘á»ƒ hoÃ n tÃ¡c, vÃ  khÃ´ng Ä‘á»¥ng vÃ o
+   `dark:` (biáº¿n chá»‰ Ä‘á»•i khi KHÃ”NG cÃ³ class `dark`).
 
-   ĐÁNH ĐỔI phải nói rõ: sau đây `teal-600` trong light mode KHÔNG còn là màu
-   teal-600 của Tailwind. Ai đọc class `bg-teal-600` mà tra bảng màu Tailwind sẽ
-   thấy lệch. Đó là cái giá để không phải sửa 600 chỗ; nếu sau này muốn quay về
-   đúng nghĩa gốc thì xoá khối này và sửa từng chỗ dùng.
+   ÄÃNH Äá»”I pháº£i nÃ³i rÃµ: sau Ä‘Ã¢y `teal-600` trong light mode KHÃ”NG cÃ²n lÃ  mÃ u
+   teal-600 cá»§a Tailwind. Ai Ä‘á»c class `bg-teal-600` mÃ  tra báº£ng mÃ u Tailwind sáº½
+   tháº¥y lá»‡ch. ÄÃ³ lÃ  cÃ¡i giÃ¡ Ä‘á»ƒ khÃ´ng pháº£i sá»­a 600 chá»—; náº¿u sau nÃ y muá»‘n quay vá»
+   Ä‘Ãºng nghÄ©a gá»‘c thÃ¬ xoÃ¡ khá»‘i nÃ y vÃ  sá»­a tá»«ng chá»— dÃ¹ng.
 
-   Chỉ đổi ba màu thật sự hỏng. Không đụng `slate-500`/`slate-600` vì chúng đang
-   giữ phân cấp chữ chính/phụ, và ép chúng tối thêm sẽ làm mọi mức chữ trông như
+   Chá»‰ Ä‘á»•i ba mÃ u tháº­t sá»± há»ng. KhÃ´ng Ä‘á»¥ng `slate-500`/`slate-600` vÃ¬ chÃºng Ä‘ang
+   giá»¯ phÃ¢n cáº¥p chá»¯ chÃ­nh/phá»¥, vÃ  Ã©p chÃºng tá»‘i thÃªm sáº½ lÃ m má»i má»©c chá»¯ trÃ´ng nhÆ°
    nhau.
 
-   VÌ SAO GHI ĐÈ CLASS CHỨ KHÔNG GHI ĐÈ TOKEN. Cách gọn hơn là đổi
-   `--color-teal-600` trong `:root`, nhưng đã thử và KHÔNG chạy: Tailwind v4 ở
-   dự án này biên dịch utility thành giá trị màu cứng, không phải
-   `var(--color-*)`. Kiểm bằng cách đặt `--color-slate-400: red` lúc chạy — màu
-   chữ không đổi. Nên phải nhắm vào chính class.
+   VÃŒ SAO GHI ÄÃˆ CLASS CHá»¨ KHÃ”NG GHI ÄÃˆ TOKEN. CÃ¡ch gá»n hÆ¡n lÃ  Ä‘á»•i
+   `--color-teal-600` trong `:root`, nhÆ°ng Ä‘Ã£ thá»­ vÃ  KHÃ”NG cháº¡y: Tailwind v4 á»Ÿ
+   dá»± Ã¡n nÃ y biÃªn dá»‹ch utility thÃ nh giÃ¡ trá»‹ mÃ u cá»©ng, khÃ´ng pháº£i
+   `var(--color-*)`. Kiá»ƒm báº±ng cÃ¡ch Ä‘áº·t `--color-slate-400: red` lÃºc cháº¡y â€” mÃ u
+   chá»¯ khÃ´ng Ä‘á»•i. NÃªn pháº£i nháº¯m vÃ o chÃ­nh class.
 
-   Độ ưu tiên: `html:not(.dark) .text-teal-600` là (0,2,1), thắng utility (0,1,0)
-   mà không cần `!important`. Tiền tố `html:not(.dark)` bảo đảm khối này KHÔNG
-   bao giờ chạm dark mode. */
+   Äá»™ Æ°u tiÃªn: `html:not(.dark) .text-teal-600` lÃ  (0,2,1), tháº¯ng utility (0,1,0)
+   mÃ  khÃ´ng cáº§n `!important`. Tiá»n tá»‘ `html:not(.dark)` báº£o Ä‘áº£m khá»‘i nÃ y KHÃ”NG
+   bao giá» cháº¡m dark mode. */
 html:not(.dark) .text-teal-600 {
-  /* Chữ teal trên nền sáng: 2.98:1 -> 4.8:1 */
+  /* Chá»¯ teal trÃªn ná»n sÃ¡ng: 2.98:1 -> 4.8:1 */
   color: var(--color-teal-700);
 }
 
 html:not(.dark) .bg-teal-600 {
-  /* Chữ trắng trên nút teal: 3.67:1 -> 5.9:1 */
+  /* Chá»¯ tráº¯ng trÃªn nÃºt teal: 3.67:1 -> 5.9:1 */
   background-color: var(--color-teal-700);
 }
 
 html:not(.dark) .hover\:bg-teal-700:hover {
-  /* Nút đã đậm hơn thì trạng thái hover phải đậm hơn nữa, nếu không rê chuột
-     vào nút trông như không phản hồi. */
+  /* NÃºt Ä‘Ã£ Ä‘áº­m hÆ¡n thÃ¬ tráº¡ng thÃ¡i hover pháº£i Ä‘áº­m hÆ¡n ná»¯a, náº¿u khÃ´ng rÃª chuá»™t
+     vÃ o nÃºt trÃ´ng nhÆ° khÃ´ng pháº£n há»“i. */
   background-color: var(--color-teal-800);
 }
 
 html:not(.dark) .text-slate-400 {
-  /* Chữ phụ mờ nhất: 2.13:1 -> 3.9:1. Chỉ lên MỘT bậc; xem ghi chú bên dưới. */
+  /* Chá»¯ phá»¥ má» nháº¥t: 2.13:1 -> 3.9:1. Chá»‰ lÃªn Má»˜T báº­c; xem ghi chÃº bÃªn dÆ°á»›i. */
   color: var(--color-slate-500);
 }
 
 html:not(.dark) .text-red-500 {
-  /* Dấu * bắt buộc và nút xoá: 3.70:1 -> 5.3:1 */
+  /* Dáº¥u * báº¯t buá»™c vÃ  nÃºt xoÃ¡: 3.70:1 -> 5.3:1 */
   color: var(--color-red-600);
 }
 
-/* Nút gradient. `.bg-teal-600` ở trên KHÔNG chạm tới chúng vì gradient nằm ở
-   `background-image`, không phải `background-color` — nên chữ trắng trên nút
-   "Đăng ký" vẫn ở 3.67:1 sau khi sửa nền phẳng. Tailwind v4 dựng
-   `--tw-gradient-stops` từ `--tw-gradient-from`, nên ghi đè biến đó là đủ và
-   không phải viết lại cả chuỗi gradient. */
+/* NÃºt gradient. `.bg-teal-600` á»Ÿ trÃªn KHÃ”NG cháº¡m tá»›i chÃºng vÃ¬ gradient náº±m á»Ÿ
+   `background-image`, khÃ´ng pháº£i `background-color` â€” nÃªn chá»¯ tráº¯ng trÃªn nÃºt
+   "ÄÄƒng kÃ½" váº«n á»Ÿ 3.67:1 sau khi sá»­a ná»n pháº³ng. Tailwind v4 dá»±ng
+   `--tw-gradient-stops` tá»« `--tw-gradient-from`, nÃªn ghi Ä‘Ã¨ biáº¿n Ä‘Ã³ lÃ  Ä‘á»§ vÃ 
+   khÃ´ng pháº£i viáº¿t láº¡i cáº£ chuá»—i gradient. */
 html:not(.dark) .from-teal-600 {
   --tw-gradient-from: var(--color-teal-700);
 }
 
-/* QUYẾT ĐỊNH CỦA CHỦ DỰ ÁN (2026-08-09): đẩy `slate-500` lên `slate-600`
-   CHỈ Ở CHỮ NHỎ.
+/* QUYáº¾T Äá»ŠNH Cá»¦A CHá»¦ Dá»° ÃN (2026-08-09): Ä‘áº©y `slate-500` lÃªn `slate-600`
+   CHá»ˆ á»ž CHá»® NHá»Ž.
 
-   `DESIGN_TODO.md` mục 1 để treo ba lựa chọn cho 531 chỗ dùng `text-slate-500`
-   (đo ~3,9:1, dưới chuẩn 4,5 cho chữ nhỏ). Chủ dự án chọn phương án giữa: đạt
-   chuẩn ở nơi khó đọc nhất, mà vẫn giữ phân cấp chữ chính/chữ phụ ở cỡ thường
-   — đẩy toàn bộ sẽ làm chữ chính (slate-800) và chữ phụ đậm gần bằng nhau.
+   `DESIGN_TODO.md` má»¥c 1 Ä‘á»ƒ treo ba lá»±a chá»n cho 531 chá»— dÃ¹ng `text-slate-500`
+   (Ä‘o ~3,9:1, dÆ°á»›i chuáº©n 4,5 cho chá»¯ nhá»). Chá»§ dá»± Ã¡n chá»n phÆ°Æ¡ng Ã¡n giá»¯a: Ä‘áº¡t
+   chuáº©n á»Ÿ nÆ¡i khÃ³ Ä‘á»c nháº¥t, mÃ  váº«n giá»¯ phÃ¢n cáº¥p chá»¯ chÃ­nh/chá»¯ phá»¥ á»Ÿ cá»¡ thÆ°á»ng
+   â€” Ä‘áº©y toÃ n bá»™ sáº½ lÃ m chá»¯ chÃ­nh (slate-800) vÃ  chá»¯ phá»¥ Ä‘áº­m gáº§n báº±ng nhau.
 
-   Nhắm vào TỔ HỢP hai class nên chỉ chạm chữ nhỏ: `.text-xs.text-slate-500` là
-   (0,3,1) kể cả tiền tố, thắng utility (0,1,0). Chỗ `text-sm` trở lên giữ
-   nguyên — dòng bản quyền ở footer vì thế vẫn ở 4,21:1, có chủ ý. */
+   Nháº¯m vÃ o Tá»” Há»¢P hai class nÃªn chá»‰ cháº¡m chá»¯ nhá»: `.text-xs.text-slate-500` lÃ 
+   (0,3,1) ká»ƒ cáº£ tiá»n tá»‘, tháº¯ng utility (0,1,0). Chá»— `text-sm` trá»Ÿ lÃªn giá»¯
+   nguyÃªn â€” dÃ²ng báº£n quyá»n á»Ÿ footer vÃ¬ tháº¿ váº«n á»Ÿ 4,21:1, cÃ³ chá»§ Ã½. */
 html:not(.dark) .text-xs.text-slate-500,
 html:not(.dark) .text-\[11px\].text-slate-500 {
   color: var(--color-slate-600);
 }
 
-/* CÒN NỢ, đã đo chứ không phải phỏng đoán: sau ba dòng trên, chữ phụ dùng
-   `text-slate-400`/`text-slate-500` đạt ~3.9:1 — vẫn dưới 4.5 cho chữ nhỏ. Đẩy
-   tiếp lên slate-600 sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ, nên đó là quyết
-   định thiết kế cần chủ dự án chọn, không phải việc sửa máy móc. */
+/* CÃ’N Ná»¢, Ä‘Ã£ Ä‘o chá»© khÃ´ng pháº£i phá»ng Ä‘oÃ¡n: sau ba dÃ²ng trÃªn, chá»¯ phá»¥ dÃ¹ng
+   `text-slate-400`/`text-slate-500` Ä‘áº¡t ~3.9:1 â€” váº«n dÆ°á»›i 4.5 cho chá»¯ nhá». Äáº©y
+   tiáº¿p lÃªn slate-600 sáº½ Ä‘áº¡t chuáº©n nhÆ°ng lÃ m pháº³ng phÃ¢n cáº¥p chá»¯, nÃªn Ä‘Ã³ lÃ  quyáº¿t
+   Ä‘á»‹nh thiáº¿t káº¿ cáº§n chá»§ dá»± Ã¡n chá»n, khÃ´ng pháº£i viá»‡c sá»­a mÃ¡y mÃ³c. */
 
 /* =============================================
-   SỬA TƯƠNG PHẢN CHO DARK MODE
+   Sá»¬A TÆ¯Æ NG PHáº¢N CHO DARK MODE
    =============================================
 
-   Đo ngày 2026-08-09 trên trang chủ ở dark mode, bằng cách rasterize màu qua
-   canvas `getImageData` (KHÔNG dùng `fillStyle` — Tailwind v4 trả `oklch()` mà
-   `fillStyle` không parse nổi, cho ra tỉ số vô nghĩa quanh 1.0; xem
-   `docs/DESIGN_TODO.md` mục 5).
+   Äo ngÃ y 2026-08-09 trÃªn trang chá»§ á»Ÿ dark mode, báº±ng cÃ¡ch rasterize mÃ u qua
+   canvas `getImageData` (KHÃ”NG dÃ¹ng `fillStyle` â€” Tailwind v4 tráº£ `oklch()` mÃ 
+   `fillStyle` khÃ´ng parse ná»•i, cho ra tá»‰ sá»‘ vÃ´ nghÄ©a quanh 1.0; xem
+   `docs/DESIGN_TODO.md` má»¥c 5).
 
-   Mẫu lặp lại: chữ trắng trên nút teal SÁNG. Ở dark mode `dark:bg-teal-500`
-   biên dịch thành `.bg-teal-500` dưới `.dark`, và `text-white` trên nền đó chỉ
-   đạt 2,42:1 — dưới xa 4,5. Đây là nhóm lỗi mà `DESIGN_TODO.md` mục 1 đã ghi
-   nhận ("badge bg-teal-600 + chữ trắng") nhưng chưa xử lý.
+   Máº«u láº·p láº¡i: chá»¯ tráº¯ng trÃªn nÃºt teal SÃNG. á»ž dark mode `dark:bg-teal-500`
+   biÃªn dá»‹ch thÃ nh `.bg-teal-500` dÆ°á»›i `.dark`, vÃ  `text-white` trÃªn ná»n Ä‘Ã³ chá»‰
+   Ä‘áº¡t 2,42:1 â€” dÆ°á»›i xa 4,5. ÄÃ¢y lÃ  nhÃ³m lá»—i mÃ  `DESIGN_TODO.md` má»¥c 1 Ä‘Ã£ ghi
+   nháº­n ("badge bg-teal-600 + chá»¯ tráº¯ng") nhÆ°ng chÆ°a xá»­ lÃ½.
 
-   Cách sửa theo quy ước dark mode phổ thông: nút nhấn ở nền tối dùng accent
-   SÁNG với chữ TỐI, thay vì cố ép chữ trắng lên accent sáng.
+   CÃ¡ch sá»­a theo quy Æ°á»›c dark mode phá»• thÃ´ng: nÃºt nháº¥n á»Ÿ ná»n tá»‘i dÃ¹ng accent
+   SÃNG vá»›i chá»¯ Tá»I, thay vÃ¬ cá»‘ Ã©p chá»¯ tráº¯ng lÃªn accent sÃ¡ng.
 
-   PHẢI NHẮM VÀO TÊN CLASS CÓ TIỀN TỐ `dark:`. Tailwind v4 giữ nguyên tên
-   utility trong DOM, nên phần tử mang đồng thời `bg-teal-600` và
-   `dark:bg-teal-500`. Viết `html.dark .bg-teal-500` sẽ KHÔNG khớp — đã thử và
-   trượt. Trong CSS, dấu hai chấm phải escape thành `.dark\:bg-teal-500`.
+   PHáº¢I NHáº®M VÃ€O TÃŠN CLASS CÃ“ TIá»€N Tá» `dark:`. Tailwind v4 giá»¯ nguyÃªn tÃªn
+   utility trong DOM, nÃªn pháº§n tá»­ mang Ä‘á»“ng thá»i `bg-teal-600` vÃ 
+   `dark:bg-teal-500`. Viáº¿t `html.dark .bg-teal-500` sáº½ KHÃ”NG khá»›p â€” Ä‘Ã£ thá»­ vÃ 
+   trÆ°á»£t. Trong CSS, dáº¥u hai cháº¥m pháº£i escape thÃ nh `.dark\:bg-teal-500`.
 
-   Độ ưu tiên: `html.dark .dark\:bg-teal-500.text-white` là (0,3,1), thắng
-   utility `.text-white` (0,1,0) mà không cần `!important`. Chỉ chạm đúng tổ
-   hợp trắng-trên-teal-sáng, không đụng chữ teal trên nền tối. */
+   Äá»™ Æ°u tiÃªn: `html.dark .dark\:bg-teal-500.text-white` lÃ  (0,3,1), tháº¯ng
+   utility `.text-white` (0,1,0) mÃ  khÃ´ng cáº§n `!important`. Chá»‰ cháº¡m Ä‘Ãºng tá»•
+   há»£p tráº¯ng-trÃªn-teal-sÃ¡ng, khÃ´ng Ä‘á»¥ng chá»¯ teal trÃªn ná»n tá»‘i. */
 html.dark .dark\:bg-teal-500.text-white,
 html.dark .dark\:bg-teal-400.text-white,
 html.dark .dark\:from-teal-500.text-white,
@@ -181,18 +217,18 @@ html.dark .dark\:from-teal-400.text-white {
   color: var(--color-teal-950);
 }
 
-/* Chữ đỏ ở dark mode. Đối xứng với `html:not(.dark) .text-red-500` ở khối light
-   mode phía trên: red-500 trên nền slate tối chỉ đạt 3,84:1. Dùng cho dấu `*`
-   bắt buộc và thông báo lỗi form — chỗ mà đọc không ra là hỏng việc thật. */
+/* Chá»¯ Ä‘á» á»Ÿ dark mode. Äá»‘i xá»©ng vá»›i `html:not(.dark) .text-red-500` á»Ÿ khá»‘i light
+   mode phÃ­a trÃªn: red-500 trÃªn ná»n slate tá»‘i chá»‰ Ä‘áº¡t 3,84:1. DÃ¹ng cho dáº¥u `*`
+   báº¯t buá»™c vÃ  thÃ´ng bÃ¡o lá»—i form â€” chá»— mÃ  Ä‘á»c khÃ´ng ra lÃ  há»ng viá»‡c tháº­t. */
 html.dark .text-red-500 {
   color: var(--color-red-400);
 }
 
-/* Nút amber: hỏng ở CẢ HAI chế độ, không riêng dark.
-   `bg-amber-500` (#f59e0b) với chữ trắng chỉ đạt 2,13:1 — amber sáng gần như
-   không bao giờ đi được với chữ trắng. Nút "Đăng ký học thầy Minh" là CTA
-   tuyển sinh nổi bật nhất trang, nên chỗ này đáng sửa hơn cả.
-   Không giới hạn trong `html.dark` vì lỗi có ở light mode luôn. */
+/* NÃºt amber: há»ng á»Ÿ Cáº¢ HAI cháº¿ Ä‘á»™, khÃ´ng riÃªng dark.
+   `bg-amber-500` (#f59e0b) vá»›i chá»¯ tráº¯ng chá»‰ Ä‘áº¡t 2,13:1 â€” amber sÃ¡ng gáº§n nhÆ°
+   khÃ´ng bao giá» Ä‘i Ä‘Æ°á»£c vá»›i chá»¯ tráº¯ng. NÃºt "ÄÄƒng kÃ½ há»c tháº§y Minh" lÃ  CTA
+   tuyá»ƒn sinh ná»•i báº­t nháº¥t trang, nÃªn chá»— nÃ y Ä‘Ã¡ng sá»­a hÆ¡n cáº£.
+   KhÃ´ng giá»›i háº¡n trong `html.dark` vÃ¬ lá»—i cÃ³ á»Ÿ light mode luÃ´n. */
 .bg-amber-500.text-white,
 .dark\:bg-amber-500.text-white,
 .from-amber-500.text-white {
@@ -563,21 +599,21 @@ html {
    GLASS MORPHISM UTILITIES
    ============================================= */
 
-/* NỀN ĐỤC LÀ MẶC ĐỊNH, BLUR LÀ PHẦN THÊM.
+/* Ná»€N Äá»¤C LÃ€ Máº¶C Äá»ŠNH, BLUR LÃ€ PHáº¦N THÃŠM.
  *
- * Bản trước đặt nền 0.7/0.85 rồi trông cậy vào `backdrop-filter` làm phần còn
- * lại. Trong bản build thật thì blur KHÔNG tồn tại: dự án không khai báo
- * `browserslist`, nên mặc định gồm `op_mini all`, và Lightning CSS của Tailwind
- * v4 xoá hẳn `backdrop-filter` lẫn `-webkit-backdrop-filter` khi có target
- * không hỗ trợ. Kiểm bằng CSSOM lúc chạy: rule `.glass-strong` chỉ còn
- * `background` và `border`.
+ * Báº£n trÆ°á»›c Ä‘áº·t ná»n 0.7/0.85 rá»“i trÃ´ng cáº­y vÃ o `backdrop-filter` lÃ m pháº§n cÃ²n
+ * láº¡i. Trong báº£n build tháº­t thÃ¬ blur KHÃ”NG tá»“n táº¡i: dá»± Ã¡n khÃ´ng khai bÃ¡o
+ * `browserslist`, nÃªn máº·c Ä‘á»‹nh gá»“m `op_mini all`, vÃ  Lightning CSS cá»§a Tailwind
+ * v4 xoÃ¡ háº³n `backdrop-filter` láº«n `-webkit-backdrop-filter` khi cÃ³ target
+ * khÃ´ng há»— trá»£. Kiá»ƒm báº±ng CSSOM lÃºc cháº¡y: rule `.glass-strong` chá»‰ cÃ²n
+ * `background` vÃ  `border`.
  *
- * Hệ quả là thanh nav dính chỉ có nền mờ 85% không blur, nên tiêu đề section
- * cuộn qua phía dưới đọc xuyên lên — mất khả năng đọc cả nav lẫn tiêu đề.
+ * Há»‡ quáº£ lÃ  thanh nav dÃ­nh chá»‰ cÃ³ ná»n má» 85% khÃ´ng blur, nÃªn tiÃªu Ä‘á» section
+ * cuá»™n qua phÃ­a dÆ°á»›i Ä‘á»c xuyÃªn lÃªn â€” máº¥t kháº£ nÄƒng Ä‘á»c cáº£ nav láº«n tiÃªu Ä‘á».
  *
- * Nên đảo lại thứ tự phụ thuộc: nền tự nó đã đủ đục để đọc được, `@supports`
- * mới hạ độ đục xuống và thêm blur khi trình duyệt thật sự làm được. Thiết kế
- * không còn phụ thuộc vào một thuộc tính mà bước build có thể bỏ đi.
+ * NÃªn Ä‘áº£o láº¡i thá»© tá»± phá»¥ thuá»™c: ná»n tá»± nÃ³ Ä‘Ã£ Ä‘á»§ Ä‘á»¥c Ä‘á»ƒ Ä‘á»c Ä‘Æ°á»£c, `@supports`
+ * má»›i háº¡ Ä‘á»™ Ä‘á»¥c xuá»‘ng vÃ  thÃªm blur khi trÃ¬nh duyá»‡t tháº­t sá»± lÃ m Ä‘Æ°á»£c. Thiáº¿t káº¿
+ * khÃ´ng cÃ²n phá»¥ thuá»™c vÃ o má»™t thuá»™c tÃ­nh mÃ  bÆ°á»›c build cÃ³ thá»ƒ bá» Ä‘i.
  */
 .glass {
   background: rgba(241, 245, 249, 0.94);
@@ -623,12 +659,12 @@ html.dark .glass-strong {
 
 /* =============================================
    LANDING SURFACE UTILITIES
-   Dùng cho landing page (style design mới). Không thêm hệ màu thứ ba:
-   mọi giá trị đều bám vào slate/teal và biến --accent đã có ở trên.
+   DÃ¹ng cho landing page (style design má»›i). KhÃ´ng thÃªm há»‡ mÃ u thá»© ba:
+   má»i giÃ¡ trá»‹ Ä‘á»u bÃ¡m vÃ o slate/teal vÃ  biáº¿n --accent Ä‘Ã£ cÃ³ á»Ÿ trÃªn.
    ============================================= */
 
-/* Shadow mềm, khuếch tán rộng — thay cho shadow-xl gắt của Tailwind
-   khi cần card nổi nhẹ trên nền sáng. */
+/* Shadow má»m, khuáº¿ch tÃ¡n rá»™ng â€” thay cho shadow-xl gáº¯t cá»§a Tailwind
+   khi cáº§n card ná»•i nháº¹ trÃªn ná»n sÃ¡ng. */
 .soft-shadow {
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
 }
@@ -637,8 +673,8 @@ html.dark .soft-shadow {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Nền gradient toả từ góc trên phải cho hero. Light mode giữ độ chói thấp
-   (không dùng #fff thuần), dark mode chuyển sang tông slate-900. */
+/* Ná»n gradient toáº£ tá»« gÃ³c trÃªn pháº£i cho hero. Light mode giá»¯ Ä‘á»™ chÃ³i tháº¥p
+   (khÃ´ng dÃ¹ng #fff thuáº§n), dark mode chuyá»ƒn sang tÃ´ng slate-900. */
 .hero-gradient {
   background: radial-gradient(circle at top right, #e2f1ef 0%, var(--background) 62%);
 }
@@ -647,8 +683,8 @@ html.dark .hero-gradient {
   background: radial-gradient(circle at top right, rgba(13, 148, 136, 0.12) 0%, var(--background) 62%);
 }
 
-/* Ký hiệu toán trang trí trôi chậm ở hero. Chậm hơn `.animate-float`
-   (3s) để không gây nhiễu khi đọc nội dung. */
+/* KÃ½ hiá»‡u toÃ¡n trang trÃ­ trÃ´i cháº­m á»Ÿ hero. Cháº­m hÆ¡n `.animate-float`
+   (3s) Ä‘á»ƒ khÃ´ng gÃ¢y nhiá»…u khi Ä‘á»c ná»™i dung. */
 @keyframes float-slow {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-20px) rotate(5deg); }
@@ -666,7 +702,7 @@ html.dark .hero-gradient {
   animation: float-slow 8s ease-in-out 2s infinite;
 }
 
-/* Card nâng lên khi hover, dùng cho lưới bento/quick-access. */
+/* Card nÃ¢ng lÃªn khi hover, dÃ¹ng cho lÆ°á»›i bento/quick-access. */
 .bento-hover {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -681,22 +717,22 @@ html.dark .bento-hover:hover {
 }
 
 /* =============================================
-   BENTO — TỪ VỰNG BỀ MẶT DÙNG CHUNG
-   Nguồn: docs/DESIGN_OVERHAUL_2026-08-09.md mục 1.
+   BENTO â€” Tá»ª Vá»°NG Bá»€ Máº¶T DÃ™NG CHUNG
+   Nguá»“n: docs/DESIGN_OVERHAUL_2026-08-09.md má»¥c 1.
 
-   Bệnh của trang chủ không phải màu xấu mà là MỌI KHỐI CÙNG MỘT KHUÔN. Ba
-   section liên tiếp dùng đúng một công thức card, nên cuộn một mạch là gặp
-   11 khối như nhau.
+   Bá»‡nh cá»§a trang chá»§ khÃ´ng pháº£i mÃ u xáº¥u mÃ  lÃ  Má»ŒI KHá»I CÃ™NG Má»˜T KHUÃ”N. Ba
+   section liÃªn tiáº¿p dÃ¹ng Ä‘Ãºng má»™t cÃ´ng thá»©c card, nÃªn cuá»™n má»™t máº¡ch lÃ  gáº·p
+   11 khá»‘i nhÆ° nhau.
 
-   Ba class dưới đây là ba CẤP bề mặt, không phải ba kiểu trang trí. Chọn theo
-   tầm quan trọng của nội dung, đừng chọn theo cái nào trông đẹp hơn:
+   Ba class dÆ°á»›i Ä‘Ã¢y lÃ  ba Cáº¤P bá» máº·t, khÃ´ng pháº£i ba kiá»ƒu trang trÃ­. Chá»n theo
+   táº§m quan trá»ng cá»§a ná»™i dung, Ä‘á»«ng chá»n theo cÃ¡i nÃ o trÃ´ng Ä‘áº¹p hÆ¡n:
 
-     .bento-tile        ô thường
-     .bento-tile-lead   ô dẫn dắt — đậm hơn, dành cho MỘT ô mỗi lưới
-     .bento-tile-quiet  ô phụ — chìm xuống, dùng cho thông tin nền
+     .bento-tile        Ã´ thÆ°á»ng
+     .bento-tile-lead   Ã´ dáº«n dáº¯t â€” Ä‘áº­m hÆ¡n, dÃ nh cho Má»˜T Ã´ má»—i lÆ°á»›i
+     .bento-tile-quiet  Ã´ phá»¥ â€” chÃ¬m xuá»‘ng, dÃ¹ng cho thÃ´ng tin ná»n
 
-   Đều bám vào `--background-card` / `--border` nên tự đúng ở cả light lẫn dark,
-   thay cho việc mỗi nơi hardcode một `bg-slate-200` khác nhau.
+   Äá»u bÃ¡m vÃ o `--background-card` / `--border` nÃªn tá»± Ä‘Ãºng á»Ÿ cáº£ light láº«n dark,
+   thay cho viá»‡c má»—i nÆ¡i hardcode má»™t `bg-slate-200` khÃ¡c nhau.
    ============================================= */
 
 .bento-tile,
@@ -721,15 +757,15 @@ html.dark .bento-tile-lead {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Ô phụ cố ý KHÔNG có shadow và nền chìm bằng nền trang: nó phải lùi lại phía
-   sau, nếu không thì "ba cấp" chỉ là ba sắc thái của cùng một cấp. */
+/* Ã” phá»¥ cá»‘ Ã½ KHÃ”NG cÃ³ shadow vÃ  ná»n chÃ¬m báº±ng ná»n trang: nÃ³ pháº£i lÃ¹i láº¡i phÃ­a
+   sau, náº¿u khÃ´ng thÃ¬ "ba cáº¥p" chá»‰ lÃ  ba sáº¯c thÃ¡i cá»§a cÃ¹ng má»™t cáº¥p. */
 .bento-tile-quiet {
   background-color: transparent;
   box-shadow: none;
 }
 
-/* Chỉ ô bấm được mới nâng lên khi hover. Ô thông tin nâng lên là hứa hẹn một
-   hành động không tồn tại. */
+/* Chá»‰ Ã´ báº¥m Ä‘Æ°á»£c má»›i nÃ¢ng lÃªn khi hover. Ã” thÃ´ng tin nÃ¢ng lÃªn lÃ  há»©a háº¹n má»™t
+   hÃ nh Ä‘á»™ng khÃ´ng tá»“n táº¡i. */
 a.bento-tile:hover,
 button.bento-tile:hover,
 a.bento-tile-lead:hover,
@@ -748,8 +784,8 @@ html.dark .bento-tile-interactive:hover {
   box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.5);
 }
 
-/* Dải màu mỏng bên trái ô — cách rẻ nhất để phân loại ô mà không cần thêm
-   badge hay icon. Màu truyền qua `--rail`. */
+/* Dáº£i mÃ u má»ng bÃªn trÃ¡i Ã´ â€” cÃ¡ch ráº» nháº¥t Ä‘á»ƒ phÃ¢n loáº¡i Ã´ mÃ  khÃ´ng cáº§n thÃªm
+   badge hay icon. MÃ u truyá»n qua `--rail`. */
 .bento-rail {
   position: relative;
   overflow: hidden;
@@ -764,21 +800,21 @@ html.dark .bento-tile-interactive:hover {
   background: var(--rail, var(--accent));
 }
 
-/* Nền xen kẽ giữa các section. Bản cũ chỉ có "trong suốt" và
-   `bg-slate-200/50`, nên cả trang đọc thành một dải phẳng. */
+/* Ná»n xen káº½ giá»¯a cÃ¡c section. Báº£n cÅ© chá»‰ cÃ³ "trong suá»‘t" vÃ 
+   `bg-slate-200/50`, nÃªn cáº£ trang Ä‘á»c thÃ nh má»™t dáº£i pháº³ng. */
 .section-alt {
   background-color: color-mix(in srgb, var(--border) 28%, transparent);
 }
 
 /* =============================================
-   GIẤY KẺ Ô
-   Nguồn: docs/STUDENT_SKILL_TREE_REDESIGN.md mục 7.2 — lấy chất liệu từ chính
-   môn học thay vì hiệu ứng chung chung. Dùng `repeating-linear-gradient` chứ
-   không dùng ảnh: không thêm request, co giãn theo mọi DPI.
+   GIáº¤Y Káºº Ã”
+   Nguá»“n: docs/STUDENT_SKILL_TREE_REDESIGN.md má»¥c 7.2 â€” láº¥y cháº¥t liá»‡u tá»« chÃ­nh
+   mÃ´n há»c thay vÃ¬ hiá»‡u á»©ng chung chung. DÃ¹ng `repeating-linear-gradient` chá»©
+   khÃ´ng dÃ¹ng áº£nh: khÃ´ng thÃªm request, co giÃ£n theo má»i DPI.
 
-   Chỉ dùng cho vùng hero. Độ tương phản cố ý rất thấp (~2% ở light, ~4% ở dark)
-   — hoạ tiết nền không được cạnh tranh với chữ đặt trên nó, và nền hero vẫn
-   phải giữ mức chói thấp mà `--background` đã đặt ra.
+   Chá»‰ dÃ¹ng cho vÃ¹ng hero. Äá»™ tÆ°Æ¡ng pháº£n cá»‘ Ã½ ráº¥t tháº¥p (~2% á»Ÿ light, ~4% á»Ÿ dark)
+   â€” hoáº¡ tiáº¿t ná»n khÃ´ng Ä‘Æ°á»£c cáº¡nh tranh vá»›i chá»¯ Ä‘áº·t trÃªn nÃ³, vÃ  ná»n hero váº«n
+   pháº£i giá»¯ má»©c chÃ³i tháº¥p mÃ  `--background` Ä‘Ã£ Ä‘áº·t ra.
    ============================================= */
 
 .paper-grid {
@@ -795,11 +831,94 @@ html.dark .paper-grid {
 }
 
 /* =============================================
-   DASHBOARD HỌC SINH
-   Entrance một lần khi vào trang. Biên độ nhỏ (8px) và chạy một lần —
-   dashboard là nơi học sinh quay lại nhiều lần trong ngày, chuyển động lớn
-   ở đây nhanh thành nhiễu. `both` giữ trạng thái cuối để nội dung không phụ
-   thuộc vào việc animation có chạy hay không.
+   REVEAL â€” Lá»˜ RA THAY VÃŒ TRÆ¯á»¢T VÃ€O
+
+   KhÃ¡c `fade-in-up`/`slide-in-up` Ä‘Ã£ cÃ³ á»Ÿ chá»— ná»™i dung khÃ´ng di chuyá»ƒn: nÃ³ bá»‹
+   má»™t máº·t náº¡ kÃ©o ngang/dá»c Ä‘á»ƒ lá»™ dáº§n. DÃ¹ng cho khá»‘i cáº§n cáº£m giÃ¡c "Ä‘Æ°á»£c má»Ÿ ra"
+   (dáº£i khÃ¢u há»c, tiÃªu Ä‘á» section) thay vÃ¬ "bay vÃ o".
+
+   Cá» Ã KHÃ”NG animate `opacity` kÃ¨m theo. Chá»‰ `clip-path` lÃ  Ä‘á»§, vÃ  má»—i thuá»™c
+   tÃ­nh thÃªm vÃ o lÃ  thÃªm má»™t tráº¡ng thÃ¡i cÃ³ thá»ƒ káº¹t láº¡i giá»¯a chá»«ng.
+
+   `both` giá»¯ khung hÃ¬nh cuá»‘i, nÃªn khi lÆ°á»›i reduced-motion Ã©p
+   `animation-duration: 0.01ms` thÃ¬ káº¿t quáº£ lÃ  ná»™i dung hiá»‡n Ä‘áº§y Ä‘á»§ tá»©c thÃ¬ â€”
+   khÃ´ng bao giá» máº¥t chá»¯.
+   ============================================= */
+
+@keyframes reveal-in-left {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes reveal-in-bottom {
+  from { clip-path: inset(100% 0 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+.reveal-left {
+  animation: reveal-in-left var(--mm-motion-slow) var(--mm-ease-out) both;
+}
+
+.reveal-bottom {
+  animation: reveal-in-bottom var(--mm-motion-slow) var(--mm-ease-out) both;
+}
+
+/* =============================================
+   Váº¼ CUNG VÃ’NG TIáº¾N Äá»˜
+
+   DÃ¹ng bá»Ÿi `components/viz/ProgressRing.tsx` khi báº­t prop `animate`.
+
+   VÃ¬ sao báº±ng CSS chá»© khÃ´ng pháº£i JS: `ProgressRing` lÃ  server component thuáº§n
+   vÃ  Ä‘ang Ä‘Æ°á»£c dÃ¹ng á»Ÿ nhiá»u trang (dashboard, analytics, history). Biáº¿n nÃ³
+   thÃ nh client component chá»‰ Ä‘á»ƒ cháº¡y má»™t hiá»‡u á»©ng váº½ lÃ  cÃ¡i giÃ¡ sai. Animate
+   `stroke-dashoffset` khÃ´ng cáº§n JS, khÃ´ng thÃªm byte nÃ o vÃ o bundle, vÃ  tá»± náº±m
+   trong lÆ°á»›i reduced-motion.
+
+   Hai biáº¿n, Ä‘á»u do component tÃ­nh tá»« `size`/`thickness` tháº­t nÃªn khÃ´ng hardcode
+   Ä‘Æ°á»£c á»Ÿ Ä‘Ã¢y:
+     --ring-len     chu vi Ä‘Æ°á»ng trÃ²n = tráº¡ng thÃ¡i "chÆ°a váº½ gÃ¬"
+     --ring-offset  chu vi - Ä‘á»™ dÃ i cung = tráº¡ng thÃ¡i cuá»‘i, Ä‘Ãºng giÃ¡ trá»‹
+
+   VÃŒ SAO `stroke-dasharray` PHáº¢I LÃ€ Má»˜T GIÃ TRá»Š (= chu vi), khÃ´ng pháº£i cáº·p
+   `cung khoáº£ng-trá»‘ng`: cáº·p Ä‘Ã³ cá»™ng láº¡i Ä‘Ãºng báº±ng chu vi, nÃªn chu ká»³ cá»§a máº«u
+   nÃ©t Ä‘á»©t báº±ng Ä‘Ãºng má»™t vÃ²ng â€” dá»‹ch offset Ä‘i má»™t chu vi lÃ  quay vá» y há»‡t chá»—
+   cÅ©. Káº¿t quáº£ sáº½ lÃ  cung CHáº Y QUANH vÃ²ng rá»“i vá» chá»— cÅ©, khÃ´ng pháº£i váº½ dáº§n.
+   Vá»›i má»™t giÃ¡ trá»‹, chu ká»³ lÃ  hai láº§n chu vi vÃ  phÃ©p dá»‹ch má»›i lá»™ cung ra dáº§n.
+   Tráº¡ng thÃ¡i tÄ©nh cá»§a hai cÃ¡ch lÃ  nhÆ° nhau.
+   ============================================= */
+
+@keyframes ring-draw {
+  from { stroke-dashoffset: var(--ring-len, 0); }
+  to { stroke-dashoffset: var(--ring-offset, 0); }
+}
+
+.ring-arc-animate {
+  animation: ring-draw var(--mm-motion-slow) var(--mm-ease-out) both;
+}
+
+/* Thanh tiến độ mọc từ trái.
+
+   Animate `transform: scaleX`, KHÔNG phải `width`: `width` bắt trình duyệt tính
+   lại bố cục mỗi khung hình, còn `transform` chạy trên lớp hợp thành. Bề rộng
+   thật vẫn do `style={{ width }}` đặt, nên giá trị cuối và `aria-valuenow`
+   không phụ thuộc animation — đây là chuyển động MANG THÔNG TIN nên nó không
+   được quyền nói sai khi bị tắt. */
+@keyframes progress-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.progress-fill-animate {
+  transform-origin: left center;
+  animation: progress-grow var(--mm-motion-slow) var(--mm-ease-out) both;
+}
+
+/* =============================================
+   DASHBOARD Há»ŒC SINH
+   Entrance má»™t láº§n khi vÃ o trang. BiÃªn Ä‘á»™ nhá» (8px) vÃ  cháº¡y má»™t láº§n â€”
+   dashboard lÃ  nÆ¡i há»c sinh quay láº¡i nhiá»u láº§n trong ngÃ y, chuyá»ƒn Ä‘á»™ng lá»›n
+   á»Ÿ Ä‘Ã¢y nhanh thÃ nh nhiá»…u. `both` giá»¯ tráº¡ng thÃ¡i cuá»‘i Ä‘á»ƒ ná»™i dung khÃ´ng phá»¥
+   thuá»™c vÃ o viá»‡c animation cÃ³ cháº¡y hay khÃ´ng.
    ============================================= */
 
 @keyframes dash-in {
@@ -817,8 +936,8 @@ html.dark .paper-grid {
   animation: dash-in 0.45s ease-out both;
 }
 
-/* Stagger cho danh sách việc cần làm: mỗi khối vào sau khối trước một nhịp
-   ngắn, đủ để mắt bắt được thứ tự ưu tiên mà không phải chờ. */
+/* Stagger cho danh sÃ¡ch viá»‡c cáº§n lÃ m: má»—i khá»‘i vÃ o sau khá»‘i trÆ°á»›c má»™t nhá»‹p
+   ngáº¯n, Ä‘á»§ Ä‘á»ƒ máº¯t báº¯t Ä‘Æ°á»£c thá»© tá»± Æ°u tiÃªn mÃ  khÃ´ng pháº£i chá». */
 .animate-dash-in-1 {
   animation: dash-in 0.45s ease-out 0.06s both;
 }
@@ -916,7 +1035,7 @@ html.dark .paper-grid {
 .animate-fade-in-up-delay-3 { animation: fade-in-up 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s both; }
 .animate-fade-in-up-delay-4 { animation: fade-in-up 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s both; }
 
-/* List stagger — each child fades in with increasing delay (supports up to 20 items) */
+/* List stagger â€” each child fades in with increasing delay (supports up to 20 items) */
 .animate-list-stagger > * {
   opacity: 0;
   animation: fade-in-up 0.4s ease-out forwards;
@@ -943,20 +1062,44 @@ html.dark .paper-grid {
 .animate-list-stagger > *:nth-child(19) { animation-delay: 0.57s; }
 .animate-list-stagger > *:nth-child(20) { animation-delay: 0.60s; }
 
-/* Action button — consistent hover scale + active press + shadow lift */
+/* Action button â€” gá» sÃ¡ng + nÃ¢ng nháº¹ khi hover + lÃºn khi báº¥m.
+
+   Gá»œ SÃNG Äáº¶T á»ž `::after`, KHÃ”NG PHáº¢I `box-shadow` Cá»¦A CHÃNH NÃšT.
+   Äo ngÃ y 2026-08-15 trÃªn `/login`: quy táº¯c trong file nÃ y náº±m ngoÃ i `@layer`
+   nÃªn tháº¯ng utility cá»§a Tailwind v4. Viáº¿t `box-shadow` tháº³ng vÃ o `.btn-action`
+   sáº½ XOÃ `shadow-lg shadow-teal-600/20` cá»§a nÃºt Ä‘Äƒng nháº­p vÃ  nÃºt hoÃ n táº¥t há»“ sÆ¡
+   â€” hai nÃºt quan trá»ng nháº¥t trong luá»“ng vÃ o app. Lá»›p phá»§ cá»™ng thÃªm thay vÃ¬
+   thay tháº¿, nÃªn nÃºt nÃ o cÃ³ quáº§ng riÃªng thÃ¬ giá»¯ nguyÃªn quáº§ng Ä‘Ã³.
+
+   Bá»Ž `scale()`. `.btn-action` Ä‘ang Ä‘Æ°á»£c dÃ¹ng trÃªn nÃºt `w-full` (LoginView,
+   complete-profile); phÃ³ng to 3% má»™t nÃºt rá»™ng cáº£ khung lÃ m mÃ©p nÃºt trÆ°á»£t ra
+   ngoÃ i lá», cÃ²n thu 97% lÃºc báº¥m thÃ¬ trÃ´ng nhÆ° nÃºt bá»‹ co rÃºm. NÃ¢ng 1px + lÃºn
+   báº±ng bÃ³ng cho pháº£n há»“i tÆ°Æ¡ng Ä‘Æ°Æ¡ng mÃ  khÃ´ng Ä‘á»¥ng tá»›i bá»‘ cá»¥c. */
 .btn-action {
   @apply transition-all duration-200 ease-out;
+  position: relative;
+}
+.btn-action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+  transition: box-shadow var(--mm-motion-fast) var(--mm-ease-out);
 }
 .btn-action:hover {
-  transform: scale(1.03) translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
 }
 .btn-action:active {
-  transform: scale(0.97);
-  box-shadow: none;
+  transform: none;
+}
+/* LÃºn: gá» sÃ¡ng Ä‘á»•i chiá»u thÃ nh bÃ³ng Ä‘á»• vÃ o trong. */
+.btn-action:active::after {
+  box-shadow: inset 0 2px 4px rgb(15 23 42 / 0.25);
 }
 
-/* Small action button — subtler */
+/* Small action button â€” subtler */
 .btn-action-sm {
   @apply transition-all duration-150 ease-out;
 }
@@ -1131,8 +1274,8 @@ html.dark .glow-teal {
 
 /* =============================================
    REDUCED MOTION
-   Nguồn sự thật cho DESIGN_SYSTEM.md: "tôn trọng prefers-reduced-motion".
-   Mọi animation/transition mới phải nằm trong phạm vi bị tắt ở đây.
+   Nguá»“n sá»± tháº­t cho DESIGN_SYSTEM.md: "tÃ´n trá»ng prefers-reduced-motion".
+   Má»i animation/transition má»›i pháº£i náº±m trong pháº¡m vi bá»‹ táº¯t á»Ÿ Ä‘Ã¢y.
    ============================================= */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1140,9 +1283,9 @@ html.dark .glow-teal {
     filter: drop-shadow(0 0 1.4rem rgba(0, 231, 255, 0.18));
   }
 
-  /* Lưới an toàn: tắt mọi animation/transition, kể cả của thư viện.
-     Không dùng `animation: none` để tránh phá các animation state-driven
-     vẫn cần chạy tới trạng thái cuối (giữ `both`/`forwards`). */
+  /* LÆ°á»›i an toÃ n: táº¯t má»i animation/transition, ká»ƒ cáº£ cá»§a thÆ° viá»‡n.
+     KhÃ´ng dÃ¹ng `animation: none` Ä‘á»ƒ trÃ¡nh phÃ¡ cÃ¡c animation state-driven
+     váº«n cáº§n cháº¡y tá»›i tráº¡ng thÃ¡i cuá»‘i (giá»¯ `both`/`forwards`). */
   *,
   *::before,
   *::after {
@@ -1154,15 +1297,24 @@ html.dark .glow-teal {
     scroll-behavior: auto !important;
   }
 
-  /* Entrance animation: bỏ hẳn opacity 0 ban đầu để nội dung không
-     phụ thuộc vào việc animation có chạy hay không. */
+  /* Entrance animation: bá» háº³n opacity 0 ban Ä‘áº§u Ä‘á»ƒ ná»™i dung khÃ´ng
+     phá»¥ thuá»™c vÃ o viá»‡c animation cÃ³ cháº¡y hay khÃ´ng. */
   .animate-list-stagger > *,
   .stagger-children > * {
     opacity: 1 !important;
   }
 
-  /* Chuyển động theo hover/active: giữ phản hồi bằng màu/shadow,
-     bỏ dịch chuyển và phóng to. */
+  /* `ScrollRevealClient` bá»c gáº§n nhÆ° má»i section cá»§a trang chá»§. Tráº¡ng thÃ¡i áº©n
+     cá»§a nÃ³ lÃ  utility `opacity-0` + `translate-*`, khÃ´ng pháº£i animation, nÃªn
+     hai quy táº¯c thá»i lÆ°á»£ng phÃ­a trÃªn khÃ´ng Ä‘á»¥ng tá»›i â€” thiáº¿u dÃ²ng nÃ y thÃ¬ báº­t
+     "giáº£m chuyá»ƒn Ä‘á»™ng" xong ná»™i dung váº«n trÆ°á»£t vÃ o khi cuá»™n tá»›i. */
+  .scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Chuyá»ƒn Ä‘á»™ng theo hover/active: giá»¯ pháº£n há»“i báº±ng mÃ u/shadow,
+     bá» dá»‹ch chuyá»ƒn vÃ  phÃ³ng to. */
   .hover-lift:hover,
   .hover-scale:hover,
   .bento-hover:hover,
@@ -1179,10 +1331,10 @@ html.dark .glow-teal {
     transform: none !important;
   }
 
-  /* Utility scale/translate của Tailwind áp theo hover/group-hover không nằm
-     trong danh sách class tự định nghĩa ở trên. `transition-duration: 0.01ms`
-     phía trên đã làm chúng tức thời, nhưng vẫn còn phóng to/dịch chuyển —
-     với reduced-motion thì kết quả cuối cũng phải đứng yên. */
+  /* Utility scale/translate cá»§a Tailwind Ã¡p theo hover/group-hover khÃ´ng náº±m
+     trong danh sÃ¡ch class tá»± Ä‘á»‹nh nghÄ©a á»Ÿ trÃªn. `transition-duration: 0.01ms`
+     phÃ­a trÃªn Ä‘Ã£ lÃ m chÃºng tá»©c thá»i, nhÆ°ng váº«n cÃ²n phÃ³ng to/dá»‹ch chuyá»ƒn â€”
+     vá»›i reduced-motion thÃ¬ káº¿t quáº£ cuá»‘i cÅ©ng pháº£i Ä‘á»©ng yÃªn. */
   .group:hover [class*="group-hover:scale-"],
   .group:hover [class*="group-hover:translate-"],
   .group\/stat:hover [class*="group-hover\/stat:scale-"],
@@ -1192,8 +1344,8 @@ html.dark .glow-teal {
     transform: none !important;
   }
 
-  /* Spinner là chỉ báo trạng thái đang tải, không phải trang trí:
-     giữ chuyển động nhưng làm chậm để giảm kích thích thị giác. */
+  /* Spinner lÃ  chá»‰ bÃ¡o tráº¡ng thÃ¡i Ä‘ang táº£i, khÃ´ng pháº£i trang trÃ­:
+     giá»¯ chuyá»ƒn Ä‘á»™ng nhÆ°ng lÃ m cháº­m Ä‘á»ƒ giáº£m kÃ­ch thÃ­ch thá»‹ giÃ¡c. */
   .animate-spin {
     animation-duration: 1.5s !important;
     animation-iteration-count: infinite !important;

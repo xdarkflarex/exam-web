@@ -37,6 +37,16 @@ interface Props {
   caption?: string
   /** Bắt buộc: mô tả cho screen reader, phải chứa cả con số và ý nghĩa. */
   ariaLabel: string
+  /**
+   * Vẽ cung dần khi hiện ra, thay vì hiện sẵn nguyên cung.
+   *
+   * Mặc định `false`: các chỗ dùng để đọc số liệu (analytics, history) không
+   * nên chuyển động. Chỉ bật ở nơi vòng là điểm nhìn đầu tiên của trang.
+   *
+   * Hoàn toàn bằng CSS (`.ring-arc-animate` trong `globals.css`) nên component
+   * này vẫn là server component — không cần `'use client'`, không thêm JS.
+   */
+  animate?: boolean
 }
 
 export default function ProgressRing({
@@ -46,6 +56,7 @@ export default function ProgressRing({
   tone = 'teal',
   caption,
   ariaLabel,
+  animate = false,
 }: Props) {
   const hasValue = value !== null && Number.isFinite(value)
   const clamped = hasValue ? Math.min(100, Math.max(0, value as number)) : 0
@@ -78,10 +89,25 @@ export default function ProgressRing({
             fill="none"
             strokeWidth={thickness}
             strokeLinecap="round"
-            strokeDasharray={`${dash} ${circumference - dash}`}
+            /*
+              Một giá trị (= chu vi) + `strokeDashoffset`, thay cho cặp
+              `cung khoảng-trống`. Trạng thái tĩnh giống hệt cách cũ, nhưng chu
+              kỳ mẫu nét đứt thành hai lần chu vi nên phép dịch offset mới vẽ
+              được cung ra dần — xem chú thích `ring-draw` trong `globals.css`.
+            */
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference - dash}
             // Bắt đầu từ 12 giờ thay vì 3 giờ.
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            className={TONE_STROKE[tone]}
+            className={`${TONE_STROKE[tone]}${animate ? ' ring-arc-animate' : ''}`}
+            style={
+              animate
+                ? ({
+                    '--ring-len': circumference,
+                    '--ring-offset': circumference - dash,
+                  } as React.CSSProperties)
+                : undefined
+            }
           />
         )}
       </svg>
