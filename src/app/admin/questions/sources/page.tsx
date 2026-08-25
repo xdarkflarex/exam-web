@@ -33,6 +33,8 @@ export default function AdminQuestionSourcesPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [merging, setMerging] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  /** Tổng số câu CÓ nguồn, để đối chiếu với tổng các con số trong bảng. */
+  const [totalQuestions, setTotalQuestions] = useState(0)
 
   useEffect(() => {
     fetchSources()
@@ -41,20 +43,36 @@ export default function AdminQuestionSourcesPage() {
   const fetchSources = async () => {
     setLoading(true)
     try {
-      // Fetch all source_exam values (non-null) and count client-side.
-      const { data, error } = await supabase
-        .from('questions')
-        .select('source_exam')
-        .not('source_exam', 'is', null)
+      /*
+        PHẢI PHÂN TRANG. PostgREST trả tối đa 1000 dòng mỗi lượt, và bản trước
+        đọc `source_exam` một phát rồi đếm — nên khi ngân hàng vượt 1000 câu thì
+        MỌI con số ở trang này đều là đếm thiếu, im lặng và không có dấu hiệu gì.
+        Đây chính là lý do một nguồn hiện 81 câu trong khi thực tế khác hẳn.
 
-      if (error) {
-        logger.supabaseError('fetch source_exam', error)
-        setMessage({ type: 'error', text: 'Không thể tải danh sách nguồn' })
-        return
+        Cùng cái bẫy mà `src/lib/answers/fetchAnswers.ts` đã chống; ở đây bị bỏ sót.
+      */
+      const PAGE = 1000
+      const rowsAll: { source_exam: string | null }[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('questions')
+          .select('source_exam')
+          .not('source_exam', 'is', null)
+          .order('id')
+          .range(from, from + PAGE - 1)
+
+        if (error) {
+          logger.supabaseError('fetch source_exam', error)
+          setMessage({ type: 'error', text: 'Không thể tải danh sách nguồn' })
+          return
+        }
+
+        rowsAll.push(...(data || []))
+        if (!data || data.length < PAGE) break
       }
 
       const countMap = new Map<string, number>()
-      for (const row of data || []) {
+      for (const row of rowsAll) {
         const s = (row.source_exam || '').trim()
         if (!s) continue
         countMap.set(s, (countMap.get(s) || 0) + 1)
@@ -65,6 +83,7 @@ export default function AdminQuestionSourcesPage() {
         .sort((a, b) => a.source.localeCompare(b.source, 'vi'))
 
       setSources(rows)
+      setTotalQuestions(rowsAll.length)
     } catch (err) {
       logger.error('Fetch sources error', err)
       setMessage({ type: 'error', text: 'Lỗi kết nối' })
@@ -157,7 +176,7 @@ export default function AdminQuestionSourcesPage() {
     <div className="min-h-screen">
       <AdminHeader
         title="Gom nguồn câu hỏi"
-        subtitle={`${sources.length} nguồn (source_exam) trong hệ thống`}
+        subtitle={`${sources.length} nguồn · ${totalQuestions.toLocaleString('vi-VN')} câu có ghi nguồn`}
       />
 
       <div className="p-6 space-y-6">
