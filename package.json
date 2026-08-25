@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
-    "tikz:svg": "node --experimental-strip-types scripts/render-tikz-svg.mjs"
+    "tikz:svg": "node --experimental-strip-types scripts/render-tikz-svg.mjs",
+    "questions:duplicates": "node --experimental-strip-types --env-file=.env scripts/find-duplicate-questions.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
