@@ -77,6 +77,19 @@ interface QuestionTaxonomy {
  */
 const PAGE_SIZE = 50
 
+/**
+ * Đang lọc mà tổng kết quả không quá ngưỡng này thì TẢI HẾT luôn, không bắt bấm
+ * "Tải thêm".
+ *
+ * Vì sao cần: luồng dùng thật là lọc cho còn ít câu -> "Chọn tất cả" -> xuất
+ * .tex. Nếu chỉ tải 50 thì "Chọn tất cả" chọn đúng 50 và FILE XUẤT RA THIẾU mà
+ * không có gì báo. Phân trang chỉ để chống đơ lúc mở trang chưa lọc; khi đã lọc
+ * xuống vài chục/vài trăm câu thì tải hết mới là hành vi đúng.
+ *
+ * Trên ngưỡng này vẫn có nút "Tải hết" bấm tay, kèm cảnh báo.
+ */
+const AUTO_LOAD_MAX = 500
+
 /** Hàng thô từ bảng `questions`, trước khi ghép đáp án/taxonomy/tag. */
 interface QuestionRow {
   id: string
@@ -175,7 +188,7 @@ export default function AdminQuestionsPage() {
     trong ngay trên server. Cách khác là truy vấn lấy danh sách question_id rồi
     `.in(...)`, nhưng vài nghìn id nhét vào URL sẽ vượt giới hạn độ dài và trả 414.
   */
-  const fetchQuestions = useCallback(async (offset: number, append: boolean) => {
+  const fetchQuestions = useCallback(async (offset: number, append: boolean, forceAll = false) => {
     // Trang đầu dùng chung cờ `loading` với phần taxonomy: nếu không, danh sách
     // rỗng lọt ra giữa hai lượt tải và giao diện nháy "Không có câu hỏi nào".
     if (append) setLoadingMore(true)
@@ -197,36 +210,74 @@ export default function AdminQuestionsPage() {
         ...embeds,
       ].join(', ')
 
-      let query = supabase
-        .from('questions')
-        .select(columns, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1)
+      const runPage = (from: number, to: number) => {
+        let query = supabase
+          .from('questions')
+          .select(columns, { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(from, to)
 
-      if (debouncedSearch) {
-        // `%` và `_` là ký tự đại diện của LIKE. Người dùng gõ chúng để tìm
-        // đúng ký tự đó, không phải để làm mẫu khớp — nên phải thoát.
-        const safe = debouncedSearch.replace(/[%_]/g, (c) => '\\' + c)
-        query = query.ilike('content', '%' + safe + '%')
+        if (debouncedSearch) {
+          // `%` và `_` là ký tự đại diện của LIKE. Người dùng gõ chúng để tìm
+          // đúng ký tự đó, không phải để làm mẫu khớp — nên phải thoát.
+          const safe = debouncedSearch.replace(/[%_]/g, (c) => '\\' + c)
+          query = query.ilike('content', '%' + safe + '%')
+        }
+        if (selectedDifficulty) query = query.eq('difficulty', parseInt(selectedDifficulty))
+        if (selectedQuestionType) query = query.eq('question_type', selectedQuestionType)
+        if (selectedTopicId) query = query.eq('question_taxonomy.topic_id', selectedTopicId)
+        if (selectedCategoryId) query = query.eq('question_taxonomy.category_id', selectedCategoryId)
+        if (selectedSectionId) query = query.eq('question_taxonomy.section_id', selectedSectionId)
+        if (selectedSubsectionId) query = query.eq('question_taxonomy.subsection_id', selectedSubsectionId)
+        if (selectedTagId) query = query.eq('question_tags.tag_id', selectedTagId)
+
+        return query
       }
-      if (selectedDifficulty) query = query.eq('difficulty', parseInt(selectedDifficulty))
-      if (selectedQuestionType) query = query.eq('question_type', selectedQuestionType)
-      if (selectedTopicId) query = query.eq('question_taxonomy.topic_id', selectedTopicId)
-      if (selectedCategoryId) query = query.eq('question_taxonomy.category_id', selectedCategoryId)
-      if (selectedSectionId) query = query.eq('question_taxonomy.section_id', selectedSectionId)
-      if (selectedSubsectionId) query = query.eq('question_taxonomy.subsection_id', selectedSubsectionId)
-      if (selectedTagId) query = query.eq('question_tags.tag_id', selectedTagId)
 
-      const { data: rawRows, error: qError, count } = await query
+      const { data: rawRows, error: qError, count } = await runPage(offset, offset + PAGE_SIZE - 1)
 
       if (qError) {
         console.error('Fetch questions error:', qError)
         return
       }
 
-      setTotalCount(count ?? 0)
+      const total = count ?? 0
+      setTotalCount(total)
 
-      const questionsData = (rawRows ?? []) as unknown as QuestionRow[]
+      let questionsData = (rawRows ?? []) as unknown as QuestionRow[]
+
+      /*
+        TỰ TẢI HẾT KHI ĐANG LỌC VÀ TẬP KẾT QUẢ NHỎ.
+
+        Luồng dùng thật: lọc cho còn ít câu -> Chọn tất cả -> xuất .tex. Dừng ở
+        50 câu thì "Chọn tất cả" chọn đúng 50 và file xuất ra thiếu, im lặng.
+        Gom hết TRƯỚC khi setState một lần: tải từng trang rồi setState nhiều
+        lần sẽ khiến danh sách nhảy và mỗi lượt lại dựng lại DOM.
+      */
+      const filterActive = Boolean(
+        debouncedSearch ||
+          selectedDifficulty ||
+          selectedQuestionType ||
+          selectedTopicId ||
+          selectedCategoryId ||
+          selectedSectionId ||
+          selectedSubsectionId ||
+          selectedTagId
+      )
+      const shouldLoadAll = !append && (forceAll || (filterActive && total <= AUTO_LOAD_MAX))
+
+      if (shouldLoadAll) {
+        for (let from = offset + questionsData.length; from < total; from += PAGE_SIZE) {
+          const more = await runPage(from, from + PAGE_SIZE - 1)
+          if (more.error) {
+            console.error('Fetch questions (load all) error:', more.error)
+            break
+          }
+          const batch = (more.data ?? []) as unknown as QuestionRow[]
+          if (batch.length === 0) break
+          questionsData = questionsData.concat(batch)
+        }
+      }
 
       if (questionsData.length === 0) {
         if (!append) setQuestions([])
@@ -727,6 +778,9 @@ export default function AdminQuestionsPage() {
             </span>{' '}
             câu
             {hasActiveFilters && <span> khớp bộ lọc</span>}
+            {totalCount > 0 && questions.length >= totalCount && (
+              <span className="ml-2 text-emerald-700 dark:text-emerald-400">• đã tải đủ</span>
+            )}
             {selectedIds.size > 0 && (
               <span className="ml-2 text-teal-600 dark:text-teal-400">• Đã chọn {selectedIds.size}</span>
             )}
@@ -804,18 +858,42 @@ export default function AdminQuestionsPage() {
           lặng lẽ kéo cả nghìn câu về đúng như bản cũ.
         */}
         {questions.length > 0 && questions.length < totalCount && (
-          <div className="mt-5 flex flex-col items-center gap-2">
-            <button
-              onClick={() => void fetchQuestions(questions.length, true)}
-              disabled={loadingMore}
-              className="btn-action inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-teal-400 disabled:opacity-50"
-            >
-              {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
-              Tải thêm {Math.min(PAGE_SIZE, totalCount - questions.length)} câu
-            </button>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Còn {(totalCount - questions.length).toLocaleString('vi-VN')} câu chưa tải
+          <div className="mt-5 flex flex-col items-center gap-3">
+            {/*
+              CẢNH BÁO PHẢI CÓ. "Chọn tất cả" và "Xuất .tex" chỉ làm việc trên
+              phần ĐÃ TẢI. Không nói ra thì người dùng lọc xong, chọn hết, xuất
+              file và nhận một file thiếu câu mà không biết.
+            */}
+            <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-center text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              Còn {(totalCount - questions.length).toLocaleString('vi-VN')} câu chưa tải.
+              <br />
+              &quot;Chọn tất cả&quot; và &quot;Xuất .tex&quot; chỉ áp dụng cho{' '}
+              {questions.length.toLocaleString('vi-VN')} câu đang hiển thị.
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => void fetchQuestions(questions.length, true)}
+                disabled={loadingMore || loading}
+                className="btn-action inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-teal-400 disabled:opacity-50"
+              >
+                {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+                Tải thêm {Math.min(PAGE_SIZE, totalCount - questions.length)} câu
+              </button>
+              <button
+                onClick={() => void fetchQuestions(0, false, true)}
+                disabled={loadingMore || loading}
+                className="btn-action inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                title="Tải toàn bộ kết quả khớp bộ lọc để chọn hết và xuất .tex"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Tải hết {totalCount.toLocaleString('vi-VN')} câu
+              </button>
+            </div>
+            {totalCount > AUTO_LOAD_MAX && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Trên {AUTO_LOAD_MAX} câu thì tải hết sẽ chậm — nên lọc hẹp lại trước.
+              </p>
+            )}
           </div>
         )}
       </div>
