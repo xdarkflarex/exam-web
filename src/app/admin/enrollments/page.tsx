@@ -7,9 +7,23 @@ import {
   UserPlus, Search, RefreshCw, Trash2, ChevronLeft, ChevronRight,
   CheckCircle, AlertCircle, Phone, Mail, GraduationCap, Calendar,
   Filter, Download, Users, MessageSquare, ExternalLink, BarChart2,
-  ChevronDown, Clock, KeyRound, Copy, UserCheck, Loader2
+  ChevronDown, Clock, KeyRound, Copy, UserCheck, Loader2, X
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
+
+// Giữ đồng bộ với CHECK constraint của `enrollment_registrations.class`
+// và form đăng ký công khai (`/api/enrollments`).
+const CLASS_OPTIONS = ['Toán 10', 'Toán 11', 'Toán 12', 'Tin học'] as const
+
+const EMPTY_MANUAL = {
+  full_name: '',
+  email: '',
+  phone: '',
+  class: '' as '' | (typeof CLASS_OPTIONS)[number],
+  parent_name: '',
+  parent_phone: '',
+  user_notes: '',
+}
 
 const STATUS_CONFIG = {
   new: { label: 'Mới', bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', dot: 'bg-blue-500' },
@@ -86,6 +100,11 @@ export default function EnrollmentsPage() {
   const [credentials, setCredentials] = useState<CreatedCredentials | null>(null)
   const [copied, setCopied] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Tạo tài khoản thủ công (học sinh đăng ký ngoài luồng landing page)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualForm, setManualForm] = useState(EMPTY_MANUAL)
+  const [manualSubmitting, setManualSubmitting] = useState(false)
+  const [manualError, setManualError] = useState<string | null>(null)
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ new: 0, contacted: 0, enrolled: 0, rejected: 0 })
   const [landingFormInfo, setLandingFormInfo] = useState<LandingFormInfo>({
     title: 'Đăng ký học ngay hôm nay',
@@ -208,6 +227,59 @@ export default function EnrollmentsPage() {
     }
   }
 
+  const openManual = () => {
+    setManualForm(EMPTY_MANUAL)
+    setManualError(null)
+    setManualOpen(true)
+  }
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setManualError(null)
+
+    // Kiểm tra nhanh phía client; server vẫn kiểm lại đầy đủ.
+    const fullName = manualForm.full_name.trim()
+    const email = manualForm.email.trim().toLowerCase()
+    const phone = manualForm.phone.trim().replace(/\s/g, '')
+    if (fullName.length < 2) return setManualError('Vui lòng nhập tên đầy đủ (tối thiểu 2 ký tự).')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setManualError('Vui lòng nhập email hợp lệ.')
+    if (!/^[0-9]{9,11}$/.test(phone)) return setManualError('Số điện thoại phải có 9–11 chữ số.')
+    if (!manualForm.class) return setManualError('Vui lòng chọn lớp học.')
+
+    setManualSubmitting(true)
+    try {
+      const res = await fetch('/api/admin/create-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          manual: {
+            full_name: fullName,
+            email,
+            phone,
+            class: manualForm.class,
+            parent_name: manualForm.parent_name.trim() || undefined,
+            parent_phone: manualForm.parent_phone.trim().replace(/\s/g, '') || undefined,
+            user_notes: manualForm.user_notes.trim() || undefined,
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setManualError(json.error || 'Không thể tạo tài khoản.')
+        return
+      }
+      // Thành công: đóng form, hiện thông tin đăng nhập bằng modal có sẵn.
+      setManualOpen(false)
+      setCredentials({ email: json.email, tempPassword: json.tempPassword, fullName: json.fullName })
+      load()
+      loadStatusCounts()
+    } catch {
+      setManualError('Lỗi kết nối khi tạo tài khoản.')
+    } finally {
+      setManualSubmitting(false)
+    }
+  }
+
   const handleCopyCredentials = () => {
     if (!credentials) return
     const text = `Tài khoản luyện thi\nEmail: ${credentials.email}\nMật khẩu tạm: ${credentials.tempPassword}\n(Vui lòng đổi mật khẩu sau khi đăng nhập)`
@@ -291,6 +363,13 @@ export default function EnrollmentsPage() {
           >
             <Download className="w-4 h-4" />
             Xuất Excel
+          </button>
+          <button
+            onClick={openManual}
+            className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 text-white transition-colors text-sm font-medium flex items-center gap-2"
+          >
+            <UserPlus className="w-4 h-4" />
+            Tạo tài khoản
           </button>
         </div>
       </div>
@@ -617,6 +696,165 @@ export default function EnrollmentsPage() {
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 text-right">
           Tổng: <span className="font-semibold text-slate-700 dark:text-slate-300">{total}</span> đơn đăng ký
         </p>
+      )}
+
+      {/* Manual create-account form */}
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !manualSubmitting && setManualOpen(false)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 pt-6 pb-3 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Tạo tài khoản thủ công</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Cùng thông tin như khi học sinh đăng ký học</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !manualSubmitting && setManualOpen(false)}
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                aria-label="Đóng"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualSubmit} className="px-6 py-5 space-y-4">
+              {manualError && (
+                <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 text-sm flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  {manualError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Họ và tên học viên <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={manualForm.full_name}
+                  onChange={e => setManualForm(f => ({ ...f, full_name: e.target.value }))}
+                  placeholder="Nguyễn Văn A"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Email đăng nhập <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={manualForm.email}
+                    onChange={e => setManualForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="hocsinh@email.com"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Số điện thoại <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={manualForm.phone}
+                    onChange={e => setManualForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="09xxxxxxxx"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Lớp học <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={manualForm.class}
+                  onChange={e => setManualForm(f => ({ ...f, class: e.target.value as typeof f.class }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors"
+                >
+                  <option value="" disabled>— Chọn lớp —</option>
+                  {CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Họ tên phụ huynh
+                  </label>
+                  <input
+                    type="text"
+                    value={manualForm.parent_name}
+                    onChange={e => setManualForm(f => ({ ...f, parent_name: e.target.value }))}
+                    placeholder="Không bắt buộc"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    SĐT phụ huynh
+                  </label>
+                  <input
+                    type="tel"
+                    value={manualForm.parent_phone}
+                    onChange={e => setManualForm(f => ({ ...f, parent_phone: e.target.value }))}
+                    placeholder="Không bắt buộc"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Ghi chú
+                </label>
+                <textarea
+                  rows={2}
+                  value={manualForm.user_notes}
+                  onChange={e => setManualForm(f => ({ ...f, user_notes: e.target.value }))}
+                  placeholder="Không bắt buộc"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs flex items-start gap-2">
+                <KeyRound className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                Hệ thống sẽ tạo tài khoản học sinh với mật khẩu tạm và bắt đổi mật khẩu ở lần đăng nhập đầu tiên.
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setManualOpen(false)}
+                  disabled={manualSubmitting}
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={manualSubmitting}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-50"
+                >
+                  {manualSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  {manualSubmitting ? 'Đang tạo...' : 'Tạo tài khoản'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Credentials Modal */}

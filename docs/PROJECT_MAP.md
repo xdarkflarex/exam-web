@@ -179,7 +179,8 @@ Admin API:
 ```text
 /api/admin/send-otp               POST
 /api/admin/verify-otp             POST
-/api/admin/create-account         POST
+/api/admin/create-account         POST, hai payload: { enrollmentId } duyệt đơn có sẵn,
+                                  hoặc { manual: {...} } admin tự nhập (tạo luôn dòng đơn 'enrolled')
 ```
 
 ## Quyền route thực tế trong middleware
