@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Clock, FileText, Loader2, Plus } from 'lucide-react'
+import { AlertTriangle, CheckSquare, Clock, FileText, FolderTree, Loader2, Plus, Square } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import GlobalHeader from '@/components/GlobalHeader'
+import MathContent, { MathProvider } from '@/components/MathContent'
 import { createClient } from '@/lib/supabase/client'
 import {
   QUESTION_TYPE_LABEL,
@@ -62,15 +63,32 @@ type ExamKind = keyof typeof EXAM_KIND
 
 const examKindOrder = ['thi_thu', 'hoc_ki', 'on_tap'] as const satisfies readonly ExamKind[]
 
-/** Một câu của đề gốc, đã chuẩn hoá từ PostgREST. Tách khỏi việc tính điểm để đổi
+/**
+ * Số câu tối đa lấy về một lượt cho khung chọn câu.
+ *
+ * Có trần thì phải NÓI khi chạm trần: khung chọn hiện luôn "khớp N câu, đang hiện
+ * M" để giáo viên biết mình đang nhìn một phần, chứ không im lặng cắt bớt rồi để
+ * người dùng tưởng chương chỉ có ngần ấy câu.
+ */
+const POOL_LIMIT = 300
+
+interface Topic { id: string; name: string }
+interface Category { id: string; name: string; topic_id: string }
+interface Section { id: string; name: string; category_id: string; topic_id: string }
+interface Subsection { id: string; name: string; section_id: string }
+
+/** Một câu ứng viên, đã chuẩn hoá từ PostgREST. Tách khỏi việc tính điểm để đổi
  *  loại đề không phải gọi lại database. */
-interface SourceQuestion {
+interface PoolQuestion {
   id: string
+  content: string
   questionType: string
   /** Số ý của câu Đúng/Sai (số dòng `answers`). */
   statementCount: number
   /** Tổng thang điểm rubric của câu tự luận; `null` khi chưa cấu hình. */
   essayRubricTotal: number | null
+  /** Dùng để xếp thứ tự câu trong đề — giữ đúng thứ tự nhập vào ngân hàng. */
+  createdAt: string
 }
 
 /** Kết quả kiểm cấu hình điểm của đề gốc, tính trước khi cho bấm "Tạo đề". */
@@ -104,7 +122,7 @@ const scoreTableOrder = ['multiple_choice', 'true_false', 'short_answer', 'essay
  * bài, còn câu Đúng/Sai khác 4 ý bị trigger
  * `exam_questions_true_false_four_statements` chặn giữa lúc INSERT.
  */
-function buildScorePlan(questions: SourceQuestion[], profile: ScoringProfile): ScorePlan {
+function buildScorePlan(questions: PoolQuestion[], profile: ScoringProfile): ScorePlan {
   const scoreByQuestion: Record<string, number> = {}
   const countByType: Record<string, number> = {}
   const scoresByType: Record<string, number[]> = {}
@@ -157,24 +175,61 @@ function buildScorePlan(questions: SourceQuestion[], profile: ScoringProfile): S
 export default function CreateExamPage() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
-  const [sources, setSources] = useState<string[]>([])
-  const [source, setSource] = useState('')
   const [title, setTitle] = useState('')
   const [duration, setDuration] = useState(90)
   const [grade, setGrade] = useState(12)
   const [kind, setKind] = useState<ExamKind>('thi_thu')
-  const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Danh mục để lọc, tải một lần. Cây `topics → categories → sections →
+  // subsections` dùng chung với ngân hàng câu hỏi, nên chương của một lớp cũng là
+  // một `category` như mọi chuyên đề khác.
+  const [sources, setSources] = useState<string[]>([])
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [sections, setSections] = useState<Section[]>([])
+  const [subsections, setSubsections] = useState<Subsection[]>([])
+
+  const [source, setSource] = useState('')
+  const [topicId, setTopicId] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [sectionId, setSectionId] = useState('')
+  const [subsectionId, setSubsectionId] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+
+  const [pool, setPool] = useState<PoolQuestion[]>([])
+  const [poolTotal, setPoolTotal] = useState(0)
+  /** Khoá bộ lọc đã có kết quả trong `pool`. `null` = chưa lọc lần nào. */
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+
+  /*
+    Câu đã chọn giữ CẢ dữ liệu của câu, không chỉ id.
+
+    Giáo viên ráp đề thi thử phải đổi bộ lọc nhiều lượt: 12 trắc nghiệm ở chương
+    này, 4 Đúng/Sai ở chương kia. Nếu chỉ giữ id thì đổi bộ lọc là mất số ý và
+    rubric của những câu đã chọn trước đó, và bảng điểm sẽ nói sai ngay khi câu
+    rời khỏi khung đang hiện.
+  */
+  const [picked, setPicked] = useState<Record<string, PoolQuestion>>({})
+
   const { mode, profile } = EXAM_KIND[kind]
 
-  // Tính lại tại chỗ khi đổi loại đề, không gọi lại database — trọng số là hàm
-  // thuần của (câu hỏi, hồ sơ).
+  // Thứ tự câu trong đề = thứ tự nhập vào ngân hàng, không phải thứ tự bấm chọn:
+  // bấm nhầm rồi bấm lại không được làm câu đó nhảy xuống cuối đề.
+  const pickedQuestions = useMemo(
+    () => Object.values(picked).sort((a, b) =>
+      a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt)
+    ),
+    [picked]
+  )
+
+  // Tính lại tại chỗ khi đổi loại đề hoặc đổi tập câu, không gọi lại database —
+  // trọng số là hàm thuần của (câu hỏi, hồ sơ).
   const scorePlan = useMemo(
-    () => (sourceQuestions ? buildScorePlan(sourceQuestions, profile) : null),
-    [sourceQuestions, profile]
+    () => (pickedQuestions.length > 0 ? buildScorePlan(pickedQuestions, profile) : null),
+    [pickedQuestions, profile]
   )
 
   const essayCount = scorePlan?.countByType.essay ?? 0
@@ -186,57 +241,139 @@ export default function CreateExamPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('questions').select('source_exam').not('source_exam', 'is', null).order('source_exam')
-      setSources([...new Set((data || []).map(row => row.source_exam).filter(Boolean))] as string[])
+      const [sourceRes, topicRes, categoryRes, sectionRes, subsectionRes] = await Promise.all([
+        supabase.from('questions').select('source_exam').not('source_exam', 'is', null).order('source_exam'),
+        supabase.from('topics').select('id, name').order('order_index'),
+        supabase.from('categories').select('id, name, topic_id').order('order_index'),
+        supabase.from('sections').select('id, name, category_id, topic_id').order('order_index'),
+        supabase.from('subsections').select('id, name, section_id').order('order_index'),
+      ])
+      setSources([...new Set((sourceRes.data || []).map(row => row.source_exam).filter(Boolean))] as string[])
+      setTopics(topicRes.data || [])
+      setCategories(categoryRes.data || [])
+      setSections(sectionRes.data || [])
+      setSubsections(subsectionRes.data || [])
       setLoading(false)
     }
     void load()
   }, [supabase])
 
+  const filterActive = Boolean(source || topicId || categoryId || sectionId || subsectionId || typeFilter)
+  const filterKey = [source, topicId, categoryId, sectionId, subsectionId, typeFilter].join('|')
+
+  /*
+    "Đang lọc" là trạng thái SUY RA, không phải cờ được set tay: nó đúng bằng
+    "khoá bộ lọc hiện tại chưa có kết quả tương ứng". Set cờ loading ngay trong
+    thân effect là gọi setState đồng bộ giữa effect — chuỗi render dây chuyền mà
+    `react-hooks/set-state-in-effect` chặn, và cũng là chỗ dễ để sót cờ bật vĩnh
+    viễn khi một nhánh return sớm quên tắt.
+  */
+  const poolLoading = filterActive && loadedKey !== filterKey
+
+  /*
+    Lọc đẩy hết xuống PostgREST, không tải cả ngân hàng về rồi lọc ở trình duyệt —
+    cùng lý do với `/admin/questions`: lọc trên một phần dữ liệu là bộ lọc NÓI SAI.
+    Lọc theo taxonomy dùng embed `!inner` để biến quan hệ thành phép nối trong.
+  */
   useEffect(() => {
-    if (!source) return
+    if (!filterActive) return
     let cancelled = false
-    const load = async () => {
-      const { data, error: loadError } = await supabase.from('questions')
-        .select(`
-          id,
-          question_type,
-          answers ( id ),
-          question_grading_configs ( rubric )
-        `)
-        .eq('source_exam', source)
-        .order('created_at')
+
+    const taxonomyActive = Boolean(topicId || categoryId || sectionId || subsectionId)
+    const columns = [
+      'id', 'content', 'question_type', 'created_at',
+      'answers ( id )',
+      'question_grading_configs ( rubric )',
+      ...(taxonomyActive ? ['question_taxonomy!inner(question_id)'] : []),
+    ].join(', ')
+
+    let query = supabase.from('questions')
+      .select(columns, { count: 'exact' })
+      .order('created_at', { ascending: true })
+      .range(0, POOL_LIMIT - 1)
+
+    if (source) query = query.eq('source_exam', source)
+    if (typeFilter) query = query.eq('question_type', typeFilter)
+    if (topicId) query = query.eq('question_taxonomy.topic_id', topicId)
+    if (categoryId) query = query.eq('question_taxonomy.category_id', categoryId)
+    if (sectionId) query = query.eq('question_taxonomy.section_id', sectionId)
+    if (subsectionId) query = query.eq('question_taxonomy.subsection_id', subsectionId)
+
+    void query.then(({ data, error: loadError, count }) => {
       if (cancelled) return
-      if (loadError || !data) {
-        setSourceQuestions(null)
-        setError(loadError?.message || null)
+      if (loadError) {
+        setError(loadError.message)
+        setPool([])
+        setPoolTotal(0)
+        setLoadedKey(filterKey)
         return
       }
-      setSourceQuestions(data.map((row) => {
+      const rows = (data ?? []) as unknown as {
+        id: string
+        content: string
+        question_type: string
+        created_at: string
+        answers?: { id: string }[]
+        question_grading_configs?: { rubric: unknown } | { rubric: unknown }[] | null
+      }[]
+      setPool(rows.map((row) => {
         // question_grading_configs là quan hệ 1-1 nhưng PostgREST trả về mảng
         // hoặc object tuỳ suy luận khoá; xử lý cả hai để không phụ thuộc vào đó.
         const configs = row.question_grading_configs
         const config = Array.isArray(configs) ? configs[0] : configs
         return {
           id: row.id,
+          content: row.content,
           questionType: row.question_type,
           statementCount: row.answers?.length ?? 0,
           essayRubricTotal: rubricTotal(config?.rubric),
+          createdAt: row.created_at,
         }
       }))
-    }
-    void load()
+      setPoolTotal(count ?? 0)
+      setLoadedKey(filterKey)
+    })
+
     return () => { cancelled = true }
-  }, [source, supabase])
+  }, [supabase, filterActive, filterKey, source, typeFilter, topicId, categoryId, sectionId, subsectionId])
+
+  const visibleCategories = useMemo(
+    () => (topicId ? categories.filter(item => item.topic_id === topicId) : categories),
+    [categories, topicId]
+  )
+  const visibleSections = useMemo(() => {
+    if (categoryId) return sections.filter(item => item.category_id === categoryId)
+    return topicId ? sections.filter(item => item.topic_id === topicId) : sections
+  }, [sections, topicId, categoryId])
+  const visibleSubsections = useMemo(
+    () => (sectionId ? subsections.filter(item => item.section_id === sectionId) : []),
+    [subsections, sectionId]
+  )
+
+  const togglePick = (question: PoolQuestion) => {
+    setError(null)
+    setPicked((current) => {
+      if (!current[question.id]) return { ...current, [question.id]: question }
+      const next = { ...current }
+      delete next[question.id]
+      return next
+    })
+  }
+
+  /** Chọn mọi câu ĐANG HIỆN, giữ nguyên các câu đã chọn ở bộ lọc trước. */
+  const pickAllVisible = () => {
+    setError(null)
+    setPicked(current => ({ ...current, ...Object.fromEntries(pool.map(item => [item.id, item])) }))
+  }
 
   const create = async () => {
-    if (!title.trim() || !source) return
+    if (!title.trim() || pickedQuestions.length === 0) return
     if (unsupportedEssayPractice) {
       setError('Bản thử tự luận mới hỗ trợ đề thi thử/kiểm tra, chưa áp dụng cho chế độ ôn tập.')
       return
     }
     if (!scorePlan) {
-      setError('Chưa đọc được cấu hình điểm của đề gốc. Tải lại trang rồi thử lại.')
+      setError('Chưa chọn câu nào cho đề. Lọc theo chương hoặc nguồn rồi tích chọn câu.')
       return
     }
     if (scorePlan.essayWithoutRubric.length > 0) {
@@ -260,25 +397,39 @@ export default function CreateExamPage() {
     setSaving(true)
     setError(null)
     const { data: { user } } = await supabase.auth.getUser()
+
+    /*
+      Đọc lại đúng những câu đã chọn ngay trước khi ghi.
+
+      Bảng điểm ở trên tính trên bản chụp lúc lọc; giữa lúc đó và lúc bấm tạo đề,
+      câu có thể bị xoá hoặc bị đổi loại ở tab khác. Ghi theo bản chụp cũ thì đề
+      mang trọng số của một loại câu không còn tồn tại — sai lệch chỉ lộ ra lúc
+      học sinh nộp bài.
+    */
+    const pickedIds = pickedQuestions.map(question => question.id)
     const { data: questions, error: questionError } = await supabase.from('questions')
-      .select('id, question_type').eq('source_exam', source).order('created_at')
+      .select('id, question_type').in('id', pickedIds)
     if (questionError || !questions?.length) {
-      setError(questionError?.message || 'Đề gốc không có câu hỏi.')
+      setError(questionError?.message || 'Không đọc lại được các câu đã chọn. Tải lại trang rồi thử lại.')
+      setSaving(false)
+      return
+    }
+    const freshTypeById = new Map(questions.map(question => [question.id, question.question_type]))
+    const changed = pickedQuestions.filter(
+      question => freshTypeById.get(question.id) !== question.questionType
+    )
+    if (changed.length > 0) {
+      setError(
+        `Ngân hàng đã đổi kể từ lúc chọn câu (${changed.length} câu bị xoá hoặc đổi loại: `
+        + `${changed.slice(0, 5).map(question => question.id).join(', ')}`
+        + `${changed.length > 5 ? '…' : ''}). Tải lại trang rồi chọn lại.`
+      )
       setSaving(false)
       return
     }
     // Trọng số lấy từ scorePlan đã kiểm ở trên, không tính lại tại đây — tính hai
     // lần theo hai đường là cách chắc chắn nhất để hai con số lệch nhau.
-    const missingScore = questions.filter(question => scorePlan.scoreByQuestion[question.id] === undefined)
-    if (missingScore.length > 0) {
-      setError(
-        'Đề gốc đã đổi kể từ lúc kiểm cấu hình điểm '
-        + `(${missingScore.length} câu chưa có trọng số). Tải lại trang rồi thử lại.`
-      )
-      setSaving(false)
-      return
-    }
-    const totalScore = examTotalScore(questions.map(question => scorePlan.scoreByQuestion[question.id]))
+    const totalScore = examTotalScore(pickedQuestions.map(question => scorePlan.scoreByQuestion[question.id]))
     const examId = nanoid()
     const { error: examError } = await supabase.from('exams').insert({
       id: examId,
@@ -288,7 +439,10 @@ export default function CreateExamPage() {
       total_score: totalScore,
       passing_score: 5,
       is_published: false,
-      source_exam: source,
+      // Chỉ ghi khi đề được bốc trong PHẠM VI một nguồn. Đề ráp từ nhiều chương
+      // không có "đề gốc" nào cả, và ghi bừa một cái tên vào đây là nói dối về
+      // xuất xứ của đề.
+      source_exam: source || null,
       grade,
       exam_mode: mode,
       // Chỉ ghi được lúc INSERT: `20260806` cố ý không grant UPDATE cho cột này,
@@ -303,15 +457,15 @@ export default function CreateExamPage() {
       return
     }
     const orderByPart: Record<number, number> = { 1: 0, 2: 0, 3: 0 }
-    const examQuestions = questions.map((question) => {
-      const partNumber = question.question_type === 'multiple_choice'
+    const examQuestions = pickedQuestions.map((question) => {
+      const partNumber = question.questionType === 'multiple_choice'
         ? 1
-        : question.question_type === 'true_false' ? 2 : 3
+        : question.questionType === 'true_false' ? 2 : 3
       orderByPart[partNumber] += 1
       return {
         exam_id: examId,
         question_id: question.id,
-        question_type: question.question_type,
+        question_type: question.questionType,
         part_number: partNumber,
         order_in_part: orderByPart[partNumber],
         score: scorePlan.scoreByQuestion[question.id],
@@ -339,12 +493,149 @@ export default function CreateExamPage() {
       <GlobalHeader title="Tạo đề thi hoặc bài ôn tập" />
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-8">
         <section className="space-y-5 rounded-2xl border bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-          <div>
-            <label className="mb-2 block text-sm font-medium">Đề gốc</label>
-            <select value={source} onChange={e => { setSource(e.target.value); setSourceQuestions(null); setError(null) }} className="w-full rounded-xl border px-4 py-3 dark:bg-slate-900">
-              <option value="">-- Chọn đề gốc --</option>
-              {sources.map(item => <option key={item} value={item}>{item}</option>)}
-            </select>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <FolderTree className="h-4 w-4 text-slate-500" />
+              <label className="text-sm font-medium">Bốc câu từ ngân hàng</label>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <select
+                value={topicId}
+                onChange={(e) => { setTopicId(e.target.value); setCategoryId(''); setSectionId(''); setSubsectionId(''); setError(null) }}
+                className="rounded-xl border px-4 py-3 dark:bg-slate-900"
+              >
+                <option value="">-- Mạch kiến thức / lớp --</option>
+                {topics.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+
+              <select
+                value={categoryId}
+                onChange={(e) => { setCategoryId(e.target.value); setSectionId(''); setSubsectionId(''); setError(null) }}
+                className="rounded-xl border px-4 py-3 dark:bg-slate-900"
+              >
+                <option value="">-- Chương / chuyên đề --</option>
+                {visibleCategories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+
+              <select
+                value={sectionId}
+                onChange={(e) => { setSectionId(e.target.value); setSubsectionId(''); setError(null) }}
+                className="rounded-xl border px-4 py-3 dark:bg-slate-900"
+              >
+                <option value="">-- Bài --</option>
+                {visibleSections.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+
+              <select
+                value={subsectionId}
+                onChange={(e) => { setSubsectionId(e.target.value); setError(null) }}
+                disabled={!sectionId}
+                className="rounded-xl border px-4 py-3 disabled:opacity-50 dark:bg-slate-900"
+              >
+                <option value="">-- Dạng câu --</option>
+                {visibleSubsections.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setError(null) }}
+                className="rounded-xl border px-4 py-3 dark:bg-slate-900"
+              >
+                <option value="">-- Loại câu --</option>
+                {scoreTableOrder.map(item => (
+                  <option key={item} value={item}>{QUESTION_TYPE_LABEL[item]}</option>
+                ))}
+              </select>
+
+              <select
+                value={source}
+                onChange={(e) => { setSource(e.target.value); setError(null) }}
+                className="rounded-xl border px-4 py-3 dark:bg-slate-900"
+              >
+                <option value="">-- Nguồn (tuỳ chọn) --</option>
+                {sources.map(item => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
+
+            {!filterActive ? (
+              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                Chọn ít nhất một bộ lọc để hiện câu hỏi. Lọc theo <strong>Chương / chuyên đề</strong> là
+                cách ráp đề theo chương; các câu đã tích vẫn được giữ khi đổi bộ lọc, nên ráp đề từ
+                nhiều chương vẫn được.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-600 dark:text-slate-300">
+                    {poolLoading ? 'Đang lọc…' : (
+                      <>
+                        Khớp <strong className="tabular-nums">{poolTotal}</strong> câu
+                        {poolTotal > pool.length && (
+                          <>, đang hiện <strong className="tabular-nums">{pool.length}</strong> — lọc hẹp hơn để thấy hết</>
+                        )}
+                      </>
+                    )}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={pickAllVisible}
+                      disabled={pool.length === 0}
+                      className="rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                    >
+                      Chọn tất cả đang hiện
+                    </button>
+                    <button
+                      onClick={() => { setPicked({}); setError(null) }}
+                      disabled={pickedQuestions.length === 0}
+                      className="rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                    >
+                      Bỏ chọn tất cả
+                    </button>
+                  </div>
+                </div>
+
+                {poolLoading ? (
+                  <Loader2 className="mx-auto my-10 h-7 w-7 animate-spin" />
+                ) : pool.length === 0 ? (
+                  <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                    Không có câu nào khớp bộ lọc này.
+                  </p>
+                ) : (
+                  <MathProvider>
+                    <div className="max-h-[45vh] space-y-2 overflow-y-auto rounded-xl border border-slate-100 p-2 dark:border-slate-700">
+                      {pool.map((question) => {
+                        const isPicked = Boolean(picked[question.id])
+                        return (
+                          <button
+                            key={question.id}
+                            onClick={() => togglePick(question)}
+                            className={`flex w-full gap-3 rounded-xl border p-3 text-left ${
+                              isPicked
+                                ? 'border-teal-500 bg-teal-50/60 dark:bg-teal-900/20'
+                                : 'border-slate-200 hover:border-teal-400 dark:border-slate-700'
+                            }`}
+                          >
+                            {isPicked
+                              ? <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+                              : <Square className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
+                            <span className="min-w-0 flex-1 text-sm">
+                              <MathContent content={question.content} className="line-clamp-3" />
+                            </span>
+                            <span className="shrink-0 space-y-1 text-right text-xs text-slate-400">
+                              <span className="block">{QUESTION_TYPE_LABEL[question.questionType] ?? question.questionType}</span>
+                              {question.questionType === 'true_false' && (
+                                <span className="block tabular-nums">{question.statementCount} ý</span>
+                              )}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </MathProvider>
+                )}
+              </>
+            )}
           </div>
 
           {/* Loại đề đặt TRƯỚC bảng điểm: nó quyết định mọi con số trong bảng đó. */}
@@ -369,7 +660,7 @@ export default function CreateExamPage() {
           {scorePlan && (
             <div className="rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-900">
               <p className="flex items-center gap-2 font-semibold">
-                <FileText className="h-4 w-4" />{sourceQuestions?.length ?? 0} câu hỏi
+                <FileText className="h-4 w-4" />Đã chọn {pickedQuestions.length} câu
               </p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
                 {Object.entries(scorePlan.countByType).map(([type, count]) => (
@@ -497,7 +788,7 @@ export default function CreateExamPage() {
             )}
           </div>
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button onClick={create} disabled={saving || !title.trim() || !source || unsupportedEssayPractice || blockedByScoreConfig} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white disabled:opacity-50">
+          <button onClick={create} disabled={saving || !title.trim() || pickedQuestions.length === 0 || unsupportedEssayPractice || blockedByScoreConfig} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white disabled:opacity-50">
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />} Tạo đề
           </button>
         </section>

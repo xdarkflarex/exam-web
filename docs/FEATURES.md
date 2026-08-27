@@ -114,7 +114,7 @@ Thi thử và thi học kì **cùng** `exam_mode`, nên không được suy hồ
 
 ### Pilot tự luận có AI hỗ trợ
 
-- Chỉ hỗ trợ `simulation`; create exam chặn source có essay khi chọn `practice`. Homework chưa hỗ trợ.
+- Chỉ hỗ trợ `simulation`; trang tạo đề chặn đề có câu essay khi chọn `practice`. Homework chưa hỗ trợ.
 - Admin/teacher tạo câu tại `/admin/questions/essay/new`, gồm đáp án tham chiếu, điểm tối đa và rubric có tổng điểm khớp.
 - Trọng số câu tự luận trong đề là **tổng `max_score` của các tiêu chí rubric**, không phải `questions.essay_max_score`. Lệch quá 0,0001 thì `submit_exam_attempt` raise `ESSAY_RUBRIC_SCORE_MISMATCH`; trang cấu hình điểm chặn từ lúc cấu hình.
 - Học sinh nhập tối đa 20.000 ký tự. Non-empty essay chuyển `pending_review`; blank essay được server chốt 0.

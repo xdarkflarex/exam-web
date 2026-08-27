@@ -73,7 +73,7 @@ Attempt vẫn giữ `status='submitted'`; `grading_status` phân biệt đang ch
 ## Luồng sử dụng
 
 1. Giáo viên mở `/admin/questions/essay/new`, nhập đề, đáp án tham chiếu, điểm tối đa và rubric. Tổng điểm rubric phải bằng điểm tối đa.
-2. Tạo đề ở `/admin/exams/create`, chọn `simulation`. Source có `essay` bị chặn khi chọn `practice`; essay và short answer được xếp vào phần 3.
+2. Tạo đề ở `/admin/exams/create` (lọc theo chương/chuyên đề rồi tích chọn câu), chọn `simulation`. Đề có `essay` bị chặn khi chọn `practice`; essay và short answer được xếp vào phần 3.
 3. Học sinh làm `/exam/[attemptId]` và nộp. `ExamRunner` gọi `submit_exam_attempt`; client không gửi `score`, `is_correct` hoặc `student_id`.
 4. RPC khóa attempt, xác minh owner/mode, chấm ba loại khách quan trên server và ghi essay có nội dung là `pending_review`.
 5. Học sinh thấy “Đang chờ chấm tự luận”; `score` toàn bài là `NULL` cho đến khi mọi essay được duyệt.

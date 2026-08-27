@@ -189,7 +189,7 @@ where proname in ('create_essay_question', 'submit_exam_attempt', 'review_essay_
 ### Smoke workflow thủ công
 
 1. Admin vào `/admin/questions/essay/new`, tạo một câu với rubric có tổng bằng điểm tối đa. Chỉ smoke bằng teacher khi role matrix/live fixture teacher đã được phê duyệt.
-2. Tạo source-based exam ở `/admin/exams/create`; chọn `simulation`. Xác nhận `practice` bị chặn nếu source có essay.
+2. Tạo đề ở `/admin/exams/create`: lọc theo chương/chuyên đề, tích chọn câu, chọn `simulation`. Xác nhận `practice` bị chặn nếu tập câu đã chọn có essay.
 3. Student làm đủ bốn loại câu, nhập essay văn bản/LaTeX và submit.
 4. Xác nhận network simulation không có `answers.is_correct`, `solution` hoặc đáp án short-answer. Dùng session student thử query trực tiếp `answers.is_correct`, đáp án short-answer và `questions.solution`; nếu database runtime còn cho đọc thì dừng rollout và sửa GRANT/RLS. Gói chấm không được có profile/email/lớp; result hiện “Đang chờ chấm tự luận” và chưa có điểm tổng.
 5. Admin results chọn “Duyệt chấm”, mở attempt, copy gói chấm và kiểm tra không có định danh. Nếu bài tự chứa PII, loại bỏ trước khi gửi AI ngoài.
