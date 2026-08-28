@@ -145,3 +145,24 @@ vân tay phải gộp cả đáp án chứ không chỉ đề.
 > án đã chuẩn hoá, chặn ngay lúc lưu câu mới, kèm một màn rà soát toàn ngân hàng
 > chỉ gợi ý chứ không tự xoá. Câu khác nhau một con số là câu khác — không chuẩn
 > hoá số.
+
+## 11. CHƯA BẮT ĐẦU — rà soát lời giải/đáp án bằng AI, và gợi ý phân loại
+
+Đợt nhập phần **Thống kê** bằng OCR sai nhiều; lỗi lộ ra lúc chủ dự án đang đọc
+đáp án cho học sinh. Cần công cụ quét theo **chương hoặc bài**: DeepSeek tự giải
+lại từng câu rồi so với đáp án và lời giải đang lưu — lời giải đúng mà đáp án sai
+thì đề xuất sửa đáp án, đáp án đúng mà lời giải sai thì đề xuất sửa lời giải.
+Kết quả hiện trên một trang quản trị để soát bằng mắt, gồm cả lỗi LaTeX.
+
+Thiết kế đầy đủ, ràng buộc và thứ tự làm nằm ở
+[`QUESTION_AUDIT_PLAN.md`](QUESTION_AUDIT_PLAN.md). Ba điều đừng bỏ qua: AI chỉ
+**đề xuất**, người duyệt mới được ghi; câu đã có attempt đã nộp phải cảnh báo
+riêng trước khi đổi đáp án; và phần gợi ý phân loại phải đọc mục 8 trước, vì
+`src/lib/questions/classify.ts` đã cố ý chọn luật thay vì AI ở đúng chỗ đó.
+
+> Đọc `AGENTS.md` rồi `docs/QUESTION_AUDIT_PLAN.md`. Làm công cụ rà soát ngân
+> hàng câu hỏi theo tài liệu đó, bắt đầu từ mục 9 bước 1 và 2 (lớp luật tất định
+> + contracts/validator), chưa gọi API. Ràng buộc quan trọng nhất ở mục 3: AI chỉ
+> đề xuất, người duyệt mới được ghi, và câu đã có attempt đã nộp phải cảnh báo
+> riêng. Trước khi viết phần phân loại, đọc mục 8 và phần đầu
+> `src/lib/questions/classify.ts` — repo đã cố ý chọn luật thay vì AI ở chỗ đó.
