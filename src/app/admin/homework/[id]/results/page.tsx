@@ -32,20 +32,28 @@ export default function HomeworkResultsPage() {
   const [title, setTitle] = useState('')
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [attempts, setAttempts] = useState<AttemptRow[]>([])
+  /** Số câu ở đoạn kiểm tra. 0 = bài tập thường, điểm tính trên toàn bài. */
+  const [testQuestionCount, setTestQuestionCount] = useState(0)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       try {
-        const [homeworkRes, assignmentRes] = await Promise.all([
+        const [homeworkRes, assignmentRes, testCountRes] = await Promise.all([
           supabase.from('homeworks').select('title').eq('id', homeworkId).single(),
           supabase
             .from('homework_assignments')
             .select('id, title, deadline, created_at')
             .eq('homework_id', homeworkId)
             .order('created_at', { ascending: false }),
+          supabase
+            .from('homework_questions')
+            .select('question_id', { count: 'exact', head: true })
+            .eq('homework_id', homeworkId)
+            .eq('phase', 'test'),
         ])
         setTitle(homeworkRes.data?.title || '')
+        setTestQuestionCount(testCountRes.count ?? 0)
         const rows = assignmentRes.data || []
         setAssignments(rows)
         if (rows.length) {
@@ -100,6 +108,14 @@ export default function HomeworkResultsPage() {
               <Metric icon={Target} label="Độ chính xác" value={`${totals.accuracy}%`} note="Đúng / đã trả lời" />
               <Metric icon={BarChart3} label="Điểm TB" value={totals.averageScore.toFixed(1)} note={`${totals.progress}% tiến độ câu`} />
             </section>
+
+            {testQuestionCount > 0 && (
+              <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                Bài này có đoạn kiểm tra. <strong>Điểm chỉ tính trên {testQuestionCount} câu của đoạn
+                kiểm tra</strong>, còn “Độ chính xác” và cột đúng/sai tính trên toàn bài, kể cả các
+                câu luyện. Hai con số lệch nhau là đúng, không phải lỗi.
+              </p>
+            )}
 
             {assignments.map(assignment => {
               const rows = attempts.filter(attempt => attempt.assignment_id === assignment.id)

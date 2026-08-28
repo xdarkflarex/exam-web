@@ -538,6 +538,44 @@ Tắt cờ không xoá điểm đã chốt. Bài đang `ai_graded` vẫn `ai_gra
 
 Ngoài ba mức trên còn một mức **tự động**: cổng chặn theo mức chấm đè (`src/lib/essay-ai/override-guard.ts`). Worker tính lại mỗi lượt trên cửa sổ 90 ngày và tự hạ auto-chốt xuống `pending_review` khi giáo viên đang phải sửa điểm quá nhiều, hoặc khi chưa đủ bài đối chiếu để biết AI chấm đúng hay sai. Không cần ai can thiệp, và trạng thái hiện trên dashboard (mục 2 phần "Cách đọc dashboard"). Ba biến `ESSAY_AI_OVERRIDE_*` ở mục 2 điều chỉnh ngưỡng; ngưỡng mặc định là **thận trọng chứ chưa có bằng chứng thật đứng sau** — `docs/ESSAY_AUTO_GRADING_PLAN.md` mục 10.1 là chỗ chốt lại sau benchmark. Cổng này chỉ siết, không nới: nó không bao giờ tự bật auto-chốt khi cờ đang tắt.
 
+## 8sexies. Nạp `20260827_homework_test_phase.sql` — đoạn kiểm tra trong bài tập
+
+**CHƯA NẠP tính đến 2026-08-27.** Không nạp thì cột `phase` không tồn tại, và trang tạo bài tập sẽ
+báo lỗi ngay khi lưu (`column "phase" of relation "homework_questions" does not exist`).
+
+Migration làm ba việc: thêm `homework_questions.phase` (`practice` | `test`, mặc định `practice`),
+rồi viết đè ba hàm runtime để câu `test` không lộ gì khi đang làm và chỉ đoạn `test` tính điểm.
+`check_homework_answer` **rebase trên `20260806`**, không phải `20260722` — lấy nhầm bản là mất bậc
+thang Đúng/Sai 1,0/0,5/0,25/0,1.
+
+Thứ tự:
+
+1. Đọc phần đầu file: bất biến, lý do rebase và đường hoàn tác nằm ngay trong header.
+2. Chạy toàn bộ [`../supabase/migrations/20260827_homework_test_phase.sql`](../supabase/migrations/20260827_homework_test_phase.sql).
+   Nó mở `BEGIN;` và **có** `COMMIT;` ở cuối. Khối `DO $$` đầu file dừng ngay nếu một trong ba hàm
+   chưa tồn tại — đó là dấu hiệu kho migration lệch với database, đừng chạy tiếp.
+3. Chạy khối hậu kiểm ở cuối file (đang để dạng chú thích, bỏ `--` rồi chạy). Mọi cột `must_be_zero`
+   phải bằng 0.
+4. **Mốc đối chiếu — chạy TRƯỚC và SAU.** Truy vấn cuối khối hậu kiểm so `homework_attempts.score`
+   đã lưu với điểm tính lại bằng công thức cũ, trên mọi attempt đã nộp. Phải trả **0 dòng** ở cả hai
+   lượt. Migration không đụng vào điểm đã lưu, nên truy vấn này **không** chứng minh hàm mới đúng —
+   nó chỉ xác nhận công thức cũ tái tạo được dữ liệu cũ, để nếu sau này có con số lệch thì biết chắc
+   nó đến từ hàm mới. Chạy lượt "trước" mà đã ra dòng thì dừng và tìm hiểu trước khi nạp.
+5. **Phép thử hồi quy thật:** sau khi nạp, cho một tài khoản học sinh làm và nộp **một bài tập KHÔNG
+   có đoạn kiểm tra** (mọi câu `phase = 'practice'`). Điểm phải bằng đúng điểm công thức cũ cho ra.
+   Đây mới là chỗ chứng minh nhánh tương thích ngược còn nguyên — không phải bước 4.
+6. Sau đó mới smoke tính năng mới: tạo một bài tập có cả câu "Luyện" và câu "Kiểm tra", giao
+   với **"Hiện phản hồi ngay" bật**, rồi kiểm bằng học sinh thật:
+   - đoạn luyện: trả lời xong hiện đúng/sai **và lời giải**;
+   - đoạn kiểm tra: nằm cuối, gom một phần, trả lời xong **không** hiện gì;
+   - tải lại trang giữa đoạn kiểm tra: vẫn không lộ đáp án câu đã làm;
+   - nộp bài: điểm khớp với riêng đoạn kiểm tra, không phải toàn bài.
+
+Rollback: chạy lại `get_homework_attempt_questions` + `submit_homework_attempt` từ
+`20260722_runtime_security_hardening.sql` và `check_homework_answer` từ
+`20260806_moet_scoring_scale.sql`, rồi `ALTER TABLE public.homework_questions DROP COLUMN phase;`.
+Không mất dữ liệu bài làm: cột chỉ mô tả cấu trúc đề.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

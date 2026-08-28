@@ -13,6 +13,8 @@ interface HomeworkQuestionRpcRow {
   content: string
   question_type: HomeworkQuestion['question_type']
   order_index: number
+  /** 'practice' | 'test'. Thiếu ở bài tạo trước `20260827`; đọc thiếu = 'practice'. */
+  phase?: string | null
   tikz_image_url: string | null
   explanation: string | null
   solution: string | null
@@ -92,12 +94,21 @@ export default function HomeworkAttemptPage() {
           content: question.content,
           question_type: question.question_type,
           order_index: question.order_index,
+          phase: (question.phase === 'test' ? 'test' : 'practice') as HomeworkQuestion['phase'],
           explanation: question.explanation,
           solution: question.solution,
           tikz_image_url: question.tikz_image_url,
           answers: Array.isArray(question.answers) ? question.answers : []
         }))
-        .sort((left, right) => left.order_index - right.order_index)
+        /* Đoạn kiểm tra luôn xuống cuối, bất kể `order_index` giáo viên đặt.
+           RPC đã sắp đúng thứ tự này; sắp lại ở đây để việc đó không phụ thuộc
+           vào thứ tự phần tử trong JSON có được giữ nguyên hay không. */
+        .sort((left, right) => {
+          const leftIsTest = left.phase === 'test' ? 1 : 0
+          const rightIsTest = right.phase === 'test' ? 1 : 0
+          if (leftIsTest !== rightIsTest) return leftIsTest - rightIsTest
+          return left.order_index - right.order_index
+        })
 
       const initialAnswers: Record<string, SavedHomeworkAnswer> = {}
       for (const question of payload.questions) {

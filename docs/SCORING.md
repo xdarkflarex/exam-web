@@ -72,6 +72,13 @@ nghiệp THPT môn Toán.
 Trọng số nằm ở `exam_questions.score` (đề thi / ôn tập) và `homework_questions.score`
 (bài tập về nhà), cả hai là `numeric` với `CHECK (score > 0)`.
 
+**Bài tập về nhà có đoạn kiểm tra** (`homework_questions.phase = 'test'`, từ
+`20260827_homework_test_phase.sql`): `submit_homework_attempt` lấy **cả tử số lẫn mẫu số chỉ trên
+các câu `test`**. Câu `phase = 'practice'` vẫn bắt buộc trả lời và vẫn được chấm từng câu, nhưng
+không vào điểm bài. Bài không có câu `test` nào giữ nguyên công thức cũ — toàn bộ câu. Vì mọi câu
+buộc phải có `score > 0`, không thể "loại một câu khỏi điểm" bằng trọng số 0; `phase` là đường duy
+nhất.
+
 Đề chuẩn **12 trắc nghiệm + 4 Đúng/Sai + 6 trả lời ngắn** cộng đúng
 `12·0,25 + 4·1 + 6·0,5 = 10,0`. Đây là bất biến trung tâm: vì tổng đã là 10, phép quy đổi
 thang 10 không làm méo điểm đề chuẩn. Đề có tự luận, ví dụ

@@ -36,6 +36,8 @@ export default function CreateHomeworkPage() {
   const [query, setQuery] = useState('')
   const [questions, setQuestions] = useState<QuestionRow[]>([])
   const [selected, setSelected] = useState<string[]>([])
+  /** Câu thuộc đoạn kiểm tra cuối bài. Rỗng = bài tập thường, chấm như trước. */
+  const [testIds, setTestIds] = useState<string[]>([])
   /** Trọng số từng câu, giữ nguyên dạng chuỗi người nhập. Không parse ngay: nhập
    *  "0," giữa lúc gõ "0,5" mà parse mỗi ký tự thì con trỏ nhảy về đầu ô. */
   const [scoreDraft, setScoreDraft] = useState<Record<string, string>>({})
@@ -86,8 +88,24 @@ export default function CreateHomeworkPage() {
     selectedQuestions.map(question => parsedScores.get(question.id) ?? 0)
   )
 
+  /** Tổng điểm của riêng đoạn kiểm tra — con số thật sự quyết định điểm bài này
+   *  khi `testIds` không rỗng. */
+  const testTotalScore = examTotalScore(
+    selectedQuestions
+      .filter(question => testIds.includes(question.id))
+      .map(question => parsedScores.get(question.id) ?? 0)
+  )
+
   const toggle = (id: string) => {
     setSelected(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
+    // Bỏ câu khỏi đề thì bỏ luôn khỏi đoạn kiểm tra: để sót lại, câu đã gỡ vẫn
+    // đếm vào "N câu ở đoạn kiểm tra" và con số trên màn hình sẽ nói dối.
+    setTestIds(current => current.filter(item => item !== id))
+  }
+
+  const toggleTestPhase = (id: string) => {
+    setError(null)
+    setTestIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
   }
 
   const setScore = (questionId: string, raw: string) => {
@@ -139,6 +157,7 @@ export default function CreateHomeworkPage() {
           question_id: questionId,
           order_index: index,
           score: scoreByQuestion.get(questionId),
+          phase: testIds.includes(questionId) ? 'test' : 'practice',
         }))
       )
       if (!questionError) {
@@ -245,6 +264,18 @@ export default function CreateHomeworkPage() {
                     <span className="line-clamp-1 flex-1 text-xs text-slate-600 dark:text-slate-300">
                       {question.content.replace(/<[^>]*>/g, ' ')}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleTestPhase(question.id)}
+                      aria-pressed={testIds.includes(question.id)}
+                      className={`shrink-0 rounded-lg border px-2 py-1 text-xs font-medium ${
+                        testIds.includes(question.id)
+                          ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
+                          : 'text-slate-500 dark:border-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {testIds.includes(question.id) ? 'Kiểm tra' : 'Luyện'}
+                    </button>
                     <span className="shrink-0 text-xs text-slate-400">
                       {QUESTION_TYPE_LABEL[question.question_type] ?? question.question_type}
                     </span>
@@ -262,10 +293,24 @@ export default function CreateHomeworkPage() {
               })}
             </ul>
 
-            <p className="tabular-nums">
-              Tổng <span className="font-semibold">{totalScore.toFixed(2)}</span> điểm.
-              Điểm học sinh được quy đổi về thang 10, nên làm đúng hết vẫn là 10,00.
-            </p>
+            {testIds.length === 0 ? (
+              <p className="tabular-nums">
+                Tổng <span className="font-semibold">{totalScore.toFixed(2)}</span> điểm.
+                Điểm học sinh được quy đổi về thang 10, nên làm đúng hết vẫn là 10,00.
+              </p>
+            ) : (
+              <p className="rounded-lg bg-amber-50 p-2.5 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                Bài này có <span className="font-semibold tabular-nums">{testIds.length}</span> câu ở
+                đoạn kiểm tra, tổng{' '}
+                <span className="font-semibold tabular-nums">{testTotalScore.toFixed(2)}</span> điểm.
+                <strong> Chỉ đoạn kiểm tra tính điểm</strong> — các câu luyện vẫn bắt buộc làm và vẫn
+                hiện lời giải, nhưng không vào điểm. Đoạn kiểm tra luôn nằm cuối, gom thành một phần
+                riêng dù nhiều hay ít câu.
+                <br />
+                Lúc giao bài nhớ bật <strong>“Hiện phản hồi ngay”</strong>: đó là công tắc cho lời
+                giải ở đoạn luyện. Đoạn kiểm tra không bị nó ảnh hưởng — vẫn giấu đáp án khi đang làm.
+              </p>
+            )}
 
             {invalidScores.length > 0 && (
               <p className="flex gap-2 rounded-lg bg-red-50 p-2.5 text-red-700 dark:bg-red-900/20 dark:text-red-200">

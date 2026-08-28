@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 interface HomeworkQuestion {
   id: string
   order_index: number
+  phase: string | null
   questions: { id: string; content: string; question_type: string }
 }
 
@@ -28,8 +29,9 @@ export default function EditHomeworkPage() {
       const [homeworkRes, questionsRes] = await Promise.all([
         supabase.from('homeworks').select('title, description, is_published').eq('id', id).single(),
         supabase.from('homework_questions')
-          .select('id, order_index, questions!inner(id, content, question_type)')
+          .select('id, order_index, phase, questions!inner(id, content, question_type)')
           .eq('homework_id', id)
+          .order('phase', { ascending: true })
           .order('order_index'),
       ])
       if (homeworkRes.data) {
@@ -73,6 +75,11 @@ export default function EditHomeworkPage() {
               <div key={row.id} className="flex gap-3 rounded-xl border p-3 text-sm">
                 <span className="font-semibold text-teal-600">{index + 1}</span>
                 <span className="line-clamp-2 flex-1">{row.questions.content.replace(/<[^>]*>/g, ' ')}</span>
+                {row.phase === 'test' && (
+                  <span className="shrink-0 self-start rounded-lg border border-amber-500 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                    Kiểm tra
+                  </span>
+                )}
               </div>
             ))}
           </div>

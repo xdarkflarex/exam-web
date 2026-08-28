@@ -58,6 +58,17 @@ Access tier của học sinh:
 - Làm bài: `/homework/[attemptId]`.
 - Domain dữ liệu riêng: `homeworks`, `homework_questions`, `homework_assignments`, recipients, attempts, answers và knowledge targets.
 - Homework hỗ trợ chia session bằng `session_size`/`current_session_index`.
+- **Đoạn luyện và đoạn kiểm tra** (`homework_questions.phase`, thêm ở `20260827_homework_test_phase.sql`):
+  - `practice` (mặc định): trả lời xong hiện đúng/sai **và lời giải**, nếu lần giao bật
+    `show_feedback_immediately`. Trước migration này `check_homework_answer` luôn trả
+    `explanation`/`solution` bằng `NULL`, nên hướng dẫn giải chưa bao giờ tới được học sinh dù
+    `HomeworkRunner` đã có sẵn chỗ hiển thị.
+  - `test`: không lộ `is_correct`, `score`, `explanation`, `solution` khi attempt còn `in_progress`,
+    **bất kể** `show_feedback_immediately`. Chỉ `allow_review` sau khi nộp mới mở.
+  - Đoạn kiểm tra luôn xếp cuối và gom thành **một** phần dù nhiều hay ít câu.
+  - Điểm: bài **có** câu `test` thì `submit_homework_attempt` chỉ tính điểm trên các câu `test`; bài
+    không có thì công thức cũ (toàn bộ câu) giữ nguyên. Học sinh vẫn phải trả lời hết mọi câu mới
+    nộp được — đó là chỗ "bắt buộc" của thiết kế.
 
 ### Kiến thức và động lực học
 

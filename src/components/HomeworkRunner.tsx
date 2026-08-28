@@ -25,6 +25,8 @@ export interface HomeworkQuestion {
   content: string
   question_type: 'multiple_choice' | 'true_false' | 'short_answer'
   order_index: number
+  /** Câu thuộc đoạn luyện hay đoạn kiểm tra cuối bài. Thiếu = đoạn luyện. */
+  phase?: 'practice' | 'test'
   explanation?: string | null
   solution?: string | null
   tikz_image_url?: string | null
@@ -85,17 +87,32 @@ export default function HomeworkRunner({
   const supabase = createClient()
   const [questionData, setQuestionData] = useState(questions)
 
-  // Chia câu hỏi thành các session
+  /*
+    Chia câu hỏi thành các đoạn.
+
+    Đoạn luyện cắt đều theo `sessionSize`; đoạn kiểm tra gom thành ĐÚNG MỘT đoạn
+    cuối dù nhiều hay ít câu. Cắt đều cả bài như trước sẽ xẻ bài kiểm tra thành
+    "Phần 6/7" và "Phần 7/7" — học sinh nghỉ giữa bài kiểm tra, và cái nhãn
+    "bài kiểm tra" mất nghĩa.
+  */
   const sessions = useMemo(() => {
+    const practice = questionData.filter(question => question.phase !== 'test')
+    const test = questionData.filter(question => question.phase === 'test')
     const out: HomeworkQuestion[][] = []
     const size = Math.max(1, sessionSize)
-    for (let i = 0; i < questionData.length; i += size) {
-      out.push(questionData.slice(i, i + size))
+    for (let i = 0; i < practice.length; i += size) {
+      out.push(practice.slice(i, i + size))
     }
+    if (test.length > 0) out.push(test)
     return out
   }, [questionData, sessionSize])
 
   const totalSessions = sessions.length
+  /** Chỉ số đoạn kiểm tra, hoặc -1 khi bài không có đoạn nào. */
+  const testSessionIndex = useMemo(
+    () => sessions.findIndex(session => session.some(question => question.phase === 'test')),
+    [sessions]
+  )
   const [sessionIndex, setSessionIndex] = useState(
     Math.min(initialSessionIndex, Math.max(0, totalSessions - 1))
   )
@@ -267,7 +284,17 @@ export default function HomeworkRunner({
     )
   }
 
-  const globalQuestionNumber = sessionIndex * Math.max(1, sessionSize) + questionPtr + 1
+  /* Cộng dồn độ dài các đoạn trước, không nhân `sessionSize`: đoạn kiểm tra có
+     số câu riêng nên phép nhân sẽ cho số câu sai ngay khi phần luyện không chia
+     hết cho `sessionSize`. */
+  const globalQuestionNumber = sessions
+    .slice(0, sessionIndex)
+    .reduce((sum, session) => sum + session.length, 0) + questionPtr + 1
+
+  const isTestSession = sessionIndex === testSessionIndex
+  const sessionLabel = isTestSession
+    ? 'Bài kiểm tra'
+    : `Phần ${sessionIndex + 1}/${totalSessions}`
 
   return (
     <MathProvider>
@@ -281,8 +308,13 @@ export default function HomeworkRunner({
                 {examTitle}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Phần {sessionIndex + 1}/{totalSessions} · Đã làm {answeredCount}/{questionData.length} câu
+                {sessionLabel} · Đã làm {answeredCount}/{questionData.length} câu
               </p>
+              {isTestSession && (
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Phần này tính điểm, không hiện đáp án khi đang làm.
+                </p>
+              )}
             </div>
             <button
               onClick={handleExit}
@@ -312,12 +344,14 @@ export default function HomeworkRunner({
                 <Trophy className="w-8 h-8 text-teal-600 dark:text-teal-400" />
               </div>
               <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-1">
-                Hoàn thành phần {sessionIndex + 1}/{totalSessions}
+                {isTestSession ? 'Hoàn thành bài kiểm tra' : `Hoàn thành phần ${sessionIndex + 1}/${totalSessions}`}
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mb-6">
-                {sessionStats.released > 0
-                  ? `Đúng ${sessionStats.correct}/${sessionStats.released} câu đã công bố kết quả.`
-                  : `Đã ghi nhận ${sessionStats.total} câu trong phần này.`}
+                {isTestSession
+                  ? `Đã ghi nhận ${sessionStats.total} câu. Điểm được chấm khi nộp bài.`
+                  : sessionStats.released > 0
+                    ? `Đúng ${sessionStats.correct}/${sessionStats.released} câu đã công bố kết quả.`
+                    : `Đã ghi nhận ${sessionStats.total} câu trong phần này.`}
               </p>
               {isLastSession ? (
                 <div className="space-y-3">
@@ -346,7 +380,7 @@ export default function HomeworkRunner({
                     onClick={handleNextSession}
                     className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium transition-colors inline-flex items-center justify-center gap-2"
                   >
-                    Làm phần tiếp theo
+                    {sessionIndex + 1 === testSessionIndex ? 'Vào bài kiểm tra' : 'Làm phần tiếp theo'}
                     <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
