@@ -540,8 +540,17 @@ Ngoài ba mức trên còn một mức **tự động**: cổng chặn theo mứ
 
 ## 8sexies. Nạp `20260827_homework_test_phase.sql` — đoạn kiểm tra trong bài tập
 
-**CHƯA NẠP tính đến 2026-08-27.** Không nạp thì cột `phase` không tồn tại, và trang tạo bài tập sẽ
-báo lỗi ngay khi lưu (`column "phase" of relation "homework_questions" does not exist`).
+**ĐÃ NẠP trên Primary ngày 2026-08-28**, hậu kiểm cấu trúc đạt. Giữ lại mục này làm hồ sơ và làm
+hướng dẫn cho môi trường khác. Chưa chạy E2E bằng tài khoản thật — xem bước 5 và 6.
+
+Lưu ý thứ tự nếu nạp ở nơi khác: **migration trước, code sau.** Không có cột `phase` thì trang tạo
+bài tập lỗi ngay khi lưu (`column "phase" of relation "homework_questions" does not exist`).
+
+Ghi nhận từ lượt nạp thật: bước 4 (mốc đối chiếu) trả **một** dòng chứ không phải 0 — attempt
+`a4c41cfe…` nộp ngày 15/06/2026. Đã truy nguyên, **không phải lỗi đang sống**: bài đó được chấm
+trước hardening `20260722` (lưu điểm thô 5,00, chưa quy đổi thang 10), và bài tập của nó đã phình từ
+20 lên 158 câu sau khi em đó nộp — thời đó `can_edit_homework_question_links` chưa tồn tại để chặn.
+Nếu chạy lại mốc đối chiếu, kỳ vọng đúng dòng này, không phải 0 dòng.
 
 Migration làm ba việc: thêm `homework_questions.phase` (`practice` | `test`, mặc định `practice`),
 rồi viết đè ba hàm runtime để câu `test` không lộ gì khi đang làm và chỉ đoạn `test` tính điểm.
