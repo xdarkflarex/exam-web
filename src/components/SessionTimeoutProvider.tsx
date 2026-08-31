@@ -27,12 +27,13 @@ import {
   ACTIVITY_THROTTLE_MS,
   TIMEOUT_CHECK_INTERVAL_MS,
   STORAGE_KEYS,
+  ADMIN_SETTINGS_KEY,
 } from '@/lib/session/constants'
 import {
   UserRole,
   shouldTerminateSession,
-  getIdleTimeout,
   getAbsoluteSessionTimeout,
+  isAdminSessionTimeoutEnabled,
 } from '@/lib/session/utils'
 
 interface SessionTimeoutProviderProps {
@@ -76,9 +77,22 @@ export default function SessionTimeoutProvider({
   const lastActivityRef = useRef<number>(Date.now())
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isLoggingOutRef = useRef(false)
-  
+
   // Track if we're on an exam route - memoized to prevent unnecessary re-renders
   const isOnExamRoute = isExamRoute(pathname)
+
+  /**
+   * Công tắc "tự động đăng xuất" của admin (/admin/settings).
+   *
+   * Khởi tạo `true` và chỉ chuyển sang `false` sau khi ĐỌC ĐƯỢC cấu hình nói
+   * tắt — fail-safe. Trong lúc chờ đọc, phiên vẫn bị canh như bình thường; điều
+   * đó vô hại vì cửa sổ chờ tính bằng mili giây còn ngưỡng idle là 15 phút.
+   *
+   * Đọc trong `ref` chứ không phải trực tiếp trong `checkTimeout`: đổi giá trị
+   * này không được làm `checkTimeout` đổi định danh, nếu không `useEffect` gắn
+   * listener sẽ tháo và gắn lại toàn bộ mỗi lần cấu hình về.
+   */
+  const timeoutEnabledRef = useRef(true)
 
   /**
    * Sync timestamps to both localStorage and cookies
@@ -159,6 +173,19 @@ export default function SessionTimeoutProvider({
    */
   const checkTimeout = useCallback(() => {
     // ============================================
+    // CÔNG TẮC CỦA ADMIN: /admin/settings -> "Tự động đăng xuất"
+    // ============================================
+    // Tắt thì KHÔNG kiểm hết hạn nữa — nhưng phần đồng bộ dấu thời gian ở
+    // `handleActivity` vẫn chạy. Đó là chủ ý: cookie giữ tươi để lúc bật lại
+    // không bị đá ra ngay vì dấu thời gian đã cũ 3 tiếng.
+    //
+    // Công tắc này KHÔNG áp cho học sinh: hết hạn phiên của các em là một phần
+    // của chống gian lận, không phải tiện nghi vận hành.
+    if (role === 'admin' && !timeoutEnabledRef.current) {
+      return
+    }
+
+    // ============================================
     // EXAM-SAFE: Skip idle timeout on exam routes
     // ============================================
     if (isOnExamRoute) {
@@ -194,6 +221,38 @@ export default function SessionTimeoutProvider({
       performLogout(reason)
     }
   }, [role, performLogout, isOnExamRoute])
+
+  /**
+   * Đọc công tắc "tự động đăng xuất" của admin, một lần khi mount.
+   *
+   * Không theo dõi realtime: đổi cấu hình là việc hiếm, và trang cài đặt đã
+   * bảo người dùng tải lại. Theo dõi realtime ở đây sẽ mở một kênh websocket
+   * trên MỌI trang quản trị chỉ để chờ một sự kiện gần như không xảy ra.
+   */
+  useEffect(() => {
+    if (role !== 'admin') return
+
+    let cancelled = false
+    async function loadSetting() {
+      try {
+        const { data } = await supabase
+          .from('site_settings')
+          .select('value')
+          .eq('key', ADMIN_SETTINGS_KEY)
+          .single()
+        if (cancelled) return
+        timeoutEnabledRef.current = isAdminSessionTimeoutEnabled(data?.value)
+      } catch {
+        // Đọc hỏng thì GIỮ BẬT. Lỗi cấu hình phải làm hệ thống chặt hơn.
+        if (!cancelled) timeoutEnabledRef.current = true
+      }
+    }
+    void loadSetting()
+
+    return () => {
+      cancelled = true
+    }
+  }, [role, supabase])
 
   /**
    * Initialize on mount

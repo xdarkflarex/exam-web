@@ -17,6 +17,17 @@ export const ABSOLUTE_SESSION_TIMEOUT = {
   student: null,              // No absolute timeout for students
 } as const
 
+/**
+ * Dòng `site_settings` chứa cấu hình khu quản trị, và tên trường bật/tắt hết
+ * hạn phiên của admin bên trong `value` của dòng đó.
+ *
+ * Dùng chung một chỗ vì BA nơi đọc nó: trang cài đặt, `SessionTimeoutProvider`
+ * (chặn phía client) và `middleware` (chặn phía server). Gõ tay tên khoá ở ba
+ * nơi là ba cơ hội để một nơi đọc trượt và im lặng quay về mặc định.
+ */
+export const ADMIN_SETTINGS_KEY = 'admin.settings'
+export const ADMIN_SESSION_TIMEOUT_FIELD = 'adminSessionTimeout'
+
 // LocalStorage keys
 export const STORAGE_KEYS = {
   LAST_ACTIVE_AT: 'session_last_active_at',

@@ -5,9 +5,31 @@
  * Can be used in both client and server (middleware) contexts.
  */
 
-import { IDLE_TIMEOUT, ABSOLUTE_SESSION_TIMEOUT, STORAGE_KEYS } from './constants'
+// Đuôi `.ts` tường minh để bộ chạy test của Node (`--experimental-strip-types`)
+// phân giải được — cùng khuôn với `src/lib/questions/`. Next/Turbopack chấp nhận
+// cả hai dạng, nên đây thuần tuý là để module này test được.
+import { IDLE_TIMEOUT, ABSOLUTE_SESSION_TIMEOUT, STORAGE_KEYS } from './constants.ts'
 
 export type UserRole = 'admin' | 'student'
+
+/**
+ * Hết hạn phiên của admin có đang bật không, đọc từ `site_settings.value` của
+ * dòng `admin.settings`.
+ *
+ * FAIL-SAFE: CHỈ giá trị `false` tường minh mới tắt. Thiếu trường (cấu hình cũ
+ * chưa có nó), `null`, chuỗi `"false"`, số `0`, dòng cài đặt không đọc được —
+ * tất cả đều giữ BẬT. Một lỗi đọc cấu hình phải làm hệ thống chặt hơn, không
+ * lỏng hơn; đây cũng đúng khuôn mà `requireAdminOTP` đang dùng ở middleware.
+ *
+ * Chỉ áp cho admin. Học sinh không có công tắc này: hết hạn phiên của các em là
+ * một phần của chống gian lận, không phải tiện nghi vận hành.
+ */
+export function isAdminSessionTimeoutEnabled(settingsValue: unknown): boolean {
+  if (!settingsValue || typeof settingsValue !== 'object' || Array.isArray(settingsValue)) {
+    return true
+  }
+  return (settingsValue as Record<string, unknown>).adminSessionTimeout !== false
+}
 
 /**
  * Get idle timeout duration for a given role

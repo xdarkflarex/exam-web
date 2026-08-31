@@ -22,6 +22,27 @@ const SESSION_COOKIE_KEYS = {
 // Admin 2FA cookie name
 const ADMIN_2FA_COOKIE = 'admin_2fa_verified'
 
+// Dòng site_settings chứa cấu hình khu quản trị.
+const ADMIN_SETTINGS_KEY = 'admin.settings'
+
+/**
+ * Hết hạn phiên của admin có đang bật không.
+ *
+ * Bản sao của `isAdminSessionTimeoutEnabled` trong `src/lib/session/utils.ts`
+ * — middleware trong repo này cố ý không import từ `lib` (xem khối hằng số
+ * phía trên, cùng lý do). **Sửa một bên thì phải sửa bên kia.** Bản trong `lib`
+ * là bản có test.
+ *
+ * FAIL-SAFE: CHỈ `false` tường minh mới tắt. Thiếu trường, `null`, chuỗi
+ * `"false"`, hay không đọc được cấu hình — tất cả đều giữ BẬT.
+ */
+function isAdminSessionTimeoutEnabled(settingsValue: unknown): boolean {
+  if (!settingsValue || typeof settingsValue !== 'object' || Array.isArray(settingsValue)) {
+    return true
+  }
+  return (settingsValue as Record<string, unknown>).adminSessionTimeout !== false
+}
+
 /**
  * Check if the current route is an exam-in-progress route.
  * Exam routes should NEVER be interrupted by idle timeout.
@@ -300,13 +321,43 @@ export async function middleware(request: NextRequest) {
   const isExamInProgress = isExamRoute(pathname)
 
   // ============================================
+  // CẤU HÌNH KHU QUẢN TRỊ — đọc MỘT LẦN, dùng cho hai việc
+  // ============================================
+  // Hai chỗ cần dòng này: công tắc hết hạn phiên (ngay dưới) và công tắc OTP
+  // (phía sau). Đọc một lần rồi dùng lại, thay vì hai truy vấn cho cùng một
+  // dòng trong cùng một request.
+  //
+  // Chỉ đọc khi người gọi là admin: học sinh không có công tắc nào ở đây, và
+  // thêm một truy vấn vào mọi request của các em là trả giá cho một thứ không
+  // dùng tới.
+  let adminSettingsValue: unknown = null
+  if (userRole === 'admin' && (isAdminRoute || isStudentRoute)) {
+    try {
+      const { data: settingRow } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', ADMIN_SETTINGS_KEY)
+        .single()
+      adminSettingsValue = settingRow?.value ?? null
+    } catch {
+      // Giữ null -> cả hai công tắc đều về mặc định AN TOÀN (bật).
+    }
+  }
+
+  // Công tắc ở /admin/settings. Tắt thì admin không bị đá ra vì idle hay vì
+  // chạm mốc 6 giờ. KHÔNG áp cho học sinh — hết hạn phiên của các em là một
+  // phần của chống gian lận, không phải tiện nghi vận hành.
+  const adminSessionTimeoutOn =
+    userRole !== 'admin' || isAdminSessionTimeoutEnabled(adminSettingsValue)
+
+  // ============================================
   // SESSION TIMEOUT CHECK
   // ============================================
   // IMPORTANT: Skip idle timeout for exam routes!
   // Students should NEVER be logged out while taking an exam.
   // Anti-cheat tracking handles exam monitoring instead.
   // ============================================
-  if (isAdminRoute || isStudentRoute) {
+  if ((isAdminRoute || isStudentRoute) && adminSessionTimeoutOn) {
     // Exam routes are EXEMPT from idle timeout
     if (isExamInProgress) {
       // For admin absolute timeout, still apply (but students don't have absolute timeout)
@@ -362,19 +413,17 @@ export async function middleware(request: NextRequest) {
   if (isAdminRoute && userRole === 'admin') {
     const is2FAVerified = request.cookies.get(ADMIN_2FA_COOKIE)?.value === 'true'
 
-    // Check if OTP requirement is disabled in site settings
+    // Check if OTP requirement is disabled in site settings.
+    // Dùng lại `adminSettingsValue` đã đọc phía trên — cùng một dòng, cùng một
+    // request. Đọc lỗi ở trên để lại `null`, và `null` giữ OTP BẬT (fail-safe),
+    // đúng hành vi cũ.
     let otpRequired = true
-    try {
-      const { data: settingRow } = await supabase
-        .from('site_settings')
-        .select('value')
-        .eq('key', 'admin.settings')
-        .single()
-      if (settingRow?.value && settingRow.value.requireAdminOTP === false) {
-        otpRequired = false
-      }
-    } catch {
-      // On error, default to requiring OTP (fail-safe)
+    if (
+      adminSettingsValue &&
+      typeof adminSettingsValue === 'object' &&
+      (adminSettingsValue as Record<string, unknown>).requireAdminOTP === false
+    ) {
+      otpRequired = false
     }
 
     if (!otpRequired) {

@@ -110,6 +110,7 @@ Quy tắc này rút ra từ **ba lỗi thật trong cùng ngày 2026-08-07**, ba
 - Đặc biệt ở homework, source admin UI có thể cho `teacher` đi vào nhưng helper/policy runtime còn exact `admin`; coi đây là P1 đang mở, không nới policy riêng lẻ để chữa triệu chứng.
 - Feature gate server-side 20260722 mới bao phủ luồng làm bài `simulation`/`practice`/`homework`; không suy diễn rằng `/student/history` và `/student/analytics` đã được bảo vệ tương đương.
 - Thay đổi auth, OTP, RLS, service-role hoặc tạo tài khoản là thay đổi bảo mật cao: cần test negative case 401/403 và cross-user/cross-class.
+- Hết hạn phiên có **hai** công tắc trong `site_settings` dòng `admin.settings`: `requireAdminOTP` và `adminSessionTimeout` (2026-08-30). Cả hai chỉ tắt khi giá trị là `false` **tường minh**; thiếu trường, sai kiểu hay không đọc được cấu hình đều giữ BẬT. `adminSessionTimeout` chỉ áp cho `role = 'admin'` — hết hạn phiên của học sinh là một phần chống gian lận, không có công tắc. Cổng được ép ở **hai nơi**: `src/middleware.ts` (server) và `src/components/SessionTimeoutProvider.tsx` (client); thiếu một nơi thì tắt không có tác dụng hoặc bật không chặn được. Middleware cố ý **không import từ `lib`** nên `isAdminSessionTimeoutEnabled` tồn tại hai bản — sửa một bản phải sửa bản kia; bản có test là `src/lib/session/utils.ts`.
 
 ## 5. Secret và dữ liệu
 

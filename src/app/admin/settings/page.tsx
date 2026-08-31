@@ -13,6 +13,14 @@ interface SiteSettings {
   showCorrectAnswers: boolean
   emailNotifications: boolean
   requireAdminOTP: boolean
+  /**
+   * true = admin bị tự động đăng xuất khi idle 15 phút hoặc quá 6 giờ.
+   *
+   * Mặc định BẬT. Cấu hình cũ chưa có trường này sẽ nhận `true` từ
+   * `DEFAULT_SETTINGS`, và middleware coi mọi giá trị khác `false` là bật —
+   * hai đầu cùng fail-safe.
+   */
+  adminSessionTimeout: boolean
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -22,7 +30,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   autoSubmitOnTimeout: true,
   showCorrectAnswers: true,
   emailNotifications: true,
-  requireAdminOTP: true
+  requireAdminOTP: true,
+  adminSessionTimeout: true
 }
 
 export default function AdminSettingsPage() {
@@ -266,6 +275,41 @@ export default function AdminSettingsPage() {
               </p>
             </div>
           )}
+
+          <div className="flex items-center justify-between py-3 border-t border-slate-200 dark:border-slate-700 mt-3 pt-4">
+            <div>
+              <p className="font-medium text-slate-800 dark:text-slate-100">Tự động đăng xuất admin</p>
+              <p className="text-sm text-slate-500">
+                Thoát phiên sau 15 phút không thao tác, và sau tối đa 6 giờ đăng nhập. Tắt nếu hay bị
+                đá ra giữa lúc soạn đề. Không ảnh hưởng tới học sinh.
+              </p>
+            </div>
+            <button
+              onClick={() => setSettings({ ...settings, adminSessionTimeout: !settings.adminSessionTimeout })}
+              className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+                settings.adminSessionTimeout ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                settings.adminSessionTimeout ? 'left-7' : 'left-1'
+              }`} />
+            </button>
+          </div>
+
+          {!settings.adminSessionTimeout && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                ⚠️ <strong>Cảnh báo:</strong> Phiên admin sẽ mở cho tới khi bấm Đăng xuất. Máy để quên
+                ở chỗ đông người thì người khác mở lại trình duyệt là vào thẳng khu quản trị. Chỉ tắt
+                trên máy riêng.
+              </p>
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-slate-500">
+            Đổi công tắc nào ở đây cũng cần <strong>Lưu</strong> rồi <strong>tải lại trang</strong> thì
+            mới có hiệu lực — cấu hình được đọc một lần lúc mở trang.
+          </p>
         </div>
 
         {/* Save Button */}
