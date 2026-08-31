@@ -146,7 +146,7 @@ vân tay phải gộp cả đáp án chứ không chỉ đề.
 > chỉ gợi ý chứ không tự xoá. Câu khác nhau một con số là câu khác — không chuẩn
 > hoá số.
 
-## 11. CHƯA BẮT ĐẦU — rà soát lời giải/đáp án bằng AI, và gợi ý phân loại
+## 11. ĐANG LÀM — rà soát lời giải/đáp án bằng AI, và gợi ý phân loại
 
 Đợt nhập phần **Thống kê** bằng OCR sai nhiều; lỗi lộ ra lúc chủ dự án đang đọc
 đáp án cho học sinh. Cần công cụ quét theo **chương hoặc bài**: DeepSeek tự giải
@@ -160,9 +160,37 @@ Thiết kế đầy đủ, ràng buộc và thứ tự làm nằm ở
 riêng trước khi đổi đáp án; và phần gợi ý phân loại phải đọc mục 8 trước, vì
 `src/lib/questions/classify.ts` đã cố ý chọn luật thay vì AI ở đúng chỗ đó.
 
-> Đọc `AGENTS.md` rồi `docs/QUESTION_AUDIT_PLAN.md`. Làm công cụ rà soát ngân
-> hàng câu hỏi theo tài liệu đó, bắt đầu từ mục 9 bước 1 và 2 (lớp luật tất định
-> + contracts/validator), chưa gọi API. Ràng buộc quan trọng nhất ở mục 3: AI chỉ
-> đề xuất, người duyệt mới được ghi, và câu đã có attempt đã nộp phải cảnh báo
-> riêng. Trước khi viết phần phân loại, đọc mục 8 và phần đầu
-> `src/lib/questions/classify.ts` — repo đã cố ý chọn luật thay vì AI ở chỗ đó.
+**Đã có trong source (2026-08-30):** bước 1–5 của mục 9, tức toàn bộ đường đi
+đầu-cuối. `src/lib/questions/audit-*.ts` (luật, contracts, prompt, adapter
+DeepSeek, worker chia lô), bốn route `/api/admin/questions/audit/*`, trang
+`/admin/questions/audit` có thanh tiến trình và duyệt từng đề xuất.
+
+**Đã nạp trên Primary:** `20260830`, `20260831`, `20260901` (xác nhận 2026-09-01
+bằng truy vấn `to_regprocedure` + `information_schema.columns`).
+
+**Việc còn phải làm, theo thứ tự:**
+
+1. **Nạp `20260902_question_audit_incremental.sql`** — chưa nạp, quy trình ở
+   `RUNBOOK.md` mục 8decies. Cho phép **quét dần dần**. Không có nó thì mọi lượt
+   "Toàn bộ ngân hàng" lấy đúng 300 câu đầu và im lặng: 1136/1436 câu không bao
+   giờ tới lượt, mà mỗi lượt vẫn trông như "chạy xong 300/300".
+2. **Đối chiếu tay 20 câu** rồi ghi con số vào `QUESTION_AUDIT_PLAN.md` mục 10.
+   Chưa có con số thì chưa biết nên tin công cụ tới đâu — và đừng áp dụng hàng loạt.
+3. **Quét hết ngân hàng.** Bật "Bỏ qua câu đã quét", bấm quét lại tới khi
+   `question_audit_select_scope('tat_ca', ..., true)` trả `total = 0`.
+4. Tầng 2 `deepseek-reasoner` (bước 6 của mục 9) — chưa bắt đầu.
+   `combineTiers()` đã có sẵn, còn thiếu lượt gọi thứ hai và chỗ lưu kết quả.
+
+Phần gợi ý phân loại (bước 7) **đã xong 2026-08-31**: tab "Gợi ý AI" trong
+`BulkTaxonomyDialog`, chọn được phạm vi (câu đang chọn / chưa phân loại / toàn
+bộ). Đo được lúc làm: **297/1436 câu chưa phân loại**.
+
+> Đọc `AGENTS.md` rồi `docs/QUESTION_AUDIT_PLAN.md`. Bước 1–5 của mục 9 đã xong;
+> đọc `src/lib/questions/audit-*.ts` và migration `20260830_question_audit.sql`
+> trước khi viết thêm. Làm tiếp bước 6: lượt gọi tầng hai `deepseek-reasoner` cho
+> những câu tầng một báo lệch/không chắc, rồi áp quy tắc "hai model đồng ý" —
+> `combineTiers()` đã có sẵn, còn thiếu chỗ lưu kết quả tầng 2. Ràng buộc quan
+> trọng nhất ở mục 3: AI chỉ đề xuất, người duyệt mới được ghi, và câu đã có
+> attempt đã nộp phải cảnh báo riêng. Trước khi viết phần phân loại, đọc mục 8 và
+> phần đầu `src/lib/questions/classify.ts` — repo đã cố ý chọn luật thay vì AI ở
+> chỗ đó.

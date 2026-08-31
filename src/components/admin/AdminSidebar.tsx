@@ -29,6 +29,7 @@ import {
   Network,
   Link2,
   FolderInput,
+  ScanSearch,
   ShieldCheck,
   Sparkles,
   ChevronDown
@@ -70,6 +71,7 @@ const menuGroups: MenuGroup[] = [
       { label: 'Đề thi', href: '/admin/exams', icon: FileText },
       { label: 'Câu hỏi', href: '/admin/questions', icon: HelpCircle },
       { label: 'Gom nguồn câu hỏi', href: '/admin/questions/sources', icon: FolderInput, child: true },
+      { label: 'Rà soát bằng AI', href: '/admin/questions/audit', icon: ScanSearch, child: true },
       { label: 'Bài tập về nhà', href: '/admin/homework', icon: ClipboardList },
       { label: 'Lý thuyết', href: '/admin/theories', icon: BookOpen },
       { label: 'Liên kết tri thức', href: '/admin/knowledge-links', icon: Link2 },

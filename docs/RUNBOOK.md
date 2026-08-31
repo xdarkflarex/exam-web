@@ -585,6 +585,163 @@ Rollback: chạy lại `get_homework_attempt_questions` + `submit_homework_attem
 `20260806_moet_scoring_scale.sql`, rồi `ALTER TABLE public.homework_questions DROP COLUMN phase;`.
 Không mất dữ liệu bài làm: cột chỉ mô tả cấu trúc đề.
 
+## 8septies. Nạp `20260830_question_audit.sql` — rà soát ngân hàng câu hỏi bằng AI
+
+**CHƯA NẠP.** Đây là hướng dẫn nạp, không phải hồ sơ một lượt nạp đã xong.
+
+Migration tạo hai bảng (`question_audit_runs`, `question_audit_findings`), một hàm đếm attempt bị
+ảnh hưởng, và `apply_question_audit_finding` — **đường ghi duy nhất** của công cụ. Không có policy
+nào cho `authenticated`: hai bảng chỉ `service_role` chạm tới, mọi truy cập đi qua route handler đã
+tự kiểm `role = 'admin'`. Đó là chủ ý sau ba lỗi RLS ngày 2026-08-07 — không có policy thì không có
+policy nào chạm bảng khác.
+
+**Thứ tự: migration trước, code sau.** Chưa có bảng thì trang `/admin/questions/audit` mở được nhưng
+bấm "Bắt đầu quét" sẽ lỗi `relation "question_audit_runs" does not exist`.
+
+1. Đọc header file: bất biến và đường hoàn tác nằm ngay trong đó.
+2. Chạy toàn bộ [`../supabase/migrations/20260830_question_audit.sql`](../supabase/migrations/20260830_question_audit.sql).
+   File mở `BEGIN;` và **có** `COMMIT;`. Khối `DO $$` cuối file là hậu kiểm chạy trong cùng
+   transaction: `thua_quyen` và `thieu_ham` đều phải `= 0`, sai thì transaction tự huỷ.
+3. **Negative test bằng anon key qua PostgREST** (postflight đọc catalog KHÔNG thay được bước này —
+   bài học `20260809`). `SELECT` trên `question_audit_runs` và `question_audit_findings` bằng anon
+   key phải trả **lỗi quyền**, không phải mảng rỗng. Mảng rỗng nghĩa là `REVOKE` chưa ăn.
+4. Đặt biến môi trường server (xem `.env.example`): `QUESTION_AUDIT_ENABLED=true` và
+   `DEEPSEEK_API_KEY`. Thiếu cờ thì bốn route `/api/admin/questions/audit/*` trả 503 — fail-closed,
+   không phải lỗi.
+5. **Chạy thử trên MỘT bài nhỏ trước, không phải cả chương.** Vào `/admin/questions/audit`, chọn
+   phạm vi tới mức "Bài", bấm "Bắt đầu quét". Thanh tiến trình nhích theo từng lô 5 câu; kết quả
+   hiện dần ngay trong lúc chạy. Xem cột chi phí ở cuối để biết một chương thật sẽ tốn bao nhiêu.
+6. **Đối chiếu tay 20 câu** rồi ghi con số "công cụ nói đúng bao nhiêu phần" vào
+   [`QUESTION_AUDIT_PLAN.md`](QUESTION_AUDIT_PLAN.md) mục 10. Chưa có con số thì chưa biết nên tin
+   nó tới đâu — và đừng bấm "Áp dụng" hàng loạt trước khi có con số đó.
+7. Kiểm cổng xác nhận hai bước: tìm một finding có "N bài đã nộp có câu này", bấm "Áp dụng" —
+   nút phải đổi thành "Bấm lần nữa để xác nhận", không được ghi ngay.
+
+Đóng tab giữa lượt quét là an toàn: con trỏ nằm ở `question_audit_runs.next_index`, mở lại lượt đó
+trong mục "Lượt quét gần đây" rồi bấm "Chạy tiếp".
+
+Rollback: [`../supabase/rollback/20260830_question_audit_rollback.sql`](../supabase/rollback/20260830_question_audit_rollback.sql).
+Nó **không** hoàn tác những bản sửa đã áp vào `answers`/`questions` — giá trị cũ nằm ở cột
+`question_audit_findings.gia_tri_cu`, xuất ra trước khi chạy rollback nếu cần lần lại.
+
+## 8octies. Nạp `20260831_question_audit_full_check.sql` — soát cả đề, đáp án, lời giải
+
+**CHƯA NẠP.** Phải nạp SAU `20260830`; khối `DO $$` đầu file dừng ngay nếu chưa có.
+
+Vá ba lỗi lộ ra ở lượt chạy thật đầu tiên (2026-08-30):
+
+1. Hợp đồng v1 bắt model chọn MỘT kết luận, và "cả hai sai" thì không đề xuất gì —
+   nuốt mất đúng nhóm câu của một đợt nhập OCR hỏng.
+2. Bản sửa lời giải luôn ghi vào `questions.explanation`, kể cả khi lỗi nằm ở
+   `questions.solution`. **Đây là ghi sai dữ liệu**, không phải thiếu tính năng.
+3. Không có nhánh nào để nói "đề bài sai".
+
+Migration thêm năm cột mô tả/đề xuất theo từng phần, thêm kết luận `de_sai`, và
+thay thân `apply_question_audit_finding` để áp mọi bản sửa có trong finding —
+đáp án và/hoặc hai ô lời giải — trong **một** transaction. Chữ ký hàm giữ nguyên
+`(uuid, uuid, integer)` để REVOKE/GRANT của `20260830` còn hiệu lực; đổi chữ ký
+sẽ tạo hàm mới không có REVOKE, tức là mở rộng quyền một cách im lặng.
+
+**Thứ tự: migration trước, code sau.** Chưa có năm cột mới thì mỗi lô quét sẽ lỗi
+`column "de_xuat_explanation" does not exist` và lượt quét đếm hết vào cột "Lỗi".
+
+1. Chạy toàn bộ [`../supabase/migrations/20260831_question_audit_full_check.sql`](../supabase/migrations/20260831_question_audit_full_check.sql).
+   Có `BEGIN`/`COMMIT` và khối hậu kiểm trong cùng transaction: `thieu_cot` và
+   `thua_quyen` đều phải `= 0`.
+2. Deploy code mới, rồi **quét lại** chương đã quét bằng v1. Kết quả cũ vẫn đọc
+   được nhưng không có mô tả lỗi theo từng phần — chúng được sinh bằng hợp đồng
+   cũ, không tự nâng cấp.
+3. Kiểm nhanh trên trang: một câu sai cả hai phải hiện nút **"Áp dụng (đáp án +
+   giải thích)"** — nhãn nút liệt kê đúng những ô sẽ bị ghi. Nút chỉ ghi một ô
+   khi chỉ có một bản sửa.
+4. Bộ lọc **"Đề bài sai"** là nhóm KHÔNG có nút áp dụng. Nếu thấy nút ở đó thì
+   có gì đó sai, dừng lại và báo.
+
+Rollback: [`../supabase/rollback/20260831_question_audit_full_check_rollback.sql`](../supabase/rollback/20260831_question_audit_full_check_rollback.sql).
+**Có mất dữ liệu** — nó xoá năm cột mới, tức là mất mô tả lỗi theo phần và các
+bản sửa `solution` chưa áp. File có sẵn câu SELECT để xuất ra trước.
+
+## 8nonies. Nạp `20260901_question_audit_scope.sql` — quét câu chưa phân loại và quét toàn bộ
+
+**CHƯA NẠP.** Nạp SAU `20260830`.
+
+Vá một điểm mù và một cái bẫy im lặng:
+
+1. **Câu chưa phân loại là điểm mù hoàn toàn.** Truy vấn cũ nối trong với
+   `question_taxonomy`, nên câu không có dòng phân loại thì **không lượt quét nào
+   chạm tới được** — chọn phạm vi kiểu gì cũng vậy. Đó đúng là nhóm nguy hiểm
+   nhất: đợt nhập mới thường chưa kịp phân loại tay.
+2. **Trần 1000 dòng của PostgREST.** Supabase đặt `db-max-rows` mặc định 1000, nên
+   `.limit(2000)` từ client vẫn chỉ nhận về 1000 dòng **im lặng**. Một lượt "quét
+   toàn bộ" dựng bằng truy vấn thường sẽ tự cắt cụt mà không báo gì.
+
+Migration thêm `question_audit_scope_ids(...)` trả `jsonb {ids, total}` — vô hướng
+nên không đụng trần đó, và `total` là số đếm **trước** khi cắt, để trang nói thẳng
+"phạm vi có N câu, lượt này chạy M câu".
+
+**Thứ tự: migration trước, code sau.** Route `start` gọi hàm này ở **mọi** chế độ,
+kể cả quét theo chương — chưa có hàm thì nút "Bắt đầu quét" lỗi hoàn toàn.
+
+1. Chạy [`../supabase/migrations/20260901_question_audit_scope.sql`](../supabase/migrations/20260901_question_audit_scope.sql).
+   Khối hậu kiểm **gọi thật** hàm một lượt và kiểm rằng chế độ `taxonomy` không
+   phạm vi vẫn báo `SCOPE_REQUIRED` — nếu không, "theo chương" sẽ âm thầm biến
+   thành "toàn bộ ngân hàng".
+2. Đếm nhóm điểm mù trước khi quét:
+
+   ```sql
+   SELECT (public.question_audit_scope_ids('chua_phan_loai'))->>'total' AS chua_phan_loai, (public.question_audit_scope_ids('tat_ca'))->>'total' AS tong_cong;
+   ```
+
+3. Trên trang: ba nút chế độ, và một dòng xem trước hiện **số câu + ước tính chi
+   phí** trước khi bấm. Ước tính đo từ chi phí THẬT của các lượt đã chạy, nên lần
+   đầu nó ghi "chưa đo được" — quét một bài nhỏ trước rồi con số mới hiện.
+4. Hai chế độ mới bắt **bấm hai lần**. Nút đổi sang đỏ và ghi rõ số câu.
+5. Trần mỗi lượt vẫn là `QUESTION_AUDIT_MAX_QUESTIONS` (mặc định 300), hàm chặn
+   cứng ở 5000. Phạm vi lớn hơn trần thì quét nhiều lượt — trạng thái duyệt lưu
+   theo từng dòng nên không mất việc đã xử.
+
+Rollback: [`../supabase/rollback/20260901_question_audit_scope_rollback.sql`](../supabase/rollback/20260901_question_audit_scope_rollback.sql).
+**Deploy code cũ TRƯỚC rồi mới chạy rollback** — xoá hàm trong khi code mới còn
+chạy sẽ làm nút quét lỗi ở mọi chế độ.
+
+## 8decies. Nạp `20260902_question_audit_incremental.sql` — quét dần dần
+
+**CHƯA NẠP.** Nạp SAU `20260901`.
+
+Vá một lỗi im lặng: `question_audit_scope_ids` lấy `ORDER BY id LIMIT p_limit`,
+mà trần mặc định là 300 câu/lượt còn ngân hàng có 1436 câu. Bấm "Toàn bộ ngân
+hàng" năm lần sẽ quét **đúng 300 câu đầu năm lần**, và 1136 câu còn lại không bao
+giờ tới lượt — mỗi lượt trông vẫn "chạy xong 300/300" nên không có dấu hiệu gì.
+
+Hàm MỚI `question_audit_select_scope` thêm `p_offset` (phân trang cho tab Gợi ý
+AI) và `p_bo_qua_da_quet` (loại câu đã có finding). Hàm cũ **giữ nguyên**, không
+drop — code cũ vẫn chạy, và rollback code không cần rollback database.
+
+1. Chạy [`../supabase/migrations/20260902_question_audit_incremental.sql`](../supabase/migrations/20260902_question_audit_incremental.sql).
+   Hậu kiểm gọi thật hàm và kiểm rằng bật `p_bo_qua_da_quet` cho tập **nhỏ hơn
+   hoặc bằng** — lớn hơn nghĩa là mệnh đề lọc đang nới ra thay vì siết lại.
+2. Deploy code. Trang quét có thêm ô tick **"Bỏ qua câu đã quét ở lượt trước"**,
+   mặc định BẬT.
+3. Xem còn bao nhiêu câu chưa quét lần nào:
+
+   ```sql
+   SELECT (public.question_audit_select_scope('tat_ca', NULL,NULL,NULL,NULL, 1, 0, true))->>'total';
+   ```
+
+   Con số đó giảm sau mỗi lượt. Về 0 là đã phủ hết ngân hàng.
+
+**Cùng đợt này, hai bản sửa không cần migration:**
+
+- **Trang kết quả không còn đứng hình.** Trước đây nạp tới 400 dòng một lần, mỗi
+  dòng kèm nội dung câu và toàn bộ phương án, rồi render tất cả bằng MathJax —
+  và làm lại việc đó sau **mỗi** lô 5 câu. Giờ phân trang 25 dòng có nút "Tải
+  thêm", và trong lúc quét chỉ làm mới danh sách sau mỗi 6 lô. Thanh tiến trình
+  vẫn nhích sau mỗi lô.
+- **Tab "Gợi ý AI" chọn được phạm vi**: câu đang chọn / toàn bộ câu chưa phân
+  loại / toàn bộ ngân hàng. Hai chế độ sau lấy id từ server và gọi từng trang 50
+  câu, có thanh tiến trình và nút Dừng. Chế độ "toàn bộ ngân hàng" **bỏ tick
+  sẵn mọi dòng** vì nó ghi đè lên phân loại tay.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:
