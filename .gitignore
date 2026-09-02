@@ -46,3 +46,7 @@ next-env.d.ts
 /.understand-anything/
 /.gitnexus/
 /.cocoindex*/
+
+# Bảng đối chiếu hình TikZ do scripts/tikz-review-sheet.mjs sinh ra.
+# Dựng lại được bất cứ lúc nào; ảnh trang PDF nặng và không phải mã nguồn.
+.ocr-review/
