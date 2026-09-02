@@ -742,6 +742,38 @@ drop — code cũ vẫn chạy, và rollback code không cần rollback database
   câu, có thanh tiến trình và nút Dừng. Chế độ "toàn bộ ngân hàng" **bỏ tick
   sẵn mọi dòng** vì nó ghi đè lên phân loại tay.
 
+## 8undecies. Nạp `20260903_question_audit_fix_apply.sql` — SỬA LỖI, nút Áp dụng không chạy
+
+**CHƯA NẠP. Ưu tiên cao** — không có nó thì nút "Áp dụng" ở `/admin/questions/audit`
+hỏng hoàn toàn với **mọi** đề xuất.
+
+Triệu chứng: bấm Áp dụng trả 409 kèm `malformed array literal`, không phụ thuộc
+dạng câu hay loại kết luận.
+
+Nguyên nhân, trong `20260831`:
+
+```sql
+v_applied := v_applied || 'dap_an';   -- text[] || unknown
+```
+
+Toán hạng phải là literal **chưa có kiểu**. Toán tử `||` khớp được cả
+`anyarray || anyelement` lẫn `anyarray || anyarray`; Postgres chọn dạng thứ hai,
+tức là cố đọc `dap_an` như một array literal. Sửa bằng
+`array_append(v_applied, 'dap_an'::text)`.
+
+**Bài học vào postflight.** `20260831` đếm cột và đếm quyền, đạt hết, trong khi
+hàm hỏng hoàn toàn — vì lỗi này chỉ nổ **lúc chạy**. Postflight của `20260903`
+**gọi thật** hàm với một id không tồn tại và bắt buộc nó phải đi tới
+`FINDING_NOT_FOUND`; lỗi khác là fail. Migration nào đụng thân hàm PL/pgSQL cũng
+nên làm vậy.
+
+1. Chạy [`../supabase/migrations/20260903_question_audit_fix_apply.sql`](../supabase/migrations/20260903_question_audit_fix_apply.sql).
+2. Mở lại lượt quét cũ, bấm Áp dụng trên một dòng bất kỳ. Không cần quét lại:
+   bản hỏng ném lỗi **trước** khi ghi, nên không có dữ liệu nào bị sửa dở và mọi
+   finding vẫn ở `cho_duyet`.
+
+Không cần rollback: bản trước không áp dụng được gì.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

@@ -170,15 +170,18 @@ bằng truy vấn `to_regprocedure` + `information_schema.columns`).
 
 **Việc còn phải làm, theo thứ tự:**
 
-1. **Nạp `20260902_question_audit_incremental.sql`** — chưa nạp, quy trình ở
+1. **Nạp `20260903_question_audit_fix_apply.sql`** — ƯU TIÊN CAO, chưa nạp.
+   Không có nó thì nút "Áp dụng" hỏng với MỌI đề xuất (`malformed array literal`).
+   Quy trình ở `RUNBOOK.md` mục 8undecies.
+2. **Nạp `20260902_question_audit_incremental.sql`** — chưa nạp, quy trình ở
    `RUNBOOK.md` mục 8decies. Cho phép **quét dần dần**. Không có nó thì mọi lượt
    "Toàn bộ ngân hàng" lấy đúng 300 câu đầu và im lặng: 1136/1436 câu không bao
    giờ tới lượt, mà mỗi lượt vẫn trông như "chạy xong 300/300".
-2. **Đối chiếu tay 20 câu** rồi ghi con số vào `QUESTION_AUDIT_PLAN.md` mục 10.
+3. **Đối chiếu tay 20 câu** rồi ghi con số vào `QUESTION_AUDIT_PLAN.md` mục 10.
    Chưa có con số thì chưa biết nên tin công cụ tới đâu — và đừng áp dụng hàng loạt.
-3. **Quét hết ngân hàng.** Bật "Bỏ qua câu đã quét", bấm quét lại tới khi
+4. **Quét hết ngân hàng.** Bật "Bỏ qua câu đã quét", bấm quét lại tới khi
    `question_audit_select_scope('tat_ca', ..., true)` trả `total = 0`.
-4. Tầng 2 `deepseek-reasoner` (bước 6 của mục 9) — chưa bắt đầu.
+5. Tầng 2 `deepseek-reasoner` (bước 6 của mục 9) — chưa bắt đầu.
    `combineTiers()` đã có sẵn, còn thiếu lượt gọi thứ hai và chỗ lưu kết quả.
 
 Phần gợi ý phân loại (bước 7) **đã xong 2026-08-31**: tab "Gợi ý AI" trong
