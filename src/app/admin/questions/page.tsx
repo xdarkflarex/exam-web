@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
 import BulkTaxonomyDialog from '@/components/admin/BulkTaxonomyDialog'
+import QuestionEditModal from '@/components/admin/QuestionEditModal'
 import MathContent from '@/components/MathContent'
 import { buildExBlocks, ExportQuestion } from '@/lib/export/questionToLatex'
 import { downloadTextFile } from '@/lib/export/download'
@@ -152,12 +153,18 @@ export default function AdminQuestionsPage() {
    * trang này thì không cần cái ràng buộc đó chỉ để đọc một tham số.
    */
   const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null)
+  /** `?edit=1` — mở thẳng trình sửa thay vì màn xem. */
+  const [focusEdit, setFocusEdit] = useState(false)
   /** Đã tự mở modal cho `focusQuestionId` chưa — chỉ mở MỘT lần. */
   const focusOpenedRef = useRef(false)
+  /** Câu đang được sửa. `null` = đóng trình sửa. */
+  const [editingQuestion, setEditingQuestion] = useState<QuestionFull | null>(null)
 
   useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get('question')
+    const params = new URLSearchParams(window.location.search)
+    const value = params.get('question')
     if (value) setFocusQuestionId(value)
+    if (params.get('edit') === '1') setFocusEdit(true)
   }, [])
   
   // Filter states
@@ -483,9 +490,13 @@ export default function AdminQuestionsPage() {
     const match = questions.find((question) => question.id === focusQuestionId)
     if (!match) return
     focusOpenedRef.current = true
-    setSelectedQuestion(match)
-    setShowDetailModal(true)
-  }, [focusQuestionId, questions])
+    if (focusEdit) {
+      setEditingQuestion(match)
+    } else {
+      setSelectedQuestion(match)
+      setShowDetailModal(true)
+    }
+  }, [focusQuestionId, focusEdit, questions])
 
   // ==================== FILTERED DATA ====================
   const filteredCategories = useMemo(() => {
@@ -957,6 +968,10 @@ export default function AdminQuestionsPage() {
         <QuestionDetailModal
           question={selectedQuestion}
           onClose={() => setShowDetailModal(false)}
+          onEdit={() => {
+            setShowDetailModal(false)
+            setEditingQuestion(selectedQuestion)
+          }}
           getDifficultyLabel={getDifficultyLabel}
           getFeedbackStatusLabel={getFeedbackStatusLabel}
           formatDate={formatDate}
@@ -980,6 +995,27 @@ export default function AdminQuestionsPage() {
           setSelectedIds(new Set())
           void fetchQuestions(0, false)
         }}
+      />
+
+      <QuestionEditModal
+        question={
+          editingQuestion
+            ? {
+                id: editingQuestion.id,
+                content: editingQuestion.content,
+                question_type: editingQuestion.question_type,
+                explanation: editingQuestion.explanation,
+                solution: editingQuestion.solution,
+                answers: editingQuestion.answers.map((answer) => ({
+                  id: answer.id,
+                  content: answer.content,
+                  is_correct: answer.is_correct,
+                })),
+              }
+            : null
+        }
+        onClose={() => setEditingQuestion(null)}
+        onSaved={() => void fetchQuestions(0, false)}
       />
     </div>
   )
@@ -1113,12 +1149,14 @@ function QuestionCard({
 function QuestionDetailModal({
   question,
   onClose,
+  onEdit,
   getDifficultyLabel,
   getFeedbackStatusLabel,
   formatDate
 }: {
   question: QuestionFull
   onClose: () => void
+  onEdit: () => void
   getDifficultyLabel: (level: number) => { text: string; color: string }
   getFeedbackStatusLabel: (status: string) => { text: string; color: string }
   formatDate: (date: string) => string
@@ -1141,12 +1179,20 @@ function QuestionDetailModal({
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Chi tiết câu hỏi</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">ID: {question.id}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onEdit}
+              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+            >
+              Sửa câu này
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

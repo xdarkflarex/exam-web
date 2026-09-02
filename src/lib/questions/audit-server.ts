@@ -31,6 +31,18 @@ export interface AdminContext {
 type GuardResult = { ok: true; ctx: AdminContext } | { ok: false; response: NextResponse }
 
 /**
+ * Kiểm đăng nhập + role admin, KHÔNG kiểm cờ của công cụ rà soát.
+ *
+ * Tách khỏi `requireAuditAdmin` vì có những route quản trị không liên quan gì
+ * tới rà soát — sửa câu hỏi chẳng hạn. Bắt chúng phụ thuộc
+ * `QUESTION_AUDIT_ENABLED` sẽ khiến tắt công cụ rà soát kéo theo tắt cả việc
+ * sửa câu, một liên đới không ai muốn và không ai đoán được.
+ */
+export async function requireAdmin(): Promise<GuardResult> {
+  return guard({ requireAuditFlag: false })
+}
+
+/**
  * Kiểm ba thứ, theo đúng thứ tự đó: đã đăng nhập, đúng role, và tính năng đang
  * bật. Thiếu cấu hình thì KHOÁ, không mở — fail-closed theo `AGENTS.md` mục 4.
  *
@@ -39,6 +51,14 @@ type GuardResult = { ok: true; ctx: AdminContext } | { ok: false; response: Next
  * một tính năng ghi đè được đáp án của cả ngân hàng thì lấy mức chặt hơn.
  */
 export async function requireAuditAdmin(): Promise<GuardResult> {
+  return guard({ requireAuditFlag: true })
+}
+
+async function guard({
+  requireAuditFlag,
+}: {
+  requireAuditFlag: boolean
+}): Promise<GuardResult> {
   const flags = readQuestionAuditFlags()
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -82,7 +102,7 @@ export async function requireAuditAdmin(): Promise<GuardResult> {
     return { ok: false, response: json({ error: 'Không có quyền.', code: 'FORBIDDEN' }, 403) }
   }
 
-  if (!flags.enabled) {
+  if (requireAuditFlag && !flags.enabled) {
     return {
       ok: false,
       response: json(

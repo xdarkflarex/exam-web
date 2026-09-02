@@ -1160,13 +1160,21 @@ function FindingCard({
           tay, và lúc đó thứ cần nhất là biết chính xác câu nào. */}
       <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3 text-xs dark:border-slate-700">
         <a
-          href={`/admin/questions?question=${encodeURIComponent(finding.question_id)}`}
+          href={`/admin/questions?question=${encodeURIComponent(finding.question_id)}&edit=1`}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 font-medium text-teal-700 hover:underline dark:text-teal-300"
         >
           <ExternalLink className="h-3.5 w-3.5" />
-          Mở câu này
+          Sửa câu này
+        </a>
+        <a
+          href={`/admin/questions?question=${encodeURIComponent(finding.question_id)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-slate-500 hover:underline dark:text-slate-400"
+        >
+          Xem chi tiết
         </a>
         <button
           onClick={() => void navigator.clipboard?.writeText(finding.question_id)}
