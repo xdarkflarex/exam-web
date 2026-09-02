@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { 
@@ -143,6 +143,22 @@ export default function AdminQuestionsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [taxonomyDialogOpen, setTaxonomyDialogOpen] = useState(false)
+
+  /**
+   * `?question=<id>` — mở thẳng một câu, dùng bởi trang rà soát AI.
+   *
+   * Đọc từ `window.location` trong effect chứ không dùng `useSearchParams`:
+   * hook đó buộc trang phải nằm trong một Suspense boundary khi build tĩnh, và
+   * trang này thì không cần cái ràng buộc đó chỉ để đọc một tham số.
+   */
+  const [focusQuestionId, setFocusQuestionId] = useState<string | null>(null)
+  /** Đã tự mở modal cho `focusQuestionId` chưa — chỉ mở MỘT lần. */
+  const focusOpenedRef = useRef(false)
+
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get('question')
+    if (value) setFocusQuestionId(value)
+  }, [])
   
   // Filter states
   const [topics, setTopics] = useState<Topic[]>([])
@@ -216,6 +232,11 @@ export default function AdminQuestionsPage() {
           .select(columns, { count: 'exact' })
           .order('created_at', { ascending: false })
           .range(from, to)
+
+        // Lọc theo đúng một câu. Đứng trước mọi bộ lọc khác vì nó là bộ lọc
+        // hẹp nhất — và vì người tới từ trang rà soát muốn thấy đúng câu đó,
+        // không phải "câu đó nếu nó lọt qua các bộ lọc đang bật".
+        if (focusQuestionId) query = query.eq('id', focusQuestionId)
 
         if (debouncedSearch) {
           // `%` và `_` là ký tự đại diện của LIKE. Người dùng gõ chúng để tìm
@@ -396,6 +417,7 @@ export default function AdminQuestionsPage() {
     }
   }, [
     supabase,
+    focusQuestionId,
     debouncedSearch,
     selectedDifficulty,
     selectedQuestionType,
@@ -449,6 +471,21 @@ export default function AdminQuestionsPage() {
   useEffect(() => {
     void fetchQuestions(0, false)
   }, [fetchQuestions])
+
+  /*
+    Tới từ trang rà soát bằng `?question=<id>`: mở luôn màn chi tiết.
+
+    Chỉ mở MỘT lần. Không có `focusOpenedRef` thì đóng modal xong nó lại bật lên
+    ngay ở lần render kế tiếp, và không có cách nào đóng được.
+  */
+  useEffect(() => {
+    if (!focusQuestionId || focusOpenedRef.current) return
+    const match = questions.find((question) => question.id === focusQuestionId)
+    if (!match) return
+    focusOpenedRef.current = true
+    setSelectedQuestion(match)
+    setShowDetailModal(true)
+  }, [focusQuestionId, questions])
 
   // ==================== FILTERED DATA ====================
   const filteredCategories = useMemo(() => {
@@ -571,10 +608,27 @@ export default function AdminQuestionsPage() {
   // ==================== RENDER ====================
   return (
     <div className="min-h-screen">
-      <AdminHeader 
-        title="Quản lý câu hỏi" 
-        subtitle={`${questions.length} câu hỏi trong hệ thống`} 
+      <AdminHeader
+        title="Quản lý câu hỏi"
+        subtitle={`${questions.length} câu hỏi trong hệ thống`}
       />
+
+      {/* Đang xem đúng một câu vì tới từ trang rà soát. Nói rõ ra, nếu không
+          danh sách một dòng trông như dữ liệu bị mất. */}
+      {focusQuestionId && (
+        <div className="mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-teal-300 bg-teal-50 p-3 text-sm dark:border-teal-700 dark:bg-teal-900/20 sm:mx-6 lg:mx-8">
+          <span className="text-slate-700 dark:text-slate-200">
+            Đang lọc đúng một câu:{' '}
+            <span className="font-mono text-xs">{focusQuestionId}</span>
+          </span>
+          <a
+            href="/admin/questions"
+            className="font-medium text-teal-700 hover:underline dark:text-teal-300"
+          >
+            Xem tất cả câu hỏi
+          </a>
+        </div>
+      )}
       
       <div className="p-6">
         <div className="mb-5 flex justify-end">

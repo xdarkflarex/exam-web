@@ -94,8 +94,57 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) {
+    const message = error.message ?? ''
+
+    /*
+      `ATTEMPTS_CHANGED` mà không trả về số MỚI là một ngõ cụt vĩnh viễn.
+
+      Trang gửi lên con số đã lưu trong dòng finding (chụp lúc quét). RPC so với
+      số thực tế. Lệch thì từ chối — đúng, vì người duyệt phải cân nhắc lại. Nhưng
+      con số đã lưu KHÔNG BAO GIỜ tự đổi, nên tải lại trang rồi bấm lại vẫn gửi
+      đúng số cũ và vẫn lệch. Dòng đó không bao giờ áp dụng được nữa.
+
+      Cách thoát: đọc lại số hiện tại, cập nhật vào dòng finding, và trả về cho
+      trang để người duyệt thấy con số THẬT rồi quyết định lần nữa. Cổng an toàn
+      vẫn còn — họ vẫn phải bấm lại sau khi nhìn số mới — chỉ không còn kẹt.
+    */
+    if (message.includes('ATTEMPTS_CHANGED')) {
+      const { data: row } = await admin
+        .from('question_audit_findings')
+        .select('question_id')
+        .eq('id', findingId)
+        .single()
+
+      let current: number | null = null
+      if (row?.question_id) {
+        const { data: fresh } = await admin.rpc('question_audit_affected_attempts', {
+          p_question_id: row.question_id,
+        })
+        current = typeof fresh === 'number' ? fresh : null
+        if (current !== null) {
+          await admin
+            .from('question_audit_findings')
+            .update({ affected_attempts: current })
+            .eq('id', findingId)
+        }
+      }
+
+      return json(
+        {
+          error:
+            current === null
+              ? 'Số bài đã nộp có câu này vừa thay đổi. Tải lại trang rồi cân nhắc lại.'
+              : `Số bài đã nộp có câu này giờ là ${current} (lúc quét hiển thị ${expectedAttempts}). Đã cập nhật — bấm Áp dụng lần nữa nếu vẫn muốn đổi.`,
+          code: 'ATTEMPTS_CHANGED',
+          currentAttempts: current,
+          detail: message,
+        },
+        409
+      )
+    }
+
     return json(
-      { error: translateRpcError(error.message ?? ''), code: 'APPLY_FAILED', detail: error.message },
+      { error: translateRpcError(message), code: 'APPLY_FAILED', detail: message },
       409
     )
   }

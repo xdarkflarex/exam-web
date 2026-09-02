@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  Copy,
+  ExternalLink,
   FolderTree,
   Loader2,
   Play,
@@ -218,6 +220,14 @@ export default function QuestionAuditPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [busyFinding, setBusyFinding] = useState<string | null>(null)
+  /**
+   * Lỗi của TỪNG dòng, hiện ngay tại thẻ đó.
+   *
+   * Trước đây lỗi khi bấm Áp dụng chỉ đổ vào banner đầu trang — cách nút vài
+   * trăm pixel và ngoài màn hình khi danh sách dài. Người dùng bấm, không thấy
+   * gì xảy ra, và không có cách nào biết vì sao.
+   */
+  const [findingError, setFindingError] = useState<Record<string, string>>({})
   /** Finding đang chờ bấm xác nhận lần hai (vì có bài đã nộp bị ảnh hưởng). */
   const [confirming, setConfirming] = useState<string | null>(null)
 
@@ -477,6 +487,11 @@ export default function QuestionAuditPage() {
 
     setBusyFinding(finding.id)
     setError(null)
+    setFindingError((prev) => {
+      const next = { ...prev }
+      delete next[finding.id]
+      return next
+    })
     try {
       const response = await fetch('/api/admin/questions/audit/decide', {
         method: 'POST',
@@ -489,7 +504,27 @@ export default function QuestionAuditPage() {
       })
       const data = await response.json()
       if (!response.ok) {
-        setError(data.error ?? 'Không thực hiện được.')
+        // Số bài đã nộp vừa đổi: nhận con số MỚI từ server và ghi đè vào dòng,
+        // để lần bấm sau gửi đúng số thật. Không làm bước này thì dòng đó kẹt
+        // vĩnh viễn — số cũ không bao giờ tự đổi.
+        if (data.code === 'ATTEMPTS_CHANGED' && typeof data.currentAttempts === 'number') {
+          setFindings((current) =>
+            current.map((item) =>
+              item.id === finding.id
+                ? { ...item, affected_attempts: data.currentAttempts as number }
+                : item
+            )
+          )
+        }
+
+        // Kèm mã lỗi thô của RPC: câu tiếng Việt cho người đọc, mã để tra khi
+        // câu đó chưa đủ nói lên chuyện gì.
+        const code =
+          typeof data.detail === 'string' ? data.detail.split(':')[0].trim() : data.code
+        setFindingError((prev) => ({
+          ...prev,
+          [finding.id]: `${data.error ?? 'Không thực hiện được.'}${code ? ` (${code})` : ''}`,
+        }))
         return
       }
       setFindings((current) =>
@@ -806,6 +841,7 @@ export default function QuestionAuditPage() {
                 finding={finding}
                 busy={busyFinding === finding.id}
                 confirming={confirming === finding.id}
+                failure={findingError[finding.id]}
                 onDecide={decide}
               />
             ))}
@@ -869,11 +905,14 @@ function FindingCard({
   finding,
   busy,
   confirming,
+  failure,
   onDecide,
 }: {
   finding: Finding
   busy: boolean
   confirming: boolean
+  /** Lỗi của riêng dòng này, hiện ngay cạnh nút đã bấm. */
+  failure?: string
   onDecide: (finding: Finding, action: 'ap_dung' | 'bo_qua') => void
 }) {
   const question = finding.question
@@ -1114,6 +1153,35 @@ function FindingCard({
         <ul className="space-y-1 text-xs text-amber-600 dark:text-amber-400">
           {finding.loi_latex?.map((item, index) => <li key={index}>LaTeX: {item}</li>)}
         </ul>
+      )}
+
+      {/* Trỏ thẳng vào câu. Công cụ này CHỈ áp được những bản sửa nó tự sinh ra;
+          mọi thứ khác — đề sai, câu tự luận, trường hợp RPC từ chối — phải sửa
+          tay, và lúc đó thứ cần nhất là biết chính xác câu nào. */}
+      <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3 text-xs dark:border-slate-700">
+        <a
+          href={`/admin/questions?question=${encodeURIComponent(finding.question_id)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 font-medium text-teal-700 hover:underline dark:text-teal-300"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Mở câu này
+        </a>
+        <button
+          onClick={() => void navigator.clipboard?.writeText(finding.question_id)}
+          className="inline-flex items-center gap-1.5 font-mono text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+          title="Chép mã câu để tìm trong question-bank"
+        >
+          <Copy className="h-3.5 w-3.5" />
+          {finding.question_id}
+        </button>
+      </div>
+
+      {failure && (
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
+          {failure}
+        </p>
       )}
 
       {!handled && (
