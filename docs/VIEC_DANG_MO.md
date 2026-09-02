@@ -146,6 +146,24 @@ vân tay phải gộp cả đáp án chứ không chỉ đề.
 > chỉ gợi ý chứ không tự xoá. Câu khác nhau một con số là câu khác — không chuẩn
 > hoá số.
 
+## 10bis. ĐANG LÀM Ở QUESTION-BANK — ghép hình TikZ bộ GK1
+
+Đợt OCR bộ đề GK1 tách nội dung đề và mã TikZ ra hai file riêng; 20 hình / 8 đề
+cần ghép lại vào câu hỏi. Việc này **làm ở question-bank**, không phải ở đây:
+exam-web không có LaTeX toolchain nên không dựng được SVG, ghép mã ở đây chỉ tạo
+ra một loạt câu "có mã, không hình".
+
+Bàn giao đầy đủ (kèm hai lỗi lệch trong đường sync phải sửa trước):
+`D:\ToanTHPT\Web-nhap-cau-hoi\question-bank\docs\BAN-GIAO-TIKZ-GK1.md`
+
+**Phần của exam-web trong việc này — đã xong, dùng ngay:**
+
+- `npm run tikz:review -- --ocr "<..>/_OCR/GK1" --pdf "<..>/GK1"` dựng bảng đối
+  chiếu TikZ ↔ trang PDF gốc. Hình OCR là model VẼ LẠI từ ảnh trang, sai được mà
+  đọc mã không thấy. Lần chạy 2026-09-03: 20 hình, 1 hình dựng lỗi (đề 01 Toán 10).
+- Nút **"Rà hình"** ở `/admin/questions/audit` là thước nghiệm thu sau khi bên
+  kia đẩy lên: nhóm `co_ma_chua_co_anh` không được tăng.
+
 ## 11. ĐANG LÀM — rà soát lời giải/đáp án bằng AI, và gợi ý phân loại
 
 Đợt nhập phần **Thống kê** bằng OCR sai nhiều; lỗi lộ ra lúc chủ dự án đang đọc
