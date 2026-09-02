@@ -149,5 +149,35 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  return json({ code: 'OK', trangThai: 'da_ap_dung', result: data })
+  /*
+    Trả về câu SAU KHI ĐÃ GHI.
+
+    Không có phần này thì trang vẫn giữ bản chụp lúc quét: mở trình sửa ngay sau
+    khi áp dụng sẽ thấy nội dung CŨ, và người dùng tưởng bản sửa không vào. Tệ
+    hơn, nếu họ sửa tay trên nền cũ rồi lưu thì bản vừa áp dụng bị ghi đè ngược.
+
+    Đọc lại ở đây rẻ hơn nhiều so với nạp lại cả trang kết quả — và nạp lại cả
+    trang sẽ đưa người dùng về đầu danh sách, mất chỗ đang đọc.
+  */
+  const { data: row } = await admin
+    .from('question_audit_findings')
+    .select('question_id')
+    .eq('id', findingId)
+    .single()
+
+  let question = null
+  if (row?.question_id) {
+    const { data: fresh } = await admin
+      .from('questions')
+      .select(
+        'id, content, question_type, explanation, solution, tikz_code, tikz_image_url, ' +
+          'solution_tikz_image_url, solution_tikz_image_url_2, ' +
+          'answers(id, content, is_correct, order_index)'
+      )
+      .eq('id', row.question_id)
+      .single()
+    question = fresh ?? null
+  }
+
+  return json({ code: 'OK', trangThai: 'da_ap_dung', result: data, question })
 }

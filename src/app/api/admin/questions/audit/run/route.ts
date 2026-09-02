@@ -95,6 +95,12 @@ export async function GET(request: NextRequest) {
   else if (filter === 'khong_kiem_duoc') query = query.eq('ket_luan', 'khong_kiem_duoc')
   else if (filter === 'de_sai') query = query.eq('ket_luan', 'de_sai')
 
+  // Chồng lên bộ lọc kết luận, không thay thế nó: người duyệt vẫn đang xem một
+  // nhóm, chỉ muốn giấu những dòng đã xử lý cho danh sách ngắn dần.
+  if (request.nextUrl.searchParams.get('pending') === '1') {
+    query = query.eq('trang_thai', 'cho_duyet')
+  }
+
   const { data: findingRows } = await query
   // Chuỗi `select` ghép bằng `+` nên client không suy ra được kiểu dòng; ép về
   // hình dạng tối thiểu mà route này thật sự dùng.

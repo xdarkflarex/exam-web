@@ -180,6 +180,13 @@ const CONCLUSION_TONE: Record<string, string> = {
   khong_kiem_duoc: 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
 }
 
+/** Tên ô mà RPC báo là đã ghi. */
+const APPLIED_LABELS: Record<string, string> = {
+  dap_an: 'đáp án',
+  explanation: 'ô Giải thích',
+  solution: 'ô Lời giải',
+}
+
 const FILTERS: ReadonlyArray<readonly [string, string]> = [
   ['can_sua', 'Có đề xuất sửa'],
   ['de_sai', 'Đề bài sai'],
@@ -236,6 +243,16 @@ export default function QuestionAuditPage() {
    * gì xảy ra, và không có cách nào biết vì sao.
    */
   const [findingError, setFindingError] = useState<Record<string, string>>({})
+  /**
+   * Những ô đã ghi cho từng dòng, theo báo cáo của RPC.
+   *
+   * Bấm Áp dụng xong thì nút biến mất — đúng, vì dòng đã xử lý — nhưng nếu chỉ
+   * biến mất thì trông y hệt "bấm hụt". Cần nói rõ nó vừa ghi vào những ô nào.
+   */
+  const [appliedParts, setAppliedParts] = useState<Record<string, string[]>>({})
+  /** Chỉ hiện dòng chưa xử lý. Bật lên là danh sách ngắn dần theo tiến độ duyệt. */
+  const [pendingOnly, setPendingOnly] = useState(false)
+  const [handled, setHandled] = useState(0)
 
   /**
    * Câu đang mở trong trình sửa, ngay trên trang này.
@@ -318,15 +335,31 @@ export default function QuestionAuditPage() {
    * thức dựng lại sau MỖI lô.
    */
   const loadFindings = useCallback(
-    async (id: string, which: string, offset = 0, append = false) => {
+    async (
+      id: string,
+      which: string,
+      offset = 0,
+      append = false,
+      /*
+        Nhận tường minh chứ không đọc từ state.
+
+        Ô tick "chỉ dòng chưa xử lý" phải nạp lại NGAY khi bấm, mà `setState` thì
+        chưa có hiệu lực trong cùng lượt xử lý sự kiện — gọi `loadFindings` ở đó
+        sẽ dùng đúng giá trị CŨ và danh sách không đổi. Truyền thẳng giá trị mới
+        vào là hết chuyện.
+      */
+      pending = pendingOnly
+    ) => {
       const response = await fetch(
-        `/api/admin/questions/audit/run?runId=${encodeURIComponent(id)}&filter=${which}&offset=${offset}`
+        `/api/admin/questions/audit/run?runId=${encodeURIComponent(id)}&filter=${which}` +
+          `&offset=${offset}&pending=${pending ? '1' : '0'}`
       )
       const data = await response.json()
       if (!response.ok) {
         setError(data.error ?? 'Không tải được kết quả.')
         return
       }
+      setHandled(data.handled ?? 0)
       setFindings((prev) =>
         append ? [...prev, ...(data.findings ?? [])] : (data.findings ?? [])
       )
@@ -335,7 +368,7 @@ export default function QuestionAuditPage() {
       setSummary(data.summary ?? {})
       setScopeLabel(data.run?.scope_label ?? '')
     },
-    []
+    [pendingOnly]
   )
 
   /**
@@ -572,9 +605,21 @@ export default function QuestionAuditPage() {
       }
       setFindings((current) =>
         current.map((item) =>
-          item.id === finding.id ? { ...item, trang_thai: data.trangThai } : item
+          item.id === finding.id
+            ? {
+                ...item,
+                trang_thai: data.trangThai,
+                // Thay luôn bản chụp câu bằng bản VỪA GHI. Giữ bản cũ ở đây là
+                // lý do mở trình sửa ngay sau khi áp dụng lại thấy nội dung cũ.
+                question: data.question ?? item.question,
+              }
+            : item
         )
       )
+      if (action === 'ap_dung') {
+        const applied = Array.isArray(data.result?.applied) ? data.result.applied : []
+        setAppliedParts((prev) => ({ ...prev, [finding.id]: applied }))
+      }
     } finally {
       setBusyFinding(null)
       setConfirming(null)
@@ -852,16 +897,36 @@ export default function QuestionAuditPage() {
                   {label}
                 </button>
               ))}
+              <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={pendingOnly}
+                  onChange={(event) => {
+                    setPendingOnly(event.target.checked)
+                    void loadFindings(runId, filter, 0, false, event.target.checked)
+                  }}
+                  className="h-3.5 w-3.5 accent-teal-600"
+                />
+                Chỉ dòng chưa xử lý
+              </label>
               <button
                 onClick={() => void loadFindings(runId, filter)}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Tải lại
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {/* Tiến độ DUYỆT, khác tiến độ QUÉT. Nó trả lời câu hỏi "mở lại
+                  lượt cũ thì mình đã xử tới đâu rồi" — trạng thái nằm ở database
+                  nên nó sống qua việc đóng tab, đổi máy, hay quét lượt khác. */}
+              <span className="rounded-full bg-slate-200 px-3 py-1 font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                Đã xử lý {handled}
+                {Object.values(summary).length > 0 &&
+                  ` / ${Object.values(summary).reduce((sum, count) => sum + count, 0)}`}
+              </span>
               {Object.entries(summary).map(([key, count]) => (
                 <span
                   key={key}
@@ -885,6 +950,7 @@ export default function QuestionAuditPage() {
                 busy={busyFinding === finding.id}
                 confirming={confirming === finding.id}
                 failure={findingError[finding.id]}
+                applied={appliedParts[finding.id]}
                 onDecide={decide}
                 onEdit={openEditor}
               />
@@ -959,6 +1025,7 @@ function FindingCard({
   busy,
   confirming,
   failure,
+  applied,
   onDecide,
   onEdit,
 }: {
@@ -967,6 +1034,8 @@ function FindingCard({
   confirming: boolean
   /** Lỗi của riêng dòng này, hiện ngay cạnh nút đã bấm. */
   failure?: string
+  /** Những ô RPC vừa ghi, để nói rõ đã áp cái gì thay vì chỉ ẩn nút đi. */
+  applied?: string[]
   onDecide: (finding: Finding, action: 'ap_dung' | 'bo_qua') => void
   onEdit: (finding: Finding) => void
 }) {
@@ -1248,6 +1317,36 @@ function FindingCard({
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
           {failure}
         </p>
+      )}
+
+      {/* Dòng đã xử lý: nói rõ ĐÃ LÀM GÌ, ngay chỗ nút vừa biến mất. Chỉ ẩn nút
+          đi thì trông y hệt "bấm hụt". */}
+      {handled && (
+        <div
+          className={`flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm ${
+            finding.trang_thai === 'da_ap_dung'
+              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+              : 'bg-slate-100 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'
+          }`}
+        >
+          {finding.trang_thai === 'da_ap_dung' ? (
+            <>
+              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+              <span>
+                Đã ghi vào ngân hàng
+                {APPLIED_LABELS && applied && applied.length > 0
+                  ? `: ${applied.map((part) => APPLIED_LABELS[part] ?? part).join(' + ')}`
+                  : ''}
+                . Phần &quot;Đang lưu&quot; ở trên đã là nội dung mới.
+              </span>
+            </>
+          ) : (
+            <>
+              <XCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Đã bỏ qua. Dòng này sẽ không hiện ở bộ lọc &quot;chưa xử lý&quot;.</span>
+            </>
+          )}
+        </div>
       )}
 
       {!handled && (
