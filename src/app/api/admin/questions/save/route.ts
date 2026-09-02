@@ -49,6 +49,17 @@ interface SaveBody {
   content?: unknown
   explanation?: unknown
   solution?: unknown
+  /**
+   * Mã TikZ. Sửa được vì đường sửa chính của nó là TÁCH mã ra khỏi `content` —
+   * một thao tác không đổi hình, chỉ đưa mã về đúng cột.
+   *
+   * Đổi mã mà không dựng lại ảnh thì mã và hình nói hai chuyện khác nhau; route
+   * này không dựng được SVG (exam-web không có LaTeX toolchain), nên nó CẢNH
+   * BÁO khi mã đổi mà `tikz_image_url` giữ nguyên.
+   */
+  tikz_code?: unknown
+  /** Đường dẫn ảnh đã dựng — dán vào sau khi dựng SVG ở question-bank. */
+  tikz_image_url?: unknown
   answers?: unknown
   /** Số bài đã nộp mà người sửa ĐÃ NHÌN THẤY. Bắt buộc khi đụng tới chấm điểm. */
   confirmAttempts?: unknown
@@ -141,8 +152,8 @@ export async function POST(request: NextRequest) {
     question_type: current.question_type as AuditQuestionInput['question_type'],
     explanation: asString(body.explanation) || null,
     solution: asString(body.solution) || null,
-    tikz_code: current.tikz_code,
-    tikz_image_url: current.tikz_image_url,
+    tikz_code: asString(body.tikz_code) || null,
+    tikz_image_url: asString(body.tikz_image_url) || null,
     answers: answers.map((answer) => ({
       id: answer.id,
       content: answer.content,
@@ -236,6 +247,8 @@ export async function POST(request: NextRequest) {
       content: asString(body.content),
       explanation: asString(body.explanation) || null,
       solution: asString(body.solution) || null,
+      tikz_code: asString(body.tikz_code) || null,
+      tikz_image_url: asString(body.tikz_image_url) || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', questionId)
@@ -251,9 +264,19 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  /*
+    Mã TikZ đổi mà ảnh giữ nguyên: từ giờ mã và hình nói hai chuyện khác nhau,
+    và cái học sinh nhìn thấy là HÌNH. Không chặn lưu — tách mã ra khỏi đề là
+    thao tác hợp lệ và cần thiết — nhưng phải nói ra, vì sai lệch này không lộ
+    ở bất cứ đâu khác.
+  */
+  const tikzChanged = (current.tikz_code ?? '') !== (asString(body.tikz_code) || '')
+  const imageUnchanged = (current.tikz_image_url ?? '') === (asString(body.tikz_image_url) || '')
+
   return json({
     code: 'OK',
     affectedAttempts: affected,
+    tikzNeedsRerender: tikzChanged && imageUnchanged && Boolean(asString(body.tikz_code)),
     /** Lỗi chất lượng còn lại — hiện để người soạn biết, không chặn lưu. */
     warnings: issues.filter((issue) => !BLOCKING.has(issue.code)),
   })

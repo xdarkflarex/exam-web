@@ -13,6 +13,7 @@ import {
   Play,
   RefreshCw,
   ScanSearch,
+  Image as ImageIcon,
   ShieldAlert,
   Square,
   XCircle,
@@ -150,6 +151,26 @@ const SCOPE_MODES: ReadonlyArray<readonly [ScopeMode, string, string]> = [
   ['tat_ca', 'Toàn bộ ngân hàng', 'Mọi câu, bỏ qua phân loại. Xem số câu và chi phí trước khi chạy.'],
 ]
 
+interface FigureRow {
+  questionId: string
+  content: string
+  issues: Array<{ code: string; message: string; suaTaiCho: boolean }>
+}
+
+interface FigureAudit {
+  scanned: number
+  total: number
+  truncated: boolean
+  byCode: Record<string, number>
+  reports: FigureRow[]
+}
+
+const FIGURE_LABELS: Record<string, string> = {
+  tikz_lan_trong_de: 'Mã TikZ lẫn trong đề',
+  nhac_hinh_ma_thieu: 'Đề nhắc hình mà không có hình',
+  co_ma_chua_co_anh: 'Có mã, chưa dựng ảnh',
+}
+
 interface RunSummaryRow {
   id: string
   scope_label: string
@@ -233,6 +254,11 @@ export default function QuestionAuditPage() {
   const [summary, setSummary] = useState<Record<string, number>>({})
   const [recentRuns, setRecentRuns] = useState<RunSummaryRow[]>([])
 
+  /** Kết quả rà hình. Không liên quan lượt quét AI — luật thuần, miễn phí. */
+  const [figure, setFigure] = useState<FigureAudit | null>(null)
+  const [figureLoading, setFigureLoading] = useState(false)
+  const [figureCode, setFigureCode] = useState<string>('')
+
   const [error, setError] = useState<string | null>(null)
   const [busyFinding, setBusyFinding] = useState<string | null>(null)
   /**
@@ -311,6 +337,24 @@ export default function QuestionAuditPage() {
       cancelled = true
     }
   }, [supabase])
+
+  const loadFigureAudit = useCallback(async (code = '') => {
+    setFigureLoading(true)
+    setFigureCode(code)
+    try {
+      const response = await fetch(
+        `/api/admin/questions/figure-audit${code ? `?code=${code}` : ''}`
+      )
+      const data = await response.json()
+      if (!response.ok) {
+        setError(data.error ?? 'Không rà được hình.')
+        return
+      }
+      setFigure(data as FigureAudit)
+    } finally {
+      setFigureLoading(false)
+    }
+  }, [])
 
   const loadRecentRuns = useCallback(async () => {
     const response = await fetch('/api/admin/questions/audit/run')
@@ -969,7 +1013,104 @@ export default function QuestionAuditPage() {
           </section>
         )}
 
-        {/* --- Lượt quét gần đây -------------------------------------------- */}
+        {/* --- Rà hình ------------------------------------------------------- */}
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-wrap items-center gap-3">
+          <ImageIcon className="h-4 w-4 text-slate-500" />
+          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-200">Rà hình</h2>
+          <button
+            onClick={() => void loadFigureAudit(figureCode)}
+            disabled={figureLoading}
+            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-600"
+          >
+            {figureLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {figure ? 'Rà lại' : 'Rà toàn ngân hàng'}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Luật thuần, không gọi AI, không tốn tiền — chạy trên cả ngân hàng trong vài giây.
+        </p>
+
+        {figure && (
+          <>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <button
+                onClick={() => void loadFigureAudit('')}
+                className={`rounded-full px-3 py-1 font-medium ${
+                  figureCode === ''
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                }`}
+              >
+                Tất cả ({figure.total})
+              </button>
+              {Object.entries(figure.byCode).map(([code, count]) => (
+                <button
+                  key={code}
+                  onClick={() => void loadFigureAudit(code)}
+                  className={`rounded-full px-3 py-1 font-medium ${
+                    figureCode === code
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  {FIGURE_LABELS[code] ?? code}: {count}
+                </button>
+              ))}
+              <span className="self-center text-slate-500 dark:text-slate-400">
+                / {figure.scanned} câu đã quét
+              </span>
+            </div>
+
+            {figure.truncated && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Còn nhiều hơn số đang hiện — xử bớt rồi rà lại.
+              </p>
+            )}
+
+            <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+              {figure.reports.map((row) => (
+                <li key={row.questionId} className="py-3">
+                  <p className="line-clamp-2 text-sm text-slate-700 dark:text-slate-300">
+                    {row.content.replace(/\s+/g, ' ').slice(0, 160)}
+                  </p>
+                  <div className="mt-1 space-y-0.5">
+                    {row.issues.map((issue) => (
+                      <p
+                        key={issue.code}
+                        className={`text-xs ${
+                          issue.suaTaiCho
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}
+                      >
+                        {FIGURE_LABELS[issue.code] ?? issue.code} — {issue.message}
+                      </p>
+                    ))}
+                  </div>
+                  <a
+                    href={`/admin/questions?question=${encodeURIComponent(row.questionId)}&edit=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 hover:underline dark:text-teal-300"
+                  >
+                    <PenLine className="h-3.5 w-3.5" />
+                    Sửa câu này
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            {figure.reports.length === 0 && (
+              <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                Không có câu nào hỏng hình trong nhóm này.
+              </p>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* --- Lượt quét gần đây -------------------------------------------- */}
         {recentRuns.length > 0 && (
           <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
             <h2 className="text-sm font-medium text-slate-700 dark:text-slate-200">

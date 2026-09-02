@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Check, Loader2, Plus, ShieldAlert, Trash2, X } from 'lucide-react'
 
 import MathContent from '@/components/MathContent'
+import { extractTikz, hasInlineTikz } from '@/lib/questions/tikz-extract'
 
 /**
  * Sửa một câu hỏi ngay trong exam-web.
@@ -74,6 +75,10 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
   const [explanation, setExplanation] = useState('')
   const [solution, setSolution] = useState('')
   const [answers, setAnswers] = useState<EditableAnswer[]>([])
+  const [tikzCode, setTikzCode] = useState('')
+  const [tikzImageUrl, setTikzImageUrl] = useState('')
+  /** Mã TikZ đổi mà ảnh chưa dựng lại — server báo về sau khi lưu. */
+  const [needsRerender, setNeedsRerender] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +93,9 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
     setContent(question.content ?? '')
     setExplanation(question.explanation ?? '')
     setSolution(question.solution ?? '')
+    setTikzCode(question.tikz_code ?? '')
+    setTikzImageUrl(question.tikz_image_url ?? '')
+    setNeedsRerender(false)
     setAnswers(
       (question.answers ?? []).map((answer) => ({
         id: answer.id,
@@ -152,6 +160,8 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
           content,
           explanation,
           solution,
+          tikz_code: tikzCode,
+          tikz_image_url: tikzImageUrl,
           answers,
           confirmAttempts,
         }),
@@ -170,6 +180,7 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
       }
 
       setWarnings(Array.isArray(data.warnings) ? data.warnings : [])
+      setNeedsRerender(data.tikzNeedsRerender === true)
       setDone(true)
       onSaved()
     } catch (caught) {
@@ -206,6 +217,12 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
           <div className="p-8 text-center">
             <Check className="mx-auto mb-3 h-12 w-12 text-emerald-600 dark:text-emerald-400" />
             <p className="font-semibold text-slate-800 dark:text-white">Đã lưu.</p>
+            {needsRerender && (
+              <p className="mx-auto mt-3 max-w-lg rounded-lg bg-amber-50 p-3 text-left text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                Mã TikZ đã đổi nhưng ảnh thì chưa. Từ giờ mã và hình nói hai chuyện khác nhau, và
+                cái học sinh nhìn thấy là HÌNH. Dựng lại SVG ở question-bank rồi cập nhật đường dẫn ảnh.
+              </p>
+            )}
             {warnings.length > 0 && (
               <ul className="mx-auto mt-4 max-w-lg space-y-1 text-left text-sm text-amber-700 dark:text-amber-300">
                 {warnings.map((issue, index) => (
@@ -235,11 +252,74 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
                 />
               </Field>
 
-              <FigureBlock
-                label="Hình của đề"
-                images={[question.tikz_image_url]}
-                tikzCode={question.tikz_code}
-              />
+              {/* Mã TikZ lẫn trong đề: sửa được NGAY ở đây, và đây là bản sửa
+                  duy nhất exam-web tự làm được cho hình. Tách ra không dựng
+                  được ảnh, nhưng nó dừng ngay phần rác mà học sinh đang đọc. */}
+              {hasInlineTikz(content) && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/30">
+                  <p className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <span>
+                      Mã TikZ đang nằm TRONG nội dung đề. Học sinh đọc đề thấy
+                      &quot;Unknown environment &apos;tikzpicture&apos;&quot; kèm hàng chục dòng lệnh vẽ.
+                    </span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const result = extractTikz(content)
+                      setContent(result.content)
+                      // Nối vào mã sẵn có thay vì ghi đè: câu có thể đã có một
+                      // hình ở cột tikz_code rồi, và ghi đè là mất nó.
+                      setTikzCode((prev) =>
+                        prev.trim() ? `${prev.trim()}
+
+${result.tikzCode}` : result.tikzCode
+                      )
+                    }}
+                    className="btn-action mt-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                  >
+                    Tách mã TikZ ra khỏi đề
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Mã TikZ của đề
+                </label>
+                <textarea
+                  value={tikzCode}
+                  onChange={(event) => setTikzCode(event.target.value)}
+                  rows={4}
+                  placeholder="\begin{tikzpicture} ... \end{tikzpicture}"
+                  className={inputClass}
+                />
+                <label className="mb-2 mt-3 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Đường dẫn ảnh đã dựng
+                </label>
+                <input
+                  type="text"
+                  value={tikzImageUrl}
+                  onChange={(event) => setTikzImageUrl(event.target.value)}
+                  placeholder="https://... (dựng SVG ở question-bank rồi dán vào đây)"
+                  className={inputClass}
+                />
+                {tikzCode.trim() && !tikzImageUrl.trim() && (
+                  <p className="mt-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    Có mã nhưng chưa có ảnh — học sinh sẽ không thấy hình. exam-web không dựng được
+                    SVG (không có LaTeX); dựng ở question-bank rồi dán đường dẫn vào ô trên.
+                  </p>
+                )}
+                {tikzImageUrl.trim() && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tikzImageUrl}
+                    alt="Hình của đề"
+                    className="mt-2 max-h-64 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-600"
+                  />
+                )}
+              </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
