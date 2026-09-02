@@ -1011,6 +1011,10 @@ export default function AdminQuestionsPage() {
                   content: answer.content,
                   is_correct: answer.is_correct,
                 })),
+                tikz_code: editingQuestion.tikz_code,
+                tikz_image_url: editingQuestion.tikz_image_url,
+                solution_tikz_image_url: editingQuestion.solution_tikz_image_url,
+                solution_tikz_image_url_2: editingQuestion.solution_tikz_image_url_2,
               }
             : null
         }

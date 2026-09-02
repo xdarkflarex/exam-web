@@ -111,8 +111,11 @@ export async function GET(request: NextRequest) {
   if (questionIds.length > 0) {
     const { data: questionRows } = await admin
       .from('questions')
+      // Đủ để MỞ TRÌNH SỬA ngay tại đây, không phải nhảy sang trang khác:
+      // dạng câu (quyết định hình dạng trình sửa) và cả bốn trường hình.
       .select(
-        'id, content, explanation, solution, tikz_image_url, ' +
+        'id, content, question_type, explanation, solution, tikz_code, tikz_image_url, ' +
+          'solution_tikz_image_url, solution_tikz_image_url_2, ' +
           'answers(id, content, is_correct, order_index)'
       )
       .in('id', questionIds)

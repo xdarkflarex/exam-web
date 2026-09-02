@@ -8,6 +8,7 @@ import {
   Copy,
   ExternalLink,
   FolderTree,
+  PenLine,
   Loader2,
   Play,
   RefreshCw,
@@ -18,6 +19,9 @@ import {
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
 import MathContent, { MathProvider } from '@/components/MathContent'
+import QuestionEditModal, {
+  type EditableQuestion,
+} from '@/components/admin/QuestionEditModal'
 import { createClient } from '@/lib/supabase/client'
 
 /**
@@ -106,9 +110,13 @@ interface Finding {
   question: {
     id: string
     content: string
+    question_type: string
     explanation: string | null
     solution: string | null
+    tikz_code: string | null
     tikz_image_url: string | null
+    solution_tikz_image_url: string | null
+    solution_tikz_image_url_2: string | null
     answers: AnswerRow[] | null
   } | null
 }
@@ -228,6 +236,41 @@ export default function QuestionAuditPage() {
    * gì xảy ra, và không có cách nào biết vì sao.
    */
   const [findingError, setFindingError] = useState<Record<string, string>>({})
+
+  /**
+   * Câu đang mở trong trình sửa, ngay trên trang này.
+   *
+   * Dữ liệu lấy từ chính dòng finding đã tải — `/run` trả kèm đủ nội dung câu,
+   * phương án và hình. Không gọi thêm request nào, và không rời trang: mở tab
+   * mới thì mất chỗ đang đọc trong một danh sách vài trăm dòng.
+   */
+  const [editing, setEditing] = useState<EditableQuestion | null>(null)
+
+  const openEditor = useCallback((finding: Finding) => {
+    const source = finding.question
+    if (!source) return
+    setEditing({
+      id: source.id,
+      content: source.content ?? '',
+      // Dạng câu quyết định hình dạng trình sửa. Lấy từ bảng `questions`, và
+      // lùi về dạng ghi trên dòng finding nếu lượt quét cũ chưa trả trường đó.
+      question_type: source.question_type || finding.question_type,
+      explanation: source.explanation,
+      solution: source.solution,
+      answers: (source.answers ?? [])
+        .slice()
+        .sort((left, right) => left.order_index - right.order_index)
+        .map((answer) => ({
+          id: answer.id,
+          content: answer.content,
+          is_correct: answer.is_correct,
+        })),
+      tikz_code: source.tikz_code,
+      tikz_image_url: source.tikz_image_url,
+      solution_tikz_image_url: source.solution_tikz_image_url,
+      solution_tikz_image_url_2: source.solution_tikz_image_url_2,
+    })
+  }, [])
   /** Finding đang chờ bấm xác nhận lần hai (vì có bài đã nộp bị ảnh hưởng). */
   const [confirming, setConfirming] = useState<string | null>(null)
 
@@ -843,6 +886,7 @@ export default function QuestionAuditPage() {
                 confirming={confirming === finding.id}
                 failure={findingError[finding.id]}
                 onDecide={decide}
+                onEdit={openEditor}
               />
             ))}
 
@@ -886,6 +930,15 @@ export default function QuestionAuditPage() {
           </section>
         )}
       </div>
+
+      <QuestionEditModal
+        question={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          // Nạp lại đúng trang đang xem để dòng vừa sửa hiện nội dung mới.
+          if (runId) void loadFindings(runId, filter)
+        }}
+      />
     </MathProvider>
   )
 }
@@ -907,6 +960,7 @@ function FindingCard({
   confirming,
   failure,
   onDecide,
+  onEdit,
 }: {
   finding: Finding
   busy: boolean
@@ -914,6 +968,7 @@ function FindingCard({
   /** Lỗi của riêng dòng này, hiện ngay cạnh nút đã bấm. */
   failure?: string
   onDecide: (finding: Finding, action: 'ap_dung' | 'bo_qua') => void
+  onEdit: (finding: Finding) => void
 }) {
   const question = finding.question
   const answers = question?.answers ?? []
@@ -1159,22 +1214,25 @@ function FindingCard({
           mọi thứ khác — đề sai, câu tự luận, trường hợp RPC từ chối — phải sửa
           tay, và lúc đó thứ cần nhất là biết chính xác câu nào. */}
       <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3 text-xs dark:border-slate-700">
-        <a
-          href={`/admin/questions?question=${encodeURIComponent(finding.question_id)}&edit=1`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 font-medium text-teal-700 hover:underline dark:text-teal-300"
+        {/* Sửa NGAY TẠI ĐÂY. Mở tab mới thì mất chỗ đang đọc trong danh sách,
+            và người soạn phải tự nhớ mình đang xem dòng nào khi quay lại. */}
+        <button
+          onClick={() => onEdit(finding)}
+          disabled={!question}
+          className="inline-flex items-center gap-1.5 font-medium text-teal-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40 dark:text-teal-300"
+          title={question ? undefined : 'Không tải được nội dung câu này'}
         >
-          <ExternalLink className="h-3.5 w-3.5" />
+          <PenLine className="h-3.5 w-3.5" />
           Sửa câu này
-        </a>
+        </button>
         <a
           href={`/admin/questions?question=${encodeURIComponent(finding.question_id)}`}
           target="_blank"
           rel="noreferrer"
-          className="text-slate-500 hover:underline dark:text-slate-400"
+          className="inline-flex items-center gap-1.5 text-slate-500 hover:underline dark:text-slate-400"
         >
-          Xem chi tiết
+          <ExternalLink className="h-3.5 w-3.5" />
+          Mở trang câu hỏi
         </a>
         <button
           onClick={() => void navigator.clipboard?.writeText(finding.question_id)}

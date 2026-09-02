@@ -39,6 +39,13 @@ export interface EditableQuestion {
   explanation: string | null
   solution: string | null
   answers: EditableAnswer[]
+  /**
+   * Hình. CHỈ ĐỂ XEM — xem ghi chú ở `FigureBlock` về lý do không cho sửa.
+   */
+  tikz_code?: string | null
+  tikz_image_url?: string | null
+  solution_tikz_image_url?: string | null
+  solution_tikz_image_url_2?: string | null
 }
 
 interface RuleIssue {
@@ -228,6 +235,12 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
                 />
               </Field>
 
+              <FigureBlock
+                label="Hình của đề"
+                images={[question.tikz_image_url]}
+                tikzCode={question.tikz_code}
+              />
+
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -323,6 +336,14 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
                 />
               </Field>
 
+              <FigureBlock
+                label="Hình của lời giải"
+                images={[
+                  question.solution_tikz_image_url,
+                  question.solution_tikz_image_url_2,
+                ]}
+              />
+
               {error && (
                 <div className="space-y-2 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/30 dark:text-red-200">
                   <p>{error}</p>
@@ -374,6 +395,72 @@ export default function QuestionEditModal({ question, onClose, onSaved }: Props)
 
 const inputClass =
   'w-full rounded-xl border border-slate-300 bg-[var(--background-raised)] px-3 py-2.5 font-mono text-sm text-slate-800 dark:border-slate-600 dark:text-slate-100'
+
+/**
+ * Hình của câu hỏi, CHỈ ĐỂ XEM.
+ *
+ * VÌ SAO KHÔNG CHO SỬA. Ảnh hiển thị (`*_tikz_image_url`) là SVG dựng sẵn từ
+ * `tikz_code` bằng `scripts/render-tikz-svg.mjs`. Cho sửa `tikz_code` ngay đây
+ * mà không dựng lại ảnh sẽ khiến mã và hình nói hai chuyện khác nhau — mà cái
+ * học sinh nhìn thấy là HÌNH, nên sai lệch đó không lộ ra ở đâu cả. Sửa hình
+ * thì sửa ở question-bank rồi dựng lại.
+ *
+ * Vẫn hiện mã TikZ để đối chiếu và để chép sang question-bank: khi lời giải
+ * nhắc tới một điểm hay một cạnh trên hình, không nhìn được hình thì không sửa
+ * nổi lời giải.
+ */
+function FigureBlock({
+  label,
+  images,
+  tikzCode,
+}: {
+  label: string
+  images: Array<string | null | undefined>
+  tikzCode?: string | null
+}) {
+  const shown = images.filter((url): url is string => Boolean(url && url.trim()))
+  const code = (tikzCode ?? '').trim()
+  if (shown.length === 0 && !code) return null
+
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        {label} <span className="font-normal text-slate-400">· chỉ xem</span>
+      </p>
+
+      {shown.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {shown.map((url) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={url}
+              src={url}
+              alt={label}
+              className="max-h-64 max-w-full rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-600"
+            />
+          ))}
+        </div>
+      )}
+
+      {shown.length === 0 && code && (
+        <p className="rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          Có mã TikZ nhưng chưa có ảnh dựng sẵn — học sinh sẽ không thấy hình này.
+        </p>
+      )}
+
+      {code && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs text-slate-500 dark:text-slate-400">
+            Xem mã TikZ (sửa hình thì sửa ở question-bank rồi dựng lại ảnh)
+          </summary>
+          <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-slate-100 p-3 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            {code}
+          </pre>
+        </details>
+      )}
+    </div>
+  )
+}
 
 /** Ô nhập kèm bản render — lỗi LaTeX chỉ nhìn ra trên bản đã dựng. */
 function Field({
