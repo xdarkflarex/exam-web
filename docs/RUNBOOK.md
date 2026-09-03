@@ -832,6 +832,12 @@ Bản sửa source chặn đường ghi lại; file SQL này dọn phần đã g
 4. Mở một đề ôn tập ở trang xuất bản. Phải thấy "Hạn làm bài" với hai ô **ngày**,
    không còn ô "Thời gian làm bài (phút)".
 
+Hoặc chạy cả hậu kiểm của `20260905` lẫn `20260906` bằng một lệnh:
+
+```powershell
+npm.cmd run exams:check-practice
+```
+
 Không có đường lùi, và không giả vờ là có: giá trị cũ là rác do lỗi sinh ra chứ
 không phải lựa chọn của giáo viên. Muốn giữ dấu vết thì lưu kết quả tiền kiểm.
 
@@ -861,6 +867,10 @@ lại vô điều kiện.
    làm lại vô hạn là hỏng cả việc chấm.
 4. Mở một đề ôn tập ở trang xuất bản — ô "Số lần làm tối đa" phải hiện chữ
    "Không giới hạn" chứ không phải ô nhập số.
+
+`npm run exams:check-practice` chạy cả bốn phép kiểm của hai file, kể cả hai
+chốt ngược. Script chỉ đọc bảng `exams`; nó cũng báo khi database KHÔNG có đề ôn
+tập nào, vì "0 đề sai trên 0 đề" đạt một cách rỗng và không chứng minh được gì.
 
 Nới lỏng, không siết: học sinh đã dùng hết lượt sẽ vào làm lại được. Không lượt
 làm nào bị xoá, không điểm nào đổi.
