@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, LayoutDashboard } from 'lucide-react'
+import { ArrowRight, LayoutDashboard, LogIn, Sparkles } from 'lucide-react'
 import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
 
 /**
@@ -9,20 +9,21 @@ import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
  * và logic dưới đây phải giống hệt nhau ở cả hai. Trước đây nó bị chép hai lần
  * nên hai bên lệch nhau lúc nào không biết.
  *
- * Hai vấn đề được sửa ở đây:
+ * Hero biết người dùng đã đăng nhập hay chưa: `page.tsx` truyền `isAuthenticated`
+ * xuống, nên học sinh đang có session không bị mời làm lại đúng việc vừa xong.
  *
- * 1. **Hero không biết người dùng đã đăng nhập.** `page.tsx` đã tính
- *    `isAuthenticated` và dùng cho link card đề, nhưng hero vẫn hardcode
- *    `/login` và `/signup`. Học sinh đang có session vào trang chủ bị mời làm
- *    đúng việc họ vừa làm xong.
+ * VỀ ĐỘ NỔI CỦA BA NÚT (đổi 2026-09-03 theo yêu cầu chủ dự án). Bản trước hạ
+ * "Đăng nhập" và "Bắt đầu ngay" xuống link chữ mờ để dồn toàn bộ chú ý cho nút
+ * đăng ký học. Trên máy thật thì nó mờ tới mức học sinh cũ không tìm thấy chỗ
+ * đăng nhập — mà học sinh cũ mới là người vào trang này nhiều nhất. Giờ cả ba
+ * là nút thật, cùng một hàng, cùng cỡ chạm; thứ bậc giữ bằng MÀU chứ không bằng
+ * độ mờ:
  *
- * 2. **Ba nút ngang sức.** "Đăng nhập" / "Bắt đầu ngay" / "Đăng ký học" cùng cỡ,
- *    cùng độ nổi, nên người vào lần đầu không biết bấm gì. Giờ mỗi trạng thái
- *    chỉ có MỘT nút đặc; phần còn lại hạ xuống link chữ.
+ *   1. Đăng ký học  — amber đặc, hành động mang lại học sinh mới cho lớp;
+ *   2. Đăng nhập    — teal đặc, đường về của học sinh đang học;
+ *   3. Bắt đầu ngay — viền, tạo tài khoản miễn phí.
  *
- * Thứ tự ưu tiên khi CHƯA đăng nhập bám theo mục tiêu thật của lớp học thêm:
- * đăng ký học (form tuyển sinh) là hành động đáng tiền nhất, tạo tài khoản
- * miễn phí chỉ là bước phụ, đăng nhập là đường dành cho người đã quen.
+ * Ba nút cùng nổi thì không còn nút nào nổi, nên đừng tô đặc nốt nút thứ ba.
  */
 interface HeroActionsProps {
   isAuthenticated: boolean
@@ -33,6 +34,11 @@ interface HeroActionsProps {
   variant: 'slide' | 'plain'
 }
 
+/** Cỡ và hình dáng dùng chung cho cả ba nút, để hàng nút không so le. */
+const BUTTON_BASE =
+  'group inline-flex w-full items-center justify-center gap-2 rounded-xl px-7 py-4 text-lg font-semibold ' +
+  'transition-all duration-200 hover:scale-105 active:scale-95 font-baloo sm:w-auto'
+
 export default function HeroActions({
   isAuthenticated,
   ctaPrimary,
@@ -41,17 +47,12 @@ export default function HeroActions({
 }: HeroActionsProps) {
   const onImage = variant === 'slide'
 
-  // Link phụ trên ảnh nền phải luôn trắng; trên nền thường thì bám token.
-  const quietLink = onImage
-    ? 'text-white/90 hover:text-white'
-    : 'text-slate-600 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-300'
-
   if (isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
         <Link
           href="/student"
-          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-teal-600/20 transition-all duration-200 hover:scale-105 hover:bg-teal-700 active:scale-95 dark:bg-teal-500 dark:hover:bg-teal-400 sm:w-auto font-baloo"
+          className={`${BUTTON_BASE} bg-teal-600 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400`}
         >
           <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
           Vào học tiếp
@@ -59,7 +60,11 @@ export default function HeroActions({
         </Link>
         <Link
           href="#exams"
-          className={`text-base font-semibold underline-offset-4 transition-colors hover:underline ${quietLink}`}
+          className={`text-base font-semibold underline-offset-4 transition-colors hover:underline ${
+            onImage
+              ? 'text-white/90 hover:text-white'
+              : 'text-slate-600 hover:text-teal-700 dark:text-slate-300 dark:hover:text-teal-300'
+          }`}
         >
           Xem đề thi có sẵn
         </Link>
@@ -67,29 +72,28 @@ export default function HeroActions({
     )
   }
 
+  /* Nút thứ ba dùng viền. Trên ảnh nền thì viền trắng + nền kính mờ mới đọc
+     được; trên nền thường thì viền teal trên nền trang. */
+  const outlined = onImage
+    ? 'border-2 border-white/80 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20'
+    : 'border-2 border-teal-600 bg-white/80 text-teal-700 hover:bg-teal-50 dark:border-teal-400 dark:bg-slate-900/60 dark:text-teal-300 dark:hover:bg-slate-800'
+
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      {/* MỘT nút đặc duy nhất: đăng ký học. Đây là hành động mang lại học sinh
-          thật cho lớp, nên nó được toàn bộ ngân sách thị giác của hero. */}
+    <div className="flex flex-col flex-wrap items-center justify-center gap-3 sm:flex-row sm:gap-4">
       <ScrollToEnrollButton variant={onImage ? 'hero-slide' : 'hero-plain'} />
 
-      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-base">
-        <Link
-          href="/login"
-          className={`font-semibold underline-offset-4 transition-colors hover:underline ${quietLink}`}
-        >
-          {ctaPrimary}
-        </Link>
-        <span className={onImage ? 'text-white/40' : 'text-slate-400 dark:text-slate-600'} aria-hidden="true">
-          •
-        </span>
-        <Link
-          href="/signup"
-          className={`font-semibold underline-offset-4 transition-colors hover:underline ${quietLink}`}
-        >
-          {ctaSecondary}
-        </Link>
-      </div>
+      <Link
+        href="/login"
+        className={`${BUTTON_BASE} bg-teal-600 text-white shadow-lg shadow-teal-600/25 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400`}
+      >
+        <LogIn className="h-5 w-5" aria-hidden="true" />
+        {ctaPrimary}
+      </Link>
+
+      <Link href="/signup" className={`${BUTTON_BASE} ${outlined}`}>
+        <Sparkles className="h-5 w-5" aria-hidden="true" />
+        {ctaSecondary}
+      </Link>
     </div>
   )
 }
