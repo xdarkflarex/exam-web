@@ -128,7 +128,10 @@ export default function ExamPublishPage() {
          chỗ đọc/ghi hai biến này đều phải hỏi lại `practice`, đừng đoán. */
       setStartTime(practice ? toLocalDateInput(data.start_time) : toLocalDateTimeInput(data.start_time))
       setEndTime(practice ? toLocalDateInput(data.end_time) : toLocalDateTimeInput(data.end_time))
-      setMaxAttempts(data.max_attempts || 1)
+      /* `?? 1` chứ KHÔNG `|| 1` — cùng cái bẫy như `duration`: `max_attempts = 0`
+         nghĩa là KHÔNG GIỚI HẠN, một giá trị hợp lệ và có nghĩa, nhưng falsy nên
+         `||` nuốt mất và biến đề ôn tập thành đề chỉ làm được một lần. */
+      setMaxAttempts(practice ? 0 : (data.max_attempts ?? 1))
       setShowResultsImmediately(data.show_results_immediately ?? true)
       setAllowReview(data.allow_review ?? true)
       setIsPublished(data.is_published ?? false)
@@ -162,7 +165,11 @@ export default function ExamPublishPage() {
         duration: practice ? 0 : duration,
         start_time: practice ? fromDateInput(startTime, 'start') : fromDateTimeInput(startTime),
         end_time: practice ? fromDateInput(endTime, 'end') : fromDateTimeInput(endTime),
-        max_attempts: maxAttempts,
+        /* Đề ôn tập luôn 0 = không giới hạn lượt. Ôn tập theo chương mà chỉ làm
+           được một lần thì trái với chính mục đích của nó: học sinh luyện tới
+           khi chắc, không phải thi lấy điểm. Ghi hằng số chứ không đọc state,
+           cùng lý do như `duration`. */
+        max_attempts: practice ? 0 : maxAttempts,
         show_results_immediately: showResultsImmediately,
         allow_review: allowReview,
         is_published: isPublished
@@ -461,14 +468,28 @@ export default function ExamPublishPage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                   Số lần làm tối đa
                 </label>
-                <input
-                  type="number"
-                  value={maxAttempts}
-                  onChange={(e) => setMaxAttempts(parseInt(e.target.value) || 1)}
-                  min={1}
-                  max={10}
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
+                {practiceExam ? (
+                  /* Không phải ô nhập bị vô hiệu hoá, mà là KHÔNG có ô nhập.
+                     Ô xám vẫn mời người dùng thử sửa rồi tự hỏi vì sao không
+                     được; một câu khẳng định thì không. */
+                  <p className="px-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                    Không giới hạn
+                  </p>
+                ) : (
+                  <input
+                    type="number"
+                    value={maxAttempts}
+                    onChange={(e) => setMaxAttempts(parseInt(e.target.value) || 1)}
+                    min={1}
+                    max={10}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                )}
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {practiceExam
+                    ? 'Học sinh luyện lại bao nhiêu lần tuỳ ý.'
+                    : 'Hết số lượt này là học sinh không vào làm được nữa.'}
+                </p>
               </div>
               <div className="flex flex-col justify-center">
                 <label className="flex items-center gap-3 cursor-pointer">

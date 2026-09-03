@@ -273,8 +273,16 @@ làm chứ ra giờ như đề thi thì sao được."
 **Chưa nhìn bằng mắt.** Trang xuất bản cần tài khoản admin; phần đã kiểm là logic
 ngày/giờ (8 test), typecheck, và lint không thêm lỗi mới (22 vấn đề trước và sau).
 
-### Còn bỏ ngỏ, cùng chủ đề
+### Số lượt làm — đã xong cùng đợt
 
-`max_attempts` vẫn mặc định 1 cho cả đề ôn tập. Ôn tập theo chương mà chỉ làm
-được một lần thì trái với chính mục đích của nó — nhưng chủ dự án chưa nói tới,
-nên chưa đụng.
+Chủ dự án chốt 2026-09-03: đề ôn tập không giới hạn số lần làm.
+
+- Trang xuất bản: đề ôn tập hiện chữ "Không giới hạn" thay cho ô nhập số, và
+  luôn ghi `max_attempts = 0`.
+- Trang tạo đề: ghi tường minh `max_attempts: mode === 'practice' ? 0 : 1` thay
+  vì dựa vào `DEFAULT 1` của cột.
+- `supabase/migrations/20260906_practice_exams_unlimited_attempts.sql` —
+  **chưa nạp**, quy trình ở `RUNBOOK.md` mục 8quaterdecies.
+
+Không phải sửa SQL runtime: quy ước `0 = không giới hạn` đã có từ `20260722` và
+`20260803`, giao diện học sinh cũng đã đúng. Chỉ dữ liệu mang sai giá trị.

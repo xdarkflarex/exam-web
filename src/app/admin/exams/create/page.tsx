@@ -436,6 +436,13 @@ export default function CreateExamPage() {
       title: title.trim(),
       subject: 'Toán',
       duration: mode === 'practice' ? 0 : duration,
+      // 0 = không giới hạn lượt, đúng quy ước mà `start_exam_attempt` và
+      // `20260803` đã dùng. Đề ôn tập phải làm lại được bao nhiêu lần tuỳ ý.
+      //
+      // Ghi tường minh chứ không để cột tự lấy DEFAULT 1: mặc định của cột nói
+      // về đề THI, và dựa vào nó nghĩa là ý định của trang này chỉ tồn tại ở
+      // chỗ nó KHÔNG được viết ra — đọc code không thấy, đổi default là hỏng.
+      max_attempts: mode === 'practice' ? 0 : 1,
       total_score: totalScore,
       passing_score: 5,
       is_published: false,

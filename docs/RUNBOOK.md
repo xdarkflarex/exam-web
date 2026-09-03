@@ -838,6 +838,33 @@ không phải lựa chọn của giáo viên. Muốn giữ dấu vết thì lưu
 Với bài **đang làm dở**: đây là nới lỏng, không phải siết. Học sinh mất đồng hồ
 đếm ngược và không còn bị tự động nộp. Không bài nào bị chấm lại.
 
+## 8quaterdecies. Nạp `20260906_practice_exams_unlimited_attempts.sql` — đề ôn tập làm lại tuỳ ý
+
+**CHƯA NẠP.** Nạp cùng đợt với `20260905` — cùng một loại lỗi, cùng một trang gây ra.
+
+Đề ôn tập theo chương chỉ làm được một lần. Ôn tập là để học sinh luyện tới khi
+chắc, nên giới hạn lượt ở đây trái với chính mục đích của nó.
+
+Quy ước `max_attempts = 0` = không giới hạn **đã có sẵn** từ `20260722`
+(`start_exam_attempt` chỉ chặn khi `COALESCE(max_attempts, 1) > 0`) và `20260803`
+(`attempts_remaining = NULL`), và giao diện học sinh cũng đã đúng — trang chuẩn
+bị thi tự bỏ phần "/N lượt". Không phải sửa một dòng SQL runtime nào; chỉ cần dữ
+liệu mang đúng giá trị.
+
+Chỗ hỏng vẫn là trang cấu hình, y hệt lỗi `duration`: `data.max_attempts || 1`
+nuốt mất số 0, ô nhập đặt `min={1}` nên không gõ 0 vào được, và `handleSave` ghi
+lại vô điều kiện.
+
+1. Chạy phần **TIỀN KIỂM** ở đầu file.
+2. Chạy [`../supabase/migrations/20260906_practice_exams_unlimited_attempts.sql`](../supabase/migrations/20260906_practice_exams_unlimited_attempts.sql).
+3. Chạy hậu kiểm. `must_be_zero_de_thi_mat_gioi_han` bắt ca ngược: đề **thi** mà
+   làm lại vô hạn là hỏng cả việc chấm.
+4. Mở một đề ôn tập ở trang xuất bản — ô "Số lần làm tối đa" phải hiện chữ
+   "Không giới hạn" chứ không phải ô nhập số.
+
+Nới lỏng, không siết: học sinh đã dùng hết lượt sẽ vào làm lại được. Không lượt
+làm nào bị xoá, không điểm nào đổi.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:
