@@ -774,6 +774,37 @@ nên làm vậy.
 
 Không cần rollback: bản trước không áp dụng được gì.
 
+## 8duodecies. Nạp `20260904_homework_session_difficulty.sql` — mỗi đoạn bài tập là một đường dốc
+
+**CHƯA NẠP. Ưu tiên thấp** — không có nó thì mọi thứ vẫn chạy, bài tập chỉ giữ
+đúng thứ tự `order_index` giáo viên đặt như trước.
+
+Migration trả thêm `cognitive_level` và `difficulty` vào payload của
+`get_homework_attempt_questions`. Luật xếp nằm ở client
+([`../src/lib/homework/session-order.ts`](../src/lib/homework/session-order.ts),
+hàm thuần, 10 test): rải đều từng mức ra khắp các đoạn TRƯỚC, rồi mới sắp tăng
+dần TRONG từng đoạn. Làm ngược lại — sắp cả bài rồi cắt — cho ra đoạn cuối gồm
+mười câu vận dụng cao liên tiếp, đúng thứ cần tránh.
+
+Thân hàm chép nguyên từ `20260827`; hai trường mới **cố ý** nằm ngoài mọi mệnh
+đề `v_reveal`/`show_feedback_immediately`. Độ khó đã hiện công khai thành nhãn
+NB/TH/VD/VDC ở giao diện học sinh và biết mức của một câu không cho biết đáp án
+của nó. Đặt cổng vào đây thì học sinh **đang làm bài dở** nhận `NULL`, mọi câu
+tụt về `NB`, và bài mất đường dốc đúng lúc cần nó nhất.
+
+1. Chạy [`../supabase/migrations/20260904_homework_session_difficulty.sql`](../supabase/migrations/20260904_homework_session_difficulty.sql).
+2. Chạy hậu kiểm ở cuối file. Cột `must_be_zero_thieu_truong_moi` bắt được đúng
+   ca "chạy nhầm file cũ đè lên".
+3. Mở một bài tập bằng tài khoản học sinh, xem đoạn đầu có đủ cả NB lẫn VD
+   không. **Đừng kiểm bằng Supabase SQL Editor** — editor chạy bằng vai trò chủ
+   sở hữu nên `auth.uid()` là NULL và hàm ném `UNAUTHENTICATED`.
+
+Hoàn tác: chạy lại khối `get_homework_attempt_questions` của `20260827`. Không
+có thay đổi schema nào để lùi.
+
+**Bài đang làm dở xếp lại MỘT LẦN.** `homework_answers` khoá theo `question_id`
+nên không mất câu trả lời; học sinh chỉ thấy một câu đã làm nằm ở đoạn khác.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

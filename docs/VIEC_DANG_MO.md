@@ -215,3 +215,37 @@ bộ). Đo được lúc làm: **297/1436 câu chưa phân loại**.
 > attempt đã nộp phải cảnh báo riêng. Trước khi viết phần phân loại, đọc mục 8 và
 > phần đầu `src/lib/questions/classify.ts` — repo đã cố ý chọn luật thay vì AI ở
 > chỗ đó.
+
+## 12. XONG CODE, CHỜ NẠP MIGRATION — bài tập về nhà đi từ dễ tới khó
+
+Yêu cầu chủ dự án 2026-09-03: "1 session 10 câu hỏi thì làm 10 câu độ khó tăng
+dần theo level NB, TH, VD, VDC".
+
+Đã làm:
+
+- [`src/lib/homework/session-order.ts`](../src/lib/homework/session-order.ts) —
+  hàm thuần `arrangeHomeworkSessions`, 10 test ở file `.test.ts` cạnh nó.
+- [`src/app/homework/[attemptId]/page.tsx`](../src/app/homework/[attemptId]/page.tsx)
+  gọi hàm đó thay cho phép `sort` theo `order_index` trước đây.
+- `supabase/migrations/20260904_homework_session_difficulty.sql` — **chưa nạp**,
+  quy trình ở `RUNBOOK.md` mục 8duodecies.
+
+Chưa nạp migration thì trang vẫn chạy: `cognitive_level` và `difficulty` về
+`undefined`, `resolveCognitiveLevel` trả `NB` cho mọi câu, và thứ tự rơi về đúng
+`order_index` giáo viên đặt — tức là y như trước khi có thay đổi này.
+
+**Chưa nhìn bằng mắt trên bài thật.** Kiểm bằng dev server cần tài khoản học
+sinh có bài tập đang giao; phần đã kiểm là logic thuần (10 test) và typecheck.
+
+### Việc tiếp theo — hiệu chỉnh theo năng lực học sinh
+
+Chủ dự án muốn "sau này có data học sinh thì hiệu chỉnh độ khó của session theo
+level học sinh". Chỗ làm việc đó **không phải** `session-order.ts`: làm bài dễ
+hơn cho học sinh yếu là THÊM/BỎ câu chứ không phải đổi thứ tự, nên nó thuộc bước
+chọn câu lúc giao bài (`homework_questions`), ở
+[`src/app/admin/homework/create/page.tsx`](../src/app/admin/homework/create/page.tsx).
+Nguồn dữ liệu năng lực: `src/lib/analytics/student-capability.ts`.
+
+Ràng buộc phải giữ khi làm: bài đã giao rồi thì tập câu **không được đổi**.
+Hiệu chỉnh chỉ áp cho lần giao mới, nếu không thì hai học sinh cùng lớp làm hai
+đề khác nhau mà điểm vẫn nằm chung một bảng.

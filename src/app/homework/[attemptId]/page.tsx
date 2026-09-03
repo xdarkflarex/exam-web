@@ -7,6 +7,8 @@ import { Loader2 } from 'lucide-react'
 import HomeworkRunner, {
   HomeworkQuestion, SavedHomeworkAnswer
 } from '@/components/HomeworkRunner'
+import { arrangeHomeworkSessions } from '@/lib/homework/session-order'
+import { resolveCognitiveLevel } from '@/lib/theories/cognitive'
 
 interface HomeworkQuestionRpcRow {
   id: string
@@ -15,6 +17,10 @@ interface HomeworkQuestionRpcRow {
   order_index: number
   /** 'practice' | 'test'. Thiếu ở bài tạo trước `20260827`; đọc thiếu = 'practice'. */
   phase?: string | null
+  /** 'NB' | 'TH' | 'VD' | 'VDC'. Thiếu ở payload trước `20260904`. */
+  cognitive_level?: string | null
+  /** 1..4, đường lui khi `cognitive_level` trống. Thiếu ở payload trước `20260904`. */
+  difficulty?: number | null
   tikz_image_url: string | null
   explanation: string | null
   solution: string | null
@@ -88,27 +94,34 @@ export default function HomeworkAttemptPage() {
         return
       }
 
-      const questions: HomeworkQuestion[] = payload.questions
-        .map((question) => ({
+      const sessionSize = payload.homework.session_size || 10
+
+      /* Xếp lại thứ tự để MỖI ĐOẠN đi từ dễ tới khó (`arrangeHomeworkSessions`).
+         Hàm đó cũng đẩy đoạn kiểm tra xuống cuối, nên nó thay luôn phép sort
+         trước đây ở chỗ này — đừng thêm lại một phép sort thứ hai sau nó, vì
+         sort theo `order_index` sẽ xoá sạch đường dốc vừa dựng.
+
+         RPC đã trả về đúng thứ tự practice-trước/test-sau; xếp lại ở client để
+         thứ tự không phụ thuộc vào việc JSON có giữ nguyên thứ tự phần tử hay
+         không. */
+      const questions: HomeworkQuestion[] = arrangeHomeworkSessions(
+        payload.questions.map((question) => ({
           id: question.id,
           content: question.content,
           question_type: question.question_type,
           order_index: question.order_index,
-          phase: (question.phase === 'test' ? 'test' : 'practice') as HomeworkQuestion['phase'],
+          phase: (question.phase === 'test' ? 'test' : 'practice') as 'practice' | 'test',
+          /* Payload trước `20260904` không có hai trường này. `resolveCognitiveLevel`
+             trả 'NB' khi thiếu cả hai, nên bài cũ vẫn mở được — chỉ là cả bài
+             cùng một mức và thứ tự rơi về đúng `order_index` giáo viên đặt. */
+          level: resolveCognitiveLevel(question.cognitive_level, question.difficulty),
           explanation: question.explanation,
           solution: question.solution,
           tikz_image_url: question.tikz_image_url,
           answers: Array.isArray(question.answers) ? question.answers : []
-        }))
-        /* Đoạn kiểm tra luôn xuống cuối, bất kể `order_index` giáo viên đặt.
-           RPC đã sắp đúng thứ tự này; sắp lại ở đây để việc đó không phụ thuộc
-           vào thứ tự phần tử trong JSON có được giữ nguyên hay không. */
-        .sort((left, right) => {
-          const leftIsTest = left.phase === 'test' ? 1 : 0
-          const rightIsTest = right.phase === 'test' ? 1 : 0
-          if (leftIsTest !== rightIsTest) return leftIsTest - rightIsTest
-          return left.order_index - right.order_index
-        })
+        })),
+        { sessionSize }
+      )
 
       const initialAnswers: Record<string, SavedHomeworkAnswer> = {}
       for (const question of payload.questions) {
@@ -125,7 +138,7 @@ export default function HomeworkAttemptPage() {
 
       setData({
         examTitle: payload.homework.title || 'Bài tập về nhà',
-        sessionSize: payload.homework.session_size || 10,
+        sessionSize,
         sessionIndex: payload.attempt.current_session_index || 0,
         questions,
         initialAnswers
