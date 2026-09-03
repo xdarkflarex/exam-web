@@ -805,6 +805,39 @@ có thay đổi schema nào để lùi.
 **Bài đang làm dở xếp lại MỘT LẦN.** `homework_answers` khoá theo `question_id`
 nên không mất câu trả lời; học sinh chỉ thấy một câu đã làm nằm ở đoạn khác.
 
+## 8tredecies. Nạp `20260905_practice_exams_no_timer.sql` — gỡ đồng hồ khỏi đề ôn tập
+
+**CHƯA NẠP.** Nạp nếu đã từng xuất bản đề ôn tập trước 2026-09-03.
+
+Triệu chứng: đề ôn tập theo chương hiện thời gian làm bài tính bằng phút và đếm
+ngược như đề thi.
+
+Nguyên nhân ở `/admin/exams/[examId]/publish`, ba lỗi cùng một chỗ: ô "Thời gian
+làm bài" hiện cho **mọi** đề; prefill `data.duration || 90` (số 0 là falsy nên đề
+ôn tập lưu đúng 0 vẫn hiện thành 90); `handleSave` ghi `duration: duration` vô
+điều kiện. Mà muốn xuất bản thì **bắt buộc** qua trang đó — nên mọi đề ôn tập
+từng xuất bản đều đã bị đóng dấu 90 phút, im lặng.
+
+Phần còn lại của hệ thống vốn đúng: `duration = 0` là không giới hạn, trigger
+chốt hạn nộp của `20260722` chỉ chạy với `simulation`, và trang tạo đề ghi đúng
+0. Chỉ một màn hình làm hỏng cả chuỗi.
+
+Bản sửa source chặn đường ghi lại; file SQL này dọn phần đã ghi rồi.
+
+1. Chạy phần **TIỀN KIỂM** ở đầu file để xem sẽ đụng vào đề nào.
+2. Chạy [`../supabase/migrations/20260905_practice_exams_no_timer.sql`](../supabase/migrations/20260905_practice_exams_no_timer.sql).
+3. Chạy hậu kiểm. Cột `must_be_zero_de_thi_mat_gio` là chốt theo hướng ngược:
+   đề **thi** đã xuất bản mà `duration = 0` là mất luôn phép chặn nộp muộn phía
+   server — dừng lại xem, đừng bỏ qua.
+4. Mở một đề ôn tập ở trang xuất bản. Phải thấy "Hạn làm bài" với hai ô **ngày**,
+   không còn ô "Thời gian làm bài (phút)".
+
+Không có đường lùi, và không giả vờ là có: giá trị cũ là rác do lỗi sinh ra chứ
+không phải lựa chọn của giáo viên. Muốn giữ dấu vết thì lưu kết quả tiền kiểm.
+
+Với bài **đang làm dở**: đây là nới lỏng, không phải siết. Học sinh mất đồng hồ
+đếm ngược và không còn bị tự động nộp. Không bài nào bị chấm lại.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

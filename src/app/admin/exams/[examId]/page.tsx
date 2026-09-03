@@ -492,7 +492,12 @@ export default function AdminExamDetailPage() {
     <div className="min-h-screen">
       <AdminHeader 
         title={examInfo.title} 
-        subtitle={`${examInfo.subject} • ${examInfo.grade ? `Lớp ${examInfo.grade}` : 'Chưa set lớp'} • ${examInfo.exam_mode === 'practice' ? 'Ôn tập' : 'Thi thử'} • ${formatDuration(examInfo.duration)} • ${questions.length} câu hỏi`} 
+        subtitle={`${examInfo.subject} • ${examInfo.grade ? `Lớp ${examInfo.grade}` : 'Chưa set lớp'} • ${examInfo.exam_mode === 'practice' ? 'Ôn tập' : 'Thi thử'} • ${
+          /* Đề ôn tập không đếm ngược, nên `duration` của nó là 0 và
+             `formatDuration(0)` cho ra "0 phút" — đọc như một đề hỏng. Nói
+             thẳng ra là không giới hạn. */
+          examInfo.exam_mode === 'practice' ? 'Không giới hạn giờ' : formatDuration(examInfo.duration)
+        } • ${questions.length} câu hỏi`} 
       />
       
       <div className="p-4 sm:p-6 lg:p-8">

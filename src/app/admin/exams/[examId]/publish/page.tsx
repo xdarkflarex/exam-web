@@ -5,6 +5,13 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Save, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react'
 import GlobalHeader from '@/components/GlobalHeader'
+import {
+  isPracticeExam,
+  toLocalDateInput,
+  toLocalDateTimeInput,
+  fromDateInput,
+  fromDateTimeInput,
+} from '@/lib/exam/exam-schedule'
 
 interface ExamConfig {
   id: string
@@ -19,6 +26,35 @@ interface ExamConfig {
   is_published: boolean
   exam_mode: 'practice' | 'simulation'
 }
+
+/**
+ * HAI LOẠI ĐỀ, HAI CÁCH ĐẶT THỜI GIAN — và đây là chỗ trước nay trộn chúng làm một.
+ *
+ * `simulation` (thi thử, thi học kì) cần ĐỒNG HỒ ĐẾM NGƯỢC: `duration` phút kể
+ * từ lúc học sinh bấm bắt đầu. `practice` (ôn tập theo chương) thì không — bài
+ * ôn tập chỉ cần một KHUNG NGÀY để thúc học sinh làm xong, còn làm bao lâu là
+ * việc của học sinh.
+ *
+ * Runtime đã hiểu đúng chuyện này từ đầu: `duration = 0` nghĩa là không giới hạn
+ * (`src/app/exam/prepare/[examId]/page.tsx`), và trigger chốt hạn nộp phía server
+ * (`20260722`) chỉ chạy khi `exam_mode = 'simulation'`. Trang tạo đề cũng ghi
+ * đúng `duration: mode === 'practice' ? 0 : duration`.
+ *
+ * CHÍNH TRANG NÀY LÀM HỎNG. Ba lỗi cùng một chỗ:
+ *   1. `setDuration(data.duration || 90)` — `0` là giá trị falsy, nên đề ôn tập
+ *      lưu đúng 0 vẫn hiện thành 90 trên form;
+ *   2. ô "Thời gian làm bài" hiện cho cả đề ôn tập;
+ *   3. `handleSave` ghi `duration: duration` vô điều kiện.
+ * Hệ quả: giáo viên tạo đề ôn tập (0 phút, đúng), rồi mở trang này để xuất bản —
+ * bắt buộc phải mở — và cú lưu đó biến nó thành đề 90 phút có đếm ngược. Không
+ * có thông báo nào, vì về mặt kỹ thuật không có gì sai.
+ *
+ * Đề ôn tập đã lỡ dính 90 phút trước bản sửa này thì dọn bằng
+ * `supabase/migrations/20260905_practice_exams_no_timer.sql`.
+ *
+ * Phần quy đổi ngày/giờ nằm ở `src/lib/exam/exam-schedule.ts` — hàm thuần, có
+ * test, vì lệch múi giờ là loại lỗi vẫn hiện ra một con số trông hợp lý.
+ */
 
 export default function ExamPublishPage() {
   const router = useRouter()
@@ -77,13 +113,21 @@ export default function ExamPublishPage() {
       }
 
       setExam(data)
-      
+
       // Pre-fill form fields
+      const practice = isPracticeExam(data.exam_mode)
       setTitle(data.title || '')
       setDescription(data.description || '')
-      setDuration(data.duration || 90)
-      setStartTime(data.start_time ? new Date(data.start_time).toISOString().slice(0, 16) : '')
-      setEndTime(data.end_time ? new Date(data.end_time).toISOString().slice(0, 16) : '')
+      /* `?? 90` chứ KHÔNG `|| 90`: `duration = 0` là "không giới hạn", một giá
+         trị hợp lệ và có nghĩa, nhưng nó falsy nên `||` nuốt mất. Đề ôn tập ép
+         về 0 luôn — ô nhập không hiện thì không có gì để giữ. */
+      setDuration(practice ? 0 : (data.duration ?? 90))
+      /* Hai ô này đổi KIỂU theo loại đề: đề ôn tập dùng `type="date"`, đề thi
+         dùng `type="datetime-local"`. `exam_mode` không sửa được ở trang này nên
+         kiểu đã chọn lúc tải là cố định trong suốt vòng đời trang — nhưng mọi
+         chỗ đọc/ghi hai biến này đều phải hỏi lại `practice`, đừng đoán. */
+      setStartTime(practice ? toLocalDateInput(data.start_time) : toLocalDateTimeInput(data.start_time))
+      setEndTime(practice ? toLocalDateInput(data.end_time) : toLocalDateTimeInput(data.end_time))
       setMaxAttempts(data.max_attempts || 1)
       setShowResultsImmediately(data.show_results_immediately ?? true)
       setAllowReview(data.allow_review ?? true)
@@ -108,12 +152,16 @@ export default function ExamPublishPage() {
     setSuccess(null)
 
     try {
+      const practice = isPracticeExam(exam?.exam_mode)
       const updateData: any = {
         title: title.trim(),
         description: description.trim() || null,
-        duration: duration,
-        start_time: startTime ? new Date(startTime).toISOString() : null,
-        end_time: endTime ? new Date(endTime).toISOString() : null,
+        /* Đề ôn tập LUÔN ghi 0. Không lấy từ `duration` state — kể cả khi state
+           đúng là 0, đọc qua state là để ngỏ đường cho một lần sửa sau vô tình
+           nối lại ô nhập rồi ghi 90 vào đây. Hằng số ở đây nói rõ ý định. */
+        duration: practice ? 0 : duration,
+        start_time: practice ? fromDateInput(startTime, 'start') : fromDateTimeInput(startTime),
+        end_time: practice ? fromDateInput(endTime, 'end') : fromDateTimeInput(endTime),
         max_attempts: maxAttempts,
         show_results_immediately: showResultsImmediately,
         allow_review: allowReview,
@@ -203,6 +251,13 @@ export default function ExamPublishPage() {
     }
     return `${mins} phút`
   }
+
+  const practiceExam = isPracticeExam(exam?.exam_mode)
+
+  /* So bằng chuỗi 'YYYY-MM-DD' được vì định dạng đó sắp theo thứ tự từ điển
+     trùng với thứ tự thời gian. Chỉ cảnh báo, không chặn lưu: giáo viên có thể
+     đang sửa dở và sẽ đổi nốt ô kia. */
+  const dateRangeInvalid = practiceExam && !!startTime && !!endTime && endTime < startTime
 
   if (loading) {
     return (
@@ -303,47 +358,99 @@ export default function ExamPublishPage() {
 
           {/* Time Settings */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Cài đặt thời gian</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-                  Thời gian làm bài (phút)
-                </label>
-                <input
-                  type="number"
-                  value={duration}
-                  onChange={(e) => setDuration(parseInt(e.target.value) || 90)}
-                  min={10}
-                  max={300}
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{formatDuration(duration)}</p>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+              {practiceExam ? 'Hạn làm bài' : 'Cài đặt thời gian'}
+            </h2>
+
+            {practiceExam ? (
+              /* Đề ôn tập: KHÔNG có ô "thời gian làm bài". Ôn tập theo chương mà
+                 bấm giờ như đề thi thì học sinh bỏ dở giữa chừng — cái cần ở đây
+                 là một khung ngày để thúc, không phải đồng hồ đếm ngược. Ô nhập
+                 dùng `type="date"`: giờ phút không có nghĩa gì với hạn nộp, mà
+                 hiện ra thì lại mời người dùng đặt một con số vô nghĩa. */
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                      Mở từ ngày
+                    </label>
+                    <input
+                      type="date"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Để trống = mở ngay khi xuất bản
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                      Hạn cuối
+                    </label>
+                    <input
+                      type="date"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Hết ngày này (23:59) là đóng. Để trống = không hạn.
+                    </p>
+                  </div>
+                </div>
+                {dateRangeInvalid && (
+                  <p className="mt-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-300">
+                    Hạn cuối đang trước ngày mở — học sinh sẽ không có ngày nào làm được bài.
+                  </p>
+                )}
+                <p className="mt-3 rounded-lg bg-slate-50 dark:bg-slate-800 p-3 text-sm text-slate-600 dark:text-slate-300">
+                  Đề ôn tập <strong>không đếm ngược</strong>. Học sinh làm bao lâu tuỳ ý, miễn
+                  là xong trước hạn cuối; làm dở thoát ra vẫn vào lại được.
+                </p>
+              </>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                    Thời gian làm bài (phút)
+                  </label>
+                  <input
+                    type="number"
+                    value={duration}
+                    onChange={(e) => setDuration(parseInt(e.target.value) || 90)}
+                    min={10}
+                    max={300}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{formatDuration(duration)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                    Thời gian bắt đầu
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Để trống = không giới hạn</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                    Thời gian kết thúc
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Để trống = không giới hạn</p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-                  Thời gian bắt đầu
-                </label>
-                <input
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Để trống = không giới hạn</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-                  Thời gian kết thúc
-                </label>
-                <input
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Để trống = không giới hạn</p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Attempt & Result Rules */}

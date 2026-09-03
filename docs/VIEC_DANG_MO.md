@@ -249,3 +249,32 @@ Nguồn dữ liệu năng lực: `src/lib/analytics/student-capability.ts`.
 Ràng buộc phải giữ khi làm: bài đã giao rồi thì tập câu **không được đổi**.
 Hiệu chỉnh chỉ áp cho lần giao mới, nếu không thì hai học sinh cùng lớp làm hai
 đề khác nhau mà điểm vẫn nằm chung một bảng.
+
+## 13. XONG CODE, CHỜ NẠP MIGRATION — đề ôn tập không còn đếm ngược
+
+Chủ dự án 2026-09-03: "bài tập ôn tập theo chương thì cấu hình bài lại có thời
+gian là như thế nào. Chỉ cần chọn ngày bắt đầu và ngày kết thúc để thúc học sinh
+làm chứ ra giờ như đề thi thì sao được."
+
+Đúng, và cả hệ thống vốn đã đồng ý — chỉ một màn hình phá: trang xuất bản đề ghi
+đè `duration = 0` thành 90 mỗi lần lưu. Chi tiết ở `RUNBOOK.md` mục 8tredecies.
+
+Đã làm:
+
+- `/admin/exams/[examId]/publish` — đề ôn tập không còn ô "Thời gian làm bài";
+  thay bằng "Mở từ ngày" / "Hạn cuối" dùng `type="date"`, và **không bao giờ**
+  ghi `duration` khác 0 cho `practice`.
+- [`src/lib/exam/exam-schedule.ts`](../src/lib/exam/exam-schedule.ts) — quy đổi
+  ngày/giờ tách thành hàm thuần, 8 test. Sửa luôn lỗi cũ
+  `toISOString().slice(0,16)` làm mốc giờ **lùi 7 tiếng mỗi lượt mở-rồi-lưu**.
+- Trang chi tiết đề hiện "Không giới hạn giờ" thay vì "0 phút" cho đề ôn tập.
+- `supabase/migrations/20260905_practice_exams_no_timer.sql` — **chưa nạp**.
+
+**Chưa nhìn bằng mắt.** Trang xuất bản cần tài khoản admin; phần đã kiểm là logic
+ngày/giờ (8 test), typecheck, và lint không thêm lỗi mới (22 vấn đề trước và sau).
+
+### Còn bỏ ngỏ, cùng chủ đề
+
+`max_attempts` vẫn mặc định 1 cho cả đề ôn tập. Ôn tập theo chương mà chỉ làm
+được một lần thì trái với chính mục đích của nó — nhưng chủ dự án chưa nói tới,
+nên chưa đụng.
