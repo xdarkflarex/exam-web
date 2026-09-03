@@ -73,15 +73,6 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-100 dark:bg-slate-900 transition-colors">
-      {/* Back to Home Button */}
-      <Link 
-        href="/"
-        className="fixed top-4 left-4 flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 text-sm font-medium transition-all border border-slate-300 dark:border-slate-600"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Trang chủ
-      </Link>
-
       <div className="w-full max-w-md">
         {/* Login Card - Anti-eye-strain design */}
         <div className="bg-slate-200 dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-300 dark:border-slate-700 animate-fade-in-up">
@@ -213,7 +204,25 @@ export default function LoginView({ onLogin, error, sessionExpiredMessage }: Log
               </a>
             </p>
           </div>
-          
+
+          {/* Đường về trang chủ.
+
+              Nút này trước đây là `fixed top-4 left-4`, tức nằm NGOÀI thẻ đăng
+              nhập và neo vào viewport. Trên điện thoại nó chồng lên phần trên
+              của thẻ và không bấm được — thẻ vẽ sau nên nằm trên, và vùng chạm
+              của nút bị thẻ nuốt. Đưa vào trong thẻ thì nó chảy theo cùng dòng
+              tài liệu với mọi thứ còn lại, không cần z-index và không phụ thuộc
+              chiều cao màn hình. */}
+          <div className="mt-4 text-center">
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-95 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              Về trang chủ
+            </Link>
+          </div>
+
           {/* Footer */}
           <div className="mt-4 text-center">
             <p className="text-xs text-slate-500 dark:text-slate-500">
