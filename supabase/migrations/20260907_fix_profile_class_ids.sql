@@ -28,6 +28,12 @@
 --
 -- HOÀN TÁC: giá trị cũ là chữ học sinh tự gõ, không phải khoá. Muốn giữ thì
 -- chạy PHẦN 1 và lưu kết quả lại TRƯỚC khi chạy PHẦN 2.
+--
+-- LỊCH SỬ: bản đầu của file này ĐỔ ngay khi chạy với
+-- `ERROR: 22003: value "1781517825029" is out of range for type integer`.
+-- Nguyên nhân và bản sửa nằm ở đầu PHẦN 2. Lần đó không có gì được ghi — cả
+-- PHẦN 2 nằm trong một giao dịch, lỗi làm nó rollback trọn vẹn. Đã đối chiếu lại
+-- dữ liệu sau khi lỗi: cả 5 giá trị rác vẫn còn nguyên.
 
 -- ---------------------------------------------------------------------------
 -- PHẦN 1 — TIỀN KIỂM. Chạy trước, đọc kỹ, rồi mới chạy PHẦN 2.
@@ -52,12 +58,27 @@ BEGIN;
 -- PHẦN 2 — ĐỔI class_id RÁC THÀNH KHOÁ THẬT
 -- ---------------------------------------------------------------------------
 --
--- Suy khối từ chữ học sinh gõ: lấy CỤM SỐ ĐẦU TIÊN. "10a1" -> 10, "12" -> 12,
--- "10A5" -> 10, "9/1" -> 9.
+-- Suy khối từ chữ học sinh gõ: lấy cụm số ở ĐẦU chuỗi, rồi so bằng CHUỖI với
+-- khối của lớp. "10a1" -> "10", "12" -> "12", "10A5" -> "10", "9/1" -> "9".
 --
--- Vì sao là cụm số đầu tiên chứ không phải "hai ký tự đầu": "9/1" cho ra 9 chứ
--- không phải 9/1 hay 91, và đó là điều cần thiết để nó KHÔNG khớp vào lớp nào
--- rồi bị xếp bừa vào lớp 10.
+-- KHÔNG ÉP KIỂU SANG INTEGER Ở ĐÂY, và đây không phải chuyện thẩm mỹ.
+-- Bản đầu viết `(substring(p.class_id FROM '[0-9]+'))::int` và nó ĐỔ khi chạy
+-- thật:
+--
+--     ERROR: 22003: value "1781517825029" is out of range for type integer
+--
+-- Con số đó là phần số của `class_1781517825029` — một `class_id` ĐÚNG, mà mệnh
+-- đề `c.id IS NULL` lẽ ra đã loại khỏi tập. Bài học: Postgres KHÔNG bảo đảm
+-- WHERE được đánh giá trước các biểu thức trong danh sách SELECT. Bộ tối ưu được
+-- phép tính biểu thức trước rồi mới lọc, và khi biểu thức đó ném lỗi thì cả câu
+-- lệnh chết — dù không dòng kết quả nào cần tới nó.
+--
+-- Nên phép biến đổi phải AN TOÀN VỚI MỌI DÒNG TRONG BẢNG, kể cả dòng sẽ bị loại.
+-- `substring` trả text hoặc NULL; so sánh text với text thì không có gì để tràn.
+--
+-- Neo `^` cũng có việc của nó: "100" cho ra "100", không khớp "10", nên một giá
+-- trị lạ không bị xếp bừa vào lớp 10. Bản cũ không neo, `[0-9]+` bắt cụm số ở
+-- BẤT KỲ đâu trong chuỗi — chính là cách nó tóm được phần số của `class_...`.
 --
 -- Ba điều kiện dưới đây đều là ĐIỀU KIỆN AN TOÀN, không phải chi tiết vụn:
 --   * `c.id IS NULL`      — chỉ đụng dòng đang HỎNG, không đụng ai đã có lớp đúng;
@@ -71,23 +92,14 @@ WITH lop_duy_nhat AS (
   WHERE grade IN (10, 11, 12)
   GROUP BY grade
   HAVING count(*) = 1
-),
-can_sua AS (
-  SELECT
-    p.id AS profile_id,
-    (substring(p.class_id FROM '[0-9]+'))::int AS khoi
-  FROM public.profiles p
-  LEFT JOIN public.classes c ON c.id = p.class_id
-  WHERE p.class_id IS NOT NULL
-    AND c.id IS NULL
-    AND p.class_id ~ '[0-9]'
 )
 UPDATE public.profiles p
 SET class_id = l.class_id,
     updated_at = now()
-FROM can_sua s
-JOIN lop_duy_nhat l ON l.grade = s.khoi
-WHERE p.id = s.profile_id;
+FROM lop_duy_nhat l
+WHERE p.class_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.classes c WHERE c.id = p.class_id)
+  AND substring(p.class_id FROM '^[0-9]+') = l.grade::text;
 
 COMMIT;
 
