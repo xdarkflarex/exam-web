@@ -286,3 +286,40 @@ Chủ dự án chốt 2026-09-03: đề ôn tập không giới hạn số lần
 
 Không phải sửa SQL runtime: quy ước `0 = không giới hạn` đã có từ `20260722` và
 `20260803`, giao diện học sinh cũng đã đúng. Chỉ dữ liệu mang sai giá trị.
+
+## 14. ĐANG TREO — một hồ sơ lớp 9 giữ chỗ `class_id` rác
+
+`20260907` đã nạp ngày 2026-09-04. Hậu kiểm: sửa 4 hồ sơ, **còn 1**.
+
+| | |
+|---|---|
+| Hồ sơ | `Khanh Huong Nguyen` |
+| `class_id` | `"9/1"` — không trỏ tới lớp nào |
+| Vì sao migration không đụng | khối 9 không có lớp; `classes.grade` và `profiles.grade` đều `CHECK IN (10, 11, 12)` |
+
+**Chủ dự án quyết ngày 2026-09-04: để nguyên, tính sau.** Đây là lựa chọn có ý
+thức, không phải việc bị bỏ quên — đừng "dọn" nó trong một lượt refactor.
+
+Cái đang mất, để khi nào cần thì biết mà cân:
+
+- Em này **không nhận được bài tập giao theo lớp** (`homework_assignment_recipients`
+  khớp bằng `class_id`).
+- Không hiện trong bộ lọc lớp ở `/admin/students` và `/admin/analytics`.
+- **Chặn việc thêm FOREIGN KEY** `profiles.class_id → classes.id`. FK là thứ đóng
+  vĩnh viễn cả lớp lỗi này, và nó không tạo được khi còn một dòng không khớp.
+  Nên hàng rào cuối cùng vẫn để ngỏ vì đúng một dòng dữ liệu.
+
+Ba đường xử, ghi đầy đủ ở PHẦN 3 của
+[`20260907`](../supabase/migrations/20260907_fix_profile_class_ids.sql): hỏi lại
+em rồi xếp tay ở `/admin/classes`; đặt `class_id = NULL` để hồ sơ nói thật là
+chưa có lớp; hoặc mở hẳn khối 9 — việc lớn hơn ba dòng SQL, vì còn phải rà mọi
+chỗ đang hardcode 10/11/12 (form đăng ký, chọn khối khi tạo đề, lọc đề theo khối).
+
+Hậu kiểm `must_be_zero_class_id_khong_khop` sẽ **giữ nguyên bằng 1** cho tới khi
+ca này được xử. Đó là đúng với trạng thái hiện tại, không phải migration lỗi.
+
+### Đường ghi `class_id` đã khoá hết (2026-09-04)
+
+Form đăng ký chọn khối (server tra khoá), `/admin/users` ô chọn lớp thật,
+`/admin/classes` vốn đã đúng, `/student/settings` bỏ hẳn ô. Không còn ô chữ tự do
+nào ghi vào `class_id` — nên con số 1 ở trên sẽ **không tăng thêm**.
