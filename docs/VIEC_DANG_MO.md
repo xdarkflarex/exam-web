@@ -27,21 +27,38 @@ Mọi phiên mới đều phải đọc `AGENTS.md` trước, và nếu chạm g
 
 ---
 
-## 1. ĐANG HỎNG — hình vẽ trong bài lý thuyết không hiện
+## 1. ĐÃ SỬA 2026-09-04 — hình vẽ trong bài lý thuyết không hiện
 
-Mở `/learn` chọn bài bất kỳ của Chương 1 lớp 12: chỗ nào có hình cũng dừng ở chữ
-"Đang tải hình…" và không bao giờ ra hình. Quan sát lại ngày 2026-08-13 trên cả
-bốn bài.
+Triệu chứng cũ: mở `/learn` chọn bài bất kỳ của Chương 1 lớp 12, chỗ nào có hình
+cũng dừng ở "Đang tải hình…" và không bao giờ ra hình.
 
-Đã biết: 110/110 hình đã dựng thành SVG trong `public/tikz/`, và parser sinh
-đúng khối ```` ```tikz ````. Chưa biết: đoạn nối giữa `TikzRenderer` và tệp SVG
-đứt ở đâu. Danh sách nghi can và cách đo có sẵn.
+**Nguyên nhân: `loading="lazy"` trên thẻ `<img>` dò ảnh dựng sẵn trong
+`TikzRenderer`.** Thẻ đó vừa là ảnh vừa là phép dò "có tệp hay không", mà phép dò
+chỉ kết luận được bằng `onLoad`/`onError`. `lazy` cho phép trình duyệt hoãn tải
+vô thời hạn; hoãn tải nghĩa là không sự kiện nào bắn, nên `prebuilt` kẹt ở
+`'checking'` vĩnh viễn. Ảnh không hiện, mà TikZJax cũng không được gọi vì
+`prebuilt` chưa bao giờ thành `'missing'` — hỏng cả hai đường cùng lúc, im lặng.
 
-> Đọc `docs/RUNBOOK.md` mục 12 và `docs/LATEX_PARSER_DEBUG.md` mục "Còn treo".
-> Hình TikZ của bài lý thuyết không hiện trên `/learn`: SVG đã dựng đủ trong
-> `public/tikz/`, khối ```tikz sinh đúng, nhưng trình duyệt chỉ hiện "Đang tải
-> hình…". Tìm chỗ đứt giữa `TikzRenderer` và tệp SVG, sửa, rồi mở `/learn` xem
-> tận mắt một bài có hình để xác nhận.
+Đo trong trình duyệt ngày 2026-09-04, đủ ba cấu hình:
+
+| Cấu hình | Kết quả |
+|---|---|
+| `lazy` + `display:none` (bản cũ) | KHÔNG sự kiện nào |
+| `lazy` + đang hiện | KHÔNG sự kiện nào |
+| `eager` + `display:none` | `onload`, chạy đúng |
+
+Bản sửa bỏ `lazy` và hoãn tải bằng `IntersectionObserver` sẵn có của component
+(`isVisible`, đệm 240px): observer quyết định KHI NÀO gắn thẻ vào cây, gắn rồi
+thì tải ngay và trả lời dứt khoát.
+
+Hai mắt xích còn lại đã đo và đều đúng, nên không phải nghi ngờ nữa:
+
+- **Khoá hình khớp tên tệp: 34/34** trên ba bài mẫu (`tikzFigureKey` so với
+  `public/tikz/*.svg`, 112 tệp).
+- **Dev server phục vụ SVG: HTTP 200.**
+
+**Chưa mở `/learn` xem tận mắt** — trang đó nằm sau đăng nhập học sinh. Ba mắt
+xích đã đo rời từng cái; việc còn lại là nhìn một bài thật.
 
 ## 2. Còn lại phần cần tài khoản thật — "Mảng cần củng cố" trống
 

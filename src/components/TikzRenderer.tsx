@@ -206,10 +206,29 @@ export default function TikzRenderer({
   }, [code, isVisible, packages, prebuilt, retryKey])
 
   /*
-    Ảnh dựng sẵn. Vẫn gắn vào cây DOM khi đang `checking` (ẩn đi) để trình
-    duyệt tải và cho biết có tệp hay không — 404 thì `onError` chuyển sang
-    TikZJax. Nền trắng cố định: SVG do LaTeX sinh ra là nét đen trên nền trong
-    suốt, để nguyên thì nền tối không nhìn thấy gì.
+    Ảnh dựng sẵn. Vẫn gắn vào cây DOM khi đang `checking` (ẩn đi) để trình duyệt
+    tải và cho biết có tệp hay không — 404 thì `onError` chuyển sang TikZJax.
+    Nền trắng cố định: SVG do LaTeX sinh ra là nét đen trên nền trong suốt, để
+    nguyên thì nền tối không nhìn thấy gì.
+
+    TUYỆT ĐỐI KHÔNG ĐẶT `loading="lazy"` Ở ĐÂY. Đó là nguyên nhân của lỗi "Đang
+    tải hình..." quay mãi không ra hình, quan sát lần đầu 2026-08-13 và đo lại
+    2026-09-04 trong trình duyệt:
+
+        lazy + display:none  -> KHÔNG sự kiện nào, kẹt vĩnh viễn
+        lazy + đang hiện     -> KHÔNG sự kiện nào
+        eager + display:none -> onload, chạy đúng
+
+    Thẻ `<img>` này vừa là ảnh vừa là PHÉP DÒ "có tệp hay không", và phép dò chỉ
+    kết luận được bằng `onLoad`/`onError`. `lazy` cho phép trình duyệt hoãn việc
+    tải vô thời hạn, mà hoãn tải nghĩa là không sự kiện nào bắn — nên nhánh
+    `checking` không bao giờ thoát ra được. Ảnh thì không hiện, mà TikZJax cũng
+    không được gọi vì `prebuilt` chưa bao giờ thành `missing`. Hỏng cả hai đường
+    cùng lúc, và im lặng.
+
+    Vẫn hoãn tải, nhưng hoãn bằng `IntersectionObserver` của chính component
+    (`isVisible`, đệm 240px): nó quyết định KHI NÀO gắn thẻ vào cây, còn khi đã
+    gắn thì tải ngay và trả lời dứt khoát.
   */
   if (prebuilt !== 'missing') {
     return (
@@ -221,17 +240,18 @@ export default function TikzRenderer({
           </div>
         )}
         {/* next/image không tối ưu SVG (còn phải bật dangerouslyAllowSVG), nên <img> là đúng ở đây */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`${PREBUILT_DIR}/${figureKey}.svg`}
-          alt="Hình minh hoạ"
-          loading="lazy"
-          onLoad={() => setPrebuilt('found')}
-          onError={() => setPrebuilt('missing')}
-          className={`h-auto max-w-full rounded-xl bg-white p-2 dark:ring-1 dark:ring-slate-700 ${
-            prebuilt === 'found' ? '' : 'hidden'
-          }`}
-        />
+        {isVisible && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={`${PREBUILT_DIR}/${figureKey}.svg`}
+            alt="Hình minh hoạ"
+            onLoad={() => setPrebuilt('found')}
+            onError={() => setPrebuilt('missing')}
+            className={`h-auto max-w-full rounded-xl bg-white p-2 dark:ring-1 dark:ring-slate-700 ${
+              prebuilt === 'found' ? '' : 'hidden'
+            }`}
+          />
+        )}
       </div>
     )
   }
