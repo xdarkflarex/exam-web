@@ -875,6 +875,54 @@ tập nào, vì "0 đề sai trên 0 đề" đạt một cách rỗng và không
 Nới lỏng, không siết: học sinh đã dùng hết lượt sẽ vào làm lại được. Không lượt
 làm nào bị xoá, không điểm nào đổi.
 
+## 8quindecies. Nạp `20260907_fix_profile_class_ids.sql` — hồ sơ mang lớp không có thật
+
+**CHƯA NẠP.**
+
+Form đăng ký cũ hỏi "Lớp" bằng ô **chữ tự do** ("VD: 12A1") và ghi thẳng vào
+`profiles.class_id` — trong khi cột đó là **khoá** trỏ tới `classes.id`, có dạng
+`class_1781517811246`. Không có FOREIGN KEY nào chặn, nên database nhận tuốt.
+
+Đo trên Primary 2026-09-04: **5 hồ sơ** mang `"10a1"`, `"12"`, `"9/1"`, `"10"`,
+`"10A5"`. Không giá trị nào trỏ tới lớp nào.
+
+Hỏng theo kiểu **vắng mặt**, nên không màn hình nào báo lỗi: bài tập giao theo
+lớp không tới được họ (`homework_assignment_recipients` khớp bằng `class_id`), họ
+biến mất khỏi bộ lọc lớp ở `/admin/students`, và `classes.student_count` đếm
+thiếu. Nhìn hồ sơ vẫn thấy "có lớp".
+
+1. Chạy **PHẦN 1** (tiền kiểm) ở đầu file.
+2. Chạy [`../supabase/migrations/20260907_fix_profile_class_ids.sql`](../supabase/migrations/20260907_fix_profile_class_ids.sql).
+3. Đọc **PHẦN 3**. File chỉ sửa khối 10/11/12 và chỉ khi khối đó có **đúng một**
+   lớp; ca còn lại phải người quyết. Dữ liệu 2026-09-04 còn đúng một ca: `"9/1"`
+   — học sinh lớp 9, mà `classes.grade` lẫn `profiles.grade` đều
+   `CHECK IN (10, 11, 12)`.
+4. Hậu kiểm chỉ về 0 **sau khi** đã xử lý xong PHẦN 3. Chạy ngay sau bước 2 thì
+   nó còn đúng số ca của PHẦN 3 — đó là đúng, không phải lỗi.
+
+Chạy thử logic trên dữ liệu thật trước khi nạp: sửa 4 dòng, để lại 1.
+
+Bản sửa source đi kèm: form đăng ký giờ là ô **chọn** 10/11/12, và client không
+còn được gửi `class_id` — server tra ra khoá lớp thật. Nhận khoá từ client là mở
+lại đúng cái cửa vừa đóng.
+
+**Còn nợ một FOREIGN KEY.** Gốc của lỗi là `profiles.class_id` không có FK sang
+`classes.id`. Chưa thêm được vì dữ liệu chưa sạch (ca lớp 9), và vì `ON DELETE`
+phải là `SET NULL` chứ tuyệt đối không `CASCADE` — xoá một lớp mà cascade là xoá
+luôn hồ sơ học sinh. Ghi chú đầy đủ ở cuối file migration.
+
+### Cách xếp lớp cho học sinh bằng tay
+
+`/admin/classes` → chọn lớp ở cột trái → ba nhóm hiện bên phải:
+
+- **Chưa có lớp** — `class_id` là NULL.
+- **Trong lớp này**.
+- **Lớp khác** — bấm dấu **+** để chuyển sang lớp đang chọn.
+
+Học sinh có `class_id` hỏng nằm ở nhóm **Lớp khác**, và từ 2026-09-04 hiện nguyên
+giá trị rác kèm chữ "không khớp lớp nào" — trước đây mọi dòng đều ghi "Lớp khác"
+nên hồ sơ hỏng trông y hệt hồ sơ đang ở một lớp thật.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

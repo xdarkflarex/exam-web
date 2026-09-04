@@ -306,7 +306,21 @@ export default function ClassesManagementPage() {
   const otherClassStudents = selectedClass
     ? students.filter(s => s.class_id && s.class_id !== selectedClass.id)
     : []
-  const className = (id: string | null) => classes.find(c => c.id === id)?.name || 'Lớp khác'
+  /**
+   * Tên lớp để hiện cho người dùng.
+   *
+   * `profiles.class_id` KHÔNG có foreign key sang `classes.id`, nên nó có thể
+   * chứa giá trị không trỏ tới lớp nào — di sản của ô chữ tự do ở form đăng ký
+   * cũ ("10a1", "9/1", "12"). Bản trước gộp cả hai trường hợp vào một chữ "Lớp
+   * khác", nên học sinh có `class_id` HỎNG trông y hệt học sinh đang ở một lớp
+   * thật. Hiện nguyên giá trị rác ra thì giáo viên biết ngay đây là dòng cần
+   * xếp lại, và biết luôn học sinh đã tự khai lớp gì.
+   */
+  const className = (id: string | null) => {
+    if (!id) return 'Chưa có lớp'
+    const found = classes.find(c => c.id === id)
+    return found ? found.name : `${id} — không khớp lớp nào`
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900">

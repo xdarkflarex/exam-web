@@ -50,7 +50,7 @@ export default function SignupPage() {
     confirmPassword: '',
     fullName: '',
     school: '',
-    classId: '',
+    grade: '',
   })
 
   // UI state
@@ -131,7 +131,9 @@ export default function SignupPage() {
           password: formData.password,
           fullName: formData.fullName.trim(),
           school: formData.school.trim() || null,
-          classId: formData.classId.trim() || null,
+          // Gửi KHỐI (10/11/12), không gửi `class_id`. Server tra ra khoá lớp
+          // thật — xem chú thích ở `src/app/api/auth/signup/route.ts`.
+          grade: formData.grade ? Number(formData.grade) : null,
         }),
       })
 
@@ -326,19 +328,36 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Class - Optional */}
+            {/* Lớp — CHỌN, không gõ.
+
+                Ô chữ tự do trước đây ghi thẳng thứ người dùng gõ vào
+                `profiles.class_id`, trong khi cột đó là khoá trỏ tới
+                `classes.id`. Không có FOREIGN KEY nào chặn nên "10a1", "9/1",
+                "12" đều lọt, và học sinh đó không thuộc lớp nào cả — bài tập
+                giao theo lớp không bao giờ tới được họ.
+
+                Danh sách cố định 10/11/12 chứ không tải từ `classes`: trang này
+                chạy bằng vai trò `anon`, mà `anon` không có quyền đọc bảng
+                `classes` (`20260722`). Khối là thứ học sinh tự biết; ghép khối
+                sang lớp cụ thể là việc của server. */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 <Users className="w-4 h-4" />
                 Lớp <span className="text-slate-400 text-xs">(không bắt buộc)</span>
               </label>
-              <input
-                type="text"
-                value={formData.classId}
-                onChange={(e) => handleChange('classId', e.target.value)}
-                placeholder="VD: 12A1"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 outline-none transition-all"
-              />
+              <select
+                value={formData.grade}
+                onChange={(e) => handleChange('grade', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 outline-none transition-all"
+              >
+                <option value="">Chưa chọn</option>
+                <option value="10">Lớp 10</option>
+                <option value="11">Lớp 11</option>
+                <option value="12">Lớp 12</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Thầy cô sẽ xếp em vào lớp cụ thể sau.
+              </p>
             </div>
 
             {/* Submit Button */}

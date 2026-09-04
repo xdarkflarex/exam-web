@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { email, password, fullName, school, classId } = body
+    const { email, password, fullName, school, grade } = body
 
     // ============================================
     // INPUT VALIDATION
@@ -227,6 +227,42 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
+    // LỚP: ĐỔI TỪ Ô CHỮ TỰ DO SANG KHOÁ THẬT
+    // ============================================
+    //
+    // Trước đây form đăng ký là một ô chữ tự do ("VD: 12A1") và giá trị gõ vào
+    // được ghi thẳng vào `profiles.class_id`. Nhưng `class_id` là KHOÁ trỏ tới
+    // `classes.id` — mà `classes.id` có dạng `class_1781517811246`. Không có
+    // FOREIGN KEY nào chặn, nên database nhận tuốt: `"10a1"`, `"9/1"`, `"12"`.
+    // Học sinh đó không thuộc lớp nào cả, dù nhìn hồ sơ thì tưởng có.
+    //
+    // Hậu quả im lặng: bài tập giao theo lớp không tới được họ
+    // (`homework_assignment_recipients` khớp theo `class_id`), họ không xuất
+    // hiện trong bộ lọc lớp ở trang quản trị, và số học sinh của lớp đếm thiếu.
+    //
+    // Giờ client gửi 10/11/12, server tra ra `classes.id` thật. Client KHÔNG
+    // được gửi `class_id` nữa: nhận khoá từ client là mở lại đúng cái cửa vừa
+    // đóng, chỉ khác là lần này giá trị rác đến từ người biết mình đang làm gì.
+    const gradeNumber = Number(grade)
+    let resolvedClassId: string | null = null
+    if ([10, 11, 12].includes(gradeNumber)) {
+      // Nhiều lớp cùng khối thì lấy lớp tạo sớm nhất, cho kết quả ỔN ĐỊNH giữa
+      // các lần đăng ký. Giáo viên chuyển học sinh sang lớp đúng ở
+      // `/admin/classes` — việc đó vốn đã phải làm bằng tay.
+      const { data: classRow } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('grade', gradeNumber)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      resolvedClassId = classRow?.id ?? null
+    }
+    // Khối chưa có lớp nào thì `class_id` để NULL. KHÔNG tự tạo lớp ở đây: tạo
+    // lớp là việc của giáo viên, và để một luồng đăng ký công khai sinh ra bản
+    // ghi lớp là cho người lạ ghi vào bảng quản trị.
+
+    // ============================================
     // CREATE PROFILE RECORD
     // ============================================
     // Role is hardcoded as 'student' for security - NEVER from user input
@@ -238,7 +274,7 @@ export async function POST(request: NextRequest) {
         role: 'student', // HARDCODED - no user input for role
         full_name: trimmedFullName,
         school: school?.trim() || null,
-        class_id: classId?.trim() || null,
+        class_id: resolvedClassId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
