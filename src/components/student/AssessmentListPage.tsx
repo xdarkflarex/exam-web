@@ -39,6 +39,7 @@ import {
   Trophy,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { describeAttemptError } from '@/lib/exam/attempt-errors'
 import ProgressRing from '@/components/viz/ProgressRing'
 
 export type AssessmentMode = 'practice' | 'simulation'
@@ -170,6 +171,10 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
   const [filterStatus, setFilterStatus] = useState<FilterKey>('all')
   const [studentGrade, setStudentGrade] = useState<number | null>(null)
   const [starting, setStarting] = useState<string | null>(null)
+  /* Lỗi lúc mở bài, hiện NGAY TRÊN Ô ĐỀ vừa bấm.
+     Bản cũ chỉ `console.error` rồi thôi — nút quay về trạng thái thường và học
+     sinh không biết chuyện gì vừa xảy ra. */
+  const [startError, setStartError] = useState<{ examId: string; message: string } | null>(null)
 
   const fetchItems = useCallback(async () => {
     setLoading(true)
@@ -277,6 +282,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
 
   const handleStartPractice = async (examId: string) => {
     setStarting(examId)
+    setStartError(null)
     try {
       const { data: attemptResult, error } = await supabase.rpc('start_exam_attempt', {
         p_exam_id: examId,
@@ -285,6 +291,14 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
 
       if (error || !startedAttemptId) {
         console.error('Create attempt error:', error)
+        /* `start_exam_attempt` có tám cổng chặn, mỗi cổng một tình huống khác
+           hẳn: chưa tới ngày mở, quá hạn, đề của lớp khác, gói quyền chưa mở...
+           Server đã nói rõ là cái nào; việc còn lại chỉ là đừng nuốt câu đó.
+
+           `error` null mà vẫn không có `attempt_id` nghĩa là RPC trả về hình
+           dạng lạ — vẫn phải nói ra, vì im lặng ở nhánh này thì nút lại "hỏng"
+           đúng như cũ. */
+        setStartError({ examId, message: describeAttemptError(error) })
         setStarting(null)
         return
       }
@@ -292,6 +306,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
       router.push(`/practice/${startedAttemptId}`)
     } catch (error) {
       console.error('Error starting practice:', error)
+      setStartError({ examId, message: describeAttemptError(error) })
       setStarting(null)
     }
   }
@@ -423,6 +438,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
                 item={item}
                 config={config}
                 starting={starting === item.id}
+                startError={startError?.examId === item.id ? startError.message : null}
                 onStartPractice={handleStartPractice}
               />
             ))
@@ -455,11 +471,14 @@ function AssessmentCard({
   item,
   config,
   starting,
+  startError,
   onStartPractice,
 }: {
   item: AssessmentItem
   config: ModeConfig
   starting: boolean
+  /** Câu báo lỗi lúc mở bài, hoặc `null`. Chỉ ô đề vừa bấm mới nhận. */
+  startError: string | null
   onStartPractice: (examId: string) => void
 }) {
   const state = stateOf(item)
@@ -513,6 +532,7 @@ function AssessmentCard({
           config={config}
           state={state}
           starting={starting}
+          startError={startError}
           onStartPractice={onStartPractice}
         />
       </div>
@@ -538,12 +558,14 @@ function AchievementColumn({
   config,
   state,
   starting,
+  startError,
   onStartPractice,
 }: {
   item: AssessmentItem
   config: ModeConfig
   state: ItemState
   starting: boolean
+  startError: string | null
   onStartPractice: (examId: string) => void
 }) {
   const buttonClass =
@@ -615,6 +637,18 @@ function AchievementColumn({
             <Play className="h-4 w-4" aria-hidden="true" />
             {item.attemptCount > 0 ? config.againLabel : config.startLabel}
           </Link>
+        )}
+
+        {/* Báo lỗi ngay tại ô đề vừa bấm, không phải một thông báo trôi ở góc
+            màn hình: học sinh đang nhìn vào cái nút, và câu trả lời phải ở đó.
+            `role="alert"` để trình đọc màn hình đọc ngay khi nó xuất hiện. */}
+        {startError && (
+          <p
+            role="alert"
+            className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300"
+          >
+            {startError}
+          </p>
         )}
       </div>
     </div>

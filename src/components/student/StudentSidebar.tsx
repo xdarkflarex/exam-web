@@ -33,6 +33,19 @@ const menuItems: {
   feature: FeatureKey | null
   primary?: boolean
 }[] = [
+  /* CÀI ĐẶT KHÔNG NẰM Ở ĐÂY — nó ở cụm tài khoản bên phải, cạnh nút đăng xuất.
+
+     Hai lý do. Thứ nhất là bố cục: thanh ngang bị giới hạn trong `max-w-7xl`
+     (1280px), trừ logo và cụm tài khoản thì phần điều hướng chỉ còn khoảng
+     740px. Tám mục không vừa, và vì `nav` có `overflow-x-auto` kèm
+     `scrollbar-hide` nên mục cuối bị CẮT MẤT MÀ KHÔNG CÓ DẤU HIỆU GÌ — không
+     thanh cuộn, không dấu ba chấm. Chủ dự án nhìn thấy đúng chữ "Cài đặt" bị
+     cụt còn mỗi cái bánh răng.
+
+     Thứ hai, và quan trọng hơn: cài đặt không cùng loại với bảy mục kia. Bảy
+     mục là NƠI HỌC; cài đặt là thao tác trên tài khoản, cùng họ với đổi giao
+     diện và đăng xuất. Nó ở nhầm nhóm ngay từ đầu; chật chỗ chỉ là thứ làm lộ
+     ra điều đó. */
   { label: 'Hôm nay', href: '/student', icon: Home, feature: null, primary: true },
   { label: 'Bài tập', href: '/student/homework', icon: ClipboardList, feature: 'homework', primary: true },
   // Trỏ thẳng `/learn`. `/learn/map` chỉ là redirect tương thích cho link cũ,
@@ -42,7 +55,6 @@ const menuItems: {
   { label: 'Thi thử', href: '/student/exams', icon: FileText, feature: 'simulation' },
   { label: 'Lịch sử', href: '/student/history', icon: BarChart3, feature: 'history' },
   { label: 'Phân tích', href: '/student/analytics', icon: TrendingUp, feature: 'analytics' },
-  { label: 'Cài đặt', href: '/student/settings', icon: Settings, feature: null },
 ]
 
 /** Số mục tối đa trên bottom nav để không phải cuộn ngang trên máy 360px. */
@@ -216,10 +228,29 @@ export default function StudentSidebar() {
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40">
                 <User className="h-4 w-4 text-teal-700 dark:text-teal-300" aria-hidden="true" />
               </span>
-              <span className="max-w-[9rem] truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+              {/* Tên là thứ rộng nhất và ít cấp thiết nhất trong cụm này. Dưới
+                  `xl` thì giấu chữ, giữ lại avatar — nhường chỗ cho điều hướng,
+                  vốn là thứ học sinh thật sự bấm. */}
+              <span className="hidden max-w-[9rem] truncate text-sm font-medium text-slate-700 xl:inline dark:text-slate-200">
                 {userInfo?.name || 'Đang tải...'}
               </span>
             </span>
+
+            {/* `title` cho chuột, `aria-label` cho trình đọc màn hình. Icon
+                trần không có nhãn là mất tên mục với người dùng bàn phím. */}
+            <Link
+              href="/student/settings"
+              aria-label="Cài đặt"
+              title="Cài đặt"
+              aria-current={isActive('/student/settings') ? 'page' : undefined}
+              className={`rounded-xl p-2 transition-colors ${
+                isActive('/student/settings')
+                  ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
+                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Settings className="h-5 w-5" aria-hidden="true" />
+            </Link>
 
             <button
               onClick={handleLogout}
@@ -301,6 +332,24 @@ export default function StudentSidebar() {
 
         {/* Bottom Actions */}
         <div className="p-3 border-t border-slate-200 dark:border-slate-700 space-y-1">
+          {/* Cài đặt nằm ở CHÂN ngăn kéo cùng đổi giao diện và đăng xuất, khớp
+              với chỗ của nó trên thanh ngang desktop. Nó bị gỡ khỏi danh sách
+              điều hướng chính, nên thiếu dòng này là mobile mất luôn đường vào
+              trang cài đặt — thanh dưới cùng chỉ chở các mục `primary`. */}
+          <Link
+            href="/student/settings"
+            onClick={() => setIsOpen(false)}
+            aria-current={isActive('/student/settings') ? 'page' : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              isActive('/student/settings')
+                ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Settings className="w-5 h-5" aria-hidden="true" />
+            Cài đặt
+          </Link>
+
           {/* Theme Toggle */}
           {/* Cả hai nhãn nằm sẵn trong DOM, CSS chọn cái hiện — không đọc `theme`
               của JS. Xem chú thích ở nút cùng loại trên thanh mobile. */}
