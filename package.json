@@ -13,7 +13,8 @@
     "tikz:review": "node scripts/tikz-review-sheet.mjs",
     "questions:duplicates": "node --experimental-strip-types --env-file=.env scripts/find-duplicate-questions.mjs",
     "exams:check-practice": "node --env-file=.env scripts/practice-exam-config-check.mjs",
-    "theories:import": "node --env-file=.env --experimental-strip-types scripts/import-theories-from-latex.mjs"
+    "theories:import": "node --env-file=.env --experimental-strip-types scripts/import-theories-from-latex.mjs",
+    "theories:check-math": "node --env-file=.env scripts/check-theory-math.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

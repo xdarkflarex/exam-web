@@ -378,3 +378,50 @@ display math tụt xuống inline). Nhưng bốn bài kia chưa bao giờ đư�
 - **Xem lại rồi xuất bản 25 bài nháp** ở `/admin/theories`.
 - Hình: 109 hình trong 29 bài, **109 đã có SVG** (`npm run tikz:svg` sau mỗi lần
   sửa hình trong LaTeX).
+
+## 16. XONG 2026-09-04 — rà toàn bộ công thức của 29 bài bằng MathJax thật
+
+`npm run theories:check-math` chạy **chính bộ phân tích TeX của MathJax**
+(`mathjax-full` có sẵn trong `node_modules`) trên mọi công thức của
+`theories.content_md` — tức đúng thứ học sinh nhận, không phải file `.tex`.
+
+**Quét bằng regex là không đủ, và đã chứng minh.** Bản quét tĩnh (môi trường lạ,
+lệnh ngoài danh sách, `$$` lẻ cặp) báo *sạch trơn* trong khi trên `/learn` vẫn có
+chỗ hỏng. Lỗi MathJax phần lớn là lỗi ngữ pháp — thiếu `}`, `&` sai số cột,
+`\left` không có `ight` — không mẫu regex nào bắt được nhóm đó.
+
+### Lỗi tìm được: placeholder nội bộ của parser lọt ra nội dung
+
+3927 công thức, 7 lỗi, tất cả cùng một hình dạng:
+
+```
+\left\{%%PROTECTED_0%%ight.
+```
+
+`%%PROTECTED_n%%` là placeholder nội bộ của `latexToMarkdown`. **8 chỗ trên 2
+bài** hiện nguyên chuỗi đó giữa bài cho học sinh đọc.
+
+Nguyên nhân là **bảo vệ lồng nhau + khôi phục một lượt**. Với
+`$\left\{egin{aligned}…\end{aligned}ight.$`:
+
+1. bước bảo vệ môi trường thay khối `aligned` bằng `%%PROTECTED_0%%`;
+2. bước bảo vệ `$...$` bọc cả cụm thành `%%PROTECTED_1%%`;
+3. bước khôi phục quét **một lượt**, thay `%%PROTECTED_1%%` bằng nội dung có
+   chứa `%%PROTECTED_0%%` — mà con trỏ regex đã đi qua chỗ đó.
+
+Hai bản sửa, cả hai đều cần:
+
+- **Đổi thứ tự**: bảo vệ `$...$` chạy TRƯỚC bảo vệ môi trường. Cả biểu thức được
+  cất nguyên văn nên không còn lồng nhau, và cũng không bị chèn `$$` vào giữa một
+  công thức inline — cái đó còn hỏng thêm một tầng nữa.
+- **Khôi phục lặp** tới khi hết placeholder (trần 10 vòng). Hàng rào cho ca lồng
+  nhau chưa biết.
+
+Ba test khoá lại ở `latex-parser.test.ts`.
+
+Sau khi nhập lại 29 bài: **3927/3927 công thức sạch, 0 placeholder lọt ra,
+35 `\hline` đều nằm trong `$$`.**
+
+### Chạy lại khi nào
+
+Sau mỗi lần `npm run theories:import --ghi`. Mã thoát khác 0 khi còn lỗi.

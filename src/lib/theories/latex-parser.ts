@@ -489,22 +489,37 @@ export function latexToMarkdown(latex: string): string {
     (_match, inner) => protect(`\n\n$$\n${sanitizeMathBody(inner).trim()}\n$$\n\n`)
   )
 
-  // Bảo vệ align/aligned/array/cases environments
-  md = md.replace(
-    /\\begin\{(align\*?|aligned|array|cases|gather\*?|equation\*?)\}([\s\S]*?)\\end\{\1\}/g,
-    (_match, env, inner) =>
-      protect(`\n\n$$\n\\begin{${env}}${sanitizeMathBody(inner)}\\end{${env}}\n$$\n\n`)
-  )
-
   /*
-    Bảo vệ luôn math trong dòng `$...$`. Không có bước này thì các bước dọn dẹp
-    phía dưới (`\quad` → dấu cách, `\,` → dấu cách, xoá `\underline`...) chui
-    vào trong công thức và đổi nghĩa. Từ chối đoạn có dòng trống ở giữa vì đó
-    gần như chắc chắn là hai dấu `$` lẻ chứ không phải một công thức.
+    Bảo vệ math trong dòng `$...$`. Không có bước này thì các bước dọn dẹp phía
+    dưới (`\quad` → dấu cách, `\,` → dấu cách, xoá `\underline`...) chui vào
+    trong công thức và đổi nghĩa. Từ chối đoạn có dòng trống ở giữa vì đó gần
+    như chắc chắn là hai dấu `$` lẻ chứ không phải một công thức.
+
+    PHẢI CHẠY TRƯỚC BƯỚC BẢO VỆ MÔI TRƯỜNG Ở DƯỚI.
+
+    Đảo thứ tự là sinh ra lỗi đã gặp ngày 2026-09-04. Với
+    `$\left\{\begin{aligned}…\end{aligned}\right.$`, bước môi trường thay khối
+    `aligned` bằng một placeholder, RỒI bước này bọc cả cụm
+    `$\left\{%%PROTECTED_0%%\right.$` thành một placeholder thứ hai. Placeholder
+    lồng trong placeholder, mà bước khôi phục khi đó chỉ quét MỘT LƯỢT — nên
+    chuỗi `%%PROTECTED_0%%` đi thẳng ra nội dung cuối và học sinh đọc thấy nó
+    giữa bài. Đo được 8 chỗ trên 2 bài.
+
+    Bảo vệ `$...$` trước thì cả biểu thức được cất nguyên văn, bước môi trường
+    không còn nhìn thấy nó, và cũng không chèn `$$` vào giữa một công thức inline
+    — cái đó còn hỏng thêm một tầng nữa.
   */
   md = md.replace(
     /(?<!\\)\$(?!\$)([^$]+?)(?<!\\)\$/g,
     (match, inner: string) => (inner.includes('\n\n') ? match : protect(match))
+  )
+
+  /* Bảo vệ align/aligned/array/cases còn ở NGOÀI math. Cái nằm trong `$...$` đã
+     được cất ở bước trên nên không tới đây — xem lý do ở đó. */
+  md = md.replace(
+    /\\begin\{(align\*?|aligned|array|cases|gather\*?|equation\*?)\}([\s\S]*?)\\end\{\1\}/g,
+    (_match, env, inner) =>
+      protect(`\n\n$$\n\\begin{${env}}${sanitizeMathBody(inner)}\\end{${env}}\n$$\n\n`)
   )
 
   // ---- Bước 1: Headings ----
@@ -603,10 +618,21 @@ export function latexToMarkdown(latex: string): string {
   // ---- Bước 8: Restore protected blocks ----
   // Dùng hàm thay thế: chuỗi thay thế coi `$$` là một dấu `$`, mà nội dung ở
   // đây toàn công thức — chính lỗi này làm mọi display math tụt xuống inline.
-  md = md.replace(
-    /%%PROTECTED_(\d+)%%/g,
-    (match, index: string) => protected_blocks[Number(index)] ?? match
-  )
+  //
+  // LẶP cho tới khi hết placeholder, chứ không quét một lượt. Một khối được bảo
+  // vệ có thể chứa placeholder của khối khác; quét một lượt thì cái bên trong
+  // không bao giờ được thay, và chuỗi `%%PROTECTED_n%%` hiện thẳng ra cho học
+  // sinh đọc. Thứ tự hai bước bảo vệ ở trên đã loại ca lồng nhau ĐÃ BIẾT; vòng
+  // lặp này là hàng rào cho ca chưa biết.
+  //
+  // Trần 10 vòng: không có nó thì một khối tự chứa placeholder của chính nó sẽ
+  // treo trình nhập vĩnh viễn. Đủ sâu cho mọi tài liệu thật.
+  for (let pass = 0; pass < 10 && md.includes('%%PROTECTED_'); pass++) {
+    md = md.replace(
+      /%%PROTECTED_(\d+)%%/g,
+      (match, index: string) => protected_blocks[Number(index)] ?? match
+    )
+  }
 
   // ---- Bước 9: Clean up ----
   // Multiple blank lines → max 2

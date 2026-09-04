@@ -188,3 +188,44 @@ test('lệnh cỡ chữ bị gỡ, không rơi vào Markdown', () => {
   assert.ok(!md.includes('\\normalsize'), md)
   assert.ok(md.includes('Bảng dưới đây'), md)
 })
+
+/*
+  Placeholder nội bộ KHÔNG được lọt ra nội dung cuối.
+
+  Lỗi thật, đo ngày 2026-09-04: 8 chỗ trên 2 bài đã nạp hiện nguyên chuỗi
+  `%%PROTECTED_0%%` giữa bài cho học sinh đọc. Nguyên nhân là bảo vệ lồng nhau:
+  bước bảo vệ môi trường chạy TRƯỚC bước bảo vệ `$...$`, nên khối `aligned` bên
+  trong một công thức inline bị thay bằng placeholder, rồi cả công thức đó bị bọc
+  thành placeholder thứ hai — mà bước khôi phục chỉ quét một lượt.
+*/
+test('môi trường toán trong $...$ không để lọt placeholder ra ngoài', () => {
+  const md = latexToMarkdown(
+    String.raw`Hệ $\left\{\begin{aligned} x &\le 1 \\ x &\ge 3 \end{aligned}\right.$ vô nghiệm.`,
+  )
+
+  assert.ok(!md.includes('%%PROTECTED'), md)
+  assert.ok(md.includes(String.raw`\begin{aligned}`), md)
+  // Công thức phải ở nguyên dạng INLINE, không bị chèn `$$` vào giữa.
+  assert.ok(!md.includes('$$'), md)
+  assert.ok(md.includes('vô nghiệm'), md)
+})
+
+test('không placeholder nào sót lại dù công thức lồng nhiều tầng', () => {
+  const md = latexToMarkdown(
+    String.raw`\[` + '\n' +
+    String.raw`\begin{cases} a\\ b \end{cases}` + '\n' +
+    String.raw`\]` + '\n\n' +
+    String.raw`và $\left\{\begin{array}{l} u \\ v \end{array}\right.$ nữa.`,
+  )
+
+  assert.ok(!md.includes('%%PROTECTED'), md)
+})
+
+test('môi trường toán đứng NGOÀI math vẫn được bọc thành display', () => {
+  // Bước bảo vệ môi trường vẫn phải làm việc của nó sau khi đổi thứ tự.
+  const md = latexToMarkdown(String.raw`\begin{aligned} x &= 1 \end{aligned}`)
+
+  assert.ok(!md.includes('%%PROTECTED'), md)
+  assert.ok(md.includes('$$'), md)
+  assert.ok(md.includes(String.raw`\begin{aligned}`), md)
+})
