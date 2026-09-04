@@ -952,6 +952,29 @@ Học sinh có `class_id` hỏng nằm ở nhóm **Lớp khác**, và từ 2026-
 giá trị rác kèm chữ "không khớp lớp nào" — trước đây mọi dòng đều ghi "Lớp khác"
 nên hồ sơ hỏng trông y hệt hồ sơ đang ở một lớp thật.
 
+## 8sexdecies. Nạp `20260908_get_my_grade.sql` — `/learn` tự mở đúng lớp của học sinh
+
+**CHƯA NẠP. Ưu tiên thấp** — không có nó thì `/learn` vẫn chạy, chỉ là mở ra ở
+chế độ “Tất cả lớp” thay vì lớp của chính học sinh.
+
+Phiên học sinh không có đường nào biết lớp của mình: `profiles.grade` NULL ở
+23/24 hồ sơ, còn `classes.grade` thì RLS (`20260722`) chỉ mở cho admin và giáo viên
+chủ nhiệm. Hàm `get_my_grade()` là `SECURITY DEFINER` trả ĐÚNG MỘT số nguyên về
+chính người gọi — cùng khuôn với các helper `get_my_*` của `20260722`.
+
+**Cố ý KHÔNG backfill `profiles.grade` từ `classes.grade`.** `AssessmentListPage`
+lọc đề bằng `query.eq('grade', studentGrade)` khi cột đó có giá trị; hiện có 3 đề
+mang `grade = NULL`, 2 trong đó đã xuất bản — điền `profiles.grade` là lập tức
+**giấu hai đề đó khỏi mọi học sinh**. Hàm này chỉ phục vụ sắp xếp giao diện.
+
+1. Chạy [`../supabase/migrations/20260908_get_my_grade.sql`](../supabase/migrations/20260908_get_my_grade.sql).
+2. Hậu kiểm ở cuối file (3 cột `must_be_zero`).
+3. Kiểm hành vi bằng JWT học sinh đã xếp lớp: `select public.get_my_grade();`.
+   **Supabase SQL Editor không dùng được** — editor chạy bằng vai trò chủ sở hữu
+   nên `auth.uid()` là NULL và hàm luôn trả NULL, trông y hệt “hàm hỏng”.
+
+Hoàn tác: `DROP FUNCTION public.get_my_grade();`. Không đổi dữ liệu.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

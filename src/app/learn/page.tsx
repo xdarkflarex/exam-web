@@ -126,6 +126,8 @@ function LearnPageContent() {
   const [blockCache, setBlockCache] = useState<Map<string, KnowledgeBlock[]>>(new Map())
   const [loadedGroups, setLoadedGroups] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  /** Khối của chính học sinh (10/11/12), lấy qua RPC `get_my_grade`. `null` = chưa biết. */
+  const [myGradeNumber, setMyGradeNumber] = useState<number | null>(null)
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState('')
   /** Mốc thời gian dùng chung để phân loại bài tập còn hạn / hết hạn. */
@@ -146,26 +148,7 @@ function LearnPageContent() {
     []
   )
 
-  /*
-    Lớp đang chọn nằm ở QUERY STRING, không ở state riêng.
 
-    Trang này đã dùng `?theory=` cho bài đang mở, nên `?grade=` đi cùng chỗ là
-    nhất quán. Đổi lại còn được ba thứ miễn phí: nút back của trình duyệt hoạt
-    động đúng, đường dẫn chia sẻ được, và không cần `useEffect` đọc
-    `localStorage` — cái mà `react-hooks/set-state-in-effect` cấm, và cấm có lý:
-    đọc storage rồi `setState` là render một lần bằng giá trị sai rồi sửa lại, tức
-    là nháy.
-  */
-  const grade = searchParams.get('grade') || ''
-  const chooseGrade = useCallback((value: string) => {
-    const next = new URLSearchParams(searchParams.toString())
-    if (value) next.set('grade', value)
-    else next.delete('grade')
-    // Bỏ bài đang mở khi đổi lớp: bài đó gần như chắc chắn thuộc lớp vừa rời đi.
-    next.delete('theory')
-    const qs = next.toString()
-    router.push(qs ? `/learn?${qs}` : '/learn', { scroll: false })
-  }, [router, searchParams])
 
   useEffect(() => {
     const load = async () => {
@@ -207,6 +190,15 @@ function LearnPageContent() {
       setEdges((edgeRes.data || []) as EdgeRow[])
 
       if (user) {
+        /* Khối của học sinh phải lấy qua RPC: `profiles.grade` gần như luôn NULL,
+           còn `classes.grade` thì RLS không cho phiên học sinh đọc. Xem
+           `supabase/migrations/20260908_get_my_grade.sql`.
+
+           Chưa nạp migration thì RPC báo lỗi và `myGradeNumber` ở lại `null` —
+           trang vẫn chạy, chỉ là không tự mở sẵn lớp nào. */
+        const { data: gradeValue } = await supabase.rpc('get_my_grade')
+        if (typeof gradeValue === 'number') setMyGradeNumber(gradeValue)
+
         // Toàn bộ việc quy gán bằng chứng nằm trong module dùng chung, để `/learn`
         // và `/student/analytics` không còn hai thang đo khác nhau.
         const data = await loadTheoryMastery(user.id)
@@ -289,11 +281,63 @@ function LearnPageContent() {
     [gradeOf, theories]
   )
 
+  /*
+    Lớp đang chọn nằm ở QUERY STRING, không ở state riêng.
+
+    Trang này đã dùng `?theory=` cho bài đang mở, nên `?grade=` đi cùng chỗ là
+    nhất quán, và được thêm ba thứ: nút back hoạt động đúng, đường dẫn chia sẻ
+    được, và không cần `useEffect` đọc `localStorage` — cái mà
+    `react-hooks/set-state-in-effect` cấm, và cấm có lý: đọc storage rồi `setState`
+    là render một lần bằng giá trị sai rồi sửa lại, tức là nháy.
+
+    BA TRẠNG THÁI, không phải hai:
+      * không có `?grade=`  -> chưa chọn, mở sẵn lớp của chính học sinh;
+      * `?grade=all`        -> học sinh CỐ Ý xem cả ba lớp;
+      * `?grade=Toán 11`   -> chọn một lớp cụ thể.
+    Thiếu trạng thái `all` thì bấm "Tất cả lớp" sẽ xoá tham số, và lần render sau
+    nó lại tự nhảy về lớp của học sinh — nút bấm không ăn.
+  */
+  /* Khối (10/11/12) -> tên lớp trong cây tri thức ("Toán 10"). Khớp theo con số có
+     trong tên chứ không ghép chuỗi `Toán ${n}`: đổi tên lớp trong `topics` là
+     chuyện bình thường, mà ghép chuỗi thì đổi tên là tính năng này chết lặng lẽ. */
+  const myGrade = useMemo(() => {
+    if (myGradeNumber === null) return null
+    return grades.find(name => name.includes(String(myGradeNumber))) ?? null
+  }, [grades, myGradeNumber])
+
+  const gradeParam = searchParams.get('grade')
+  const grade = gradeParam === null ? (myGrade ?? '') : (gradeParam === 'all' ? '' : gradeParam)
+
+  const chooseGrade = useCallback((value: string) => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.set('grade', value || 'all')
+    // Bỏ bài đang mở khi đổi lớp: bài đó gần như chắc chắn thuộc lớp vừa rời đi.
+    next.delete('theory')
+    router.push(`/learn?${next.toString()}`, { scroll: false })
+  }, [router, searchParams])
+
+  /* Danh sách bài thực sự được dựng ra. `theories` đã được sắp (lớp, chương, bài)
+     nên `filter` giữ nguyên thứ tự đó. */
+  const visibleTheories = useMemo(
+    () => (grade ? theories.filter(theory => gradeOf(theory) === grade) : theories),
+    [grade, gradeOf, theories]
+  )
+
+  /*
+    `matches` là bộ lọc LUỒN MỜ: bài không khớp vẫn ở nguyên chỗ, chỉ mờ đi
+    (`opacity-40` trong `LearningPath`). Đó là chủ đích cho tìm kiếm và lọc chương:
+    lộ trình giữ nguyên hình dạng nên mắt không bị nhảy.
+
+    LỚP THÌ KHÔNG. Nó đã từng nằm trong hàm này, và hậu quả là chọn "Toán 10"
+    thì 25 bài của hai lớp kia vẫn chiếm chỗ, chỉ mờ đi — phải cuộn qua một bãi xám
+    mới tới bài cần đọc. Lớp là "tôi không học phần đó", khác hẳn "tôi đang tìm
+    bài này trong phần tôi học". Giờ nó lọc ở `visibleTheories`, tức bài lớp khác
+    biến mất hẳn khỏi danh sách.
+  */
   const matches = useCallback((theory: TheoryRow) => (
-    (!grade || gradeOf(theory) === grade) &&
     (!group || groupOf(theory) === group)
     && (!query.trim() || theory.title.toLowerCase().includes(query.trim().toLowerCase()))
-  ), [grade, gradeOf, group, groupOf, query])
+  ), [group, groupOf, query])
 
   /**
    * Dựng TOÀN BỘ node, kể cả node không khớp bộ lọc.
@@ -302,7 +346,7 @@ function LearnPageContent() {
    * bao giờ xây được bản đồ không gian của cây. Node không khớp chỉ bị làm mờ.
    */
   const items = useMemo<SkillTreeItem[]>(() => {
-    return theories.map((theory): SkillTreeItem => {
+    return visibleTheories.map((theory): SkillTreeItem => {
       const value = progress.get(theory.id)
       const stat = masteryByTheory.get(theory.id)
       const total = value?.total || 0
@@ -355,7 +399,7 @@ function LearnPageContent() {
         matched: matches(theory),
       }
     })
-  }, [assignmentsByTheory, gradeOf, groupOf, masteryByTheory, matches, now, prerequisitesOf, progress, theories])
+  }, [assignmentsByTheory, gradeOf, groupOf, masteryByTheory, matches, now, prerequisitesOf, progress, visibleTheories])
 
   /* Đóng bài đang mở mà GIỮ bộ lọc lớp. Hai nút đóng trước đây đều
      `router.push('/learn')` trống trơn, tức là xóa luôn `?grade=`. */
@@ -383,7 +427,9 @@ function LearnPageContent() {
     ? prerequisitesOf(selectedId).filter(prerequisite => prerequisite.met === false).map(prerequisite => prerequisite.title)
     : []
   const matchedCount = items.filter(item => item.matched).length
-  const isFiltering = Boolean(grade || group || query.trim())
+  /* `grade` KHÔNG tính vào đây: nó lọc hẳn chứ không làm mờ, nên dòng "X/Y bài
+     khớp — các bài còn lại được làm mờ" sẽ nói sai. */
+  const isFiltering = Boolean(group || query.trim())
 
   // Số liệu tóm tắt cho hero. Mỗi con số neo vào dữ liệu thật; con số bằng 0 thì
   // KHÔNG hiện dòng đó, thay vì hiện một số 0 trông như thất bại.
@@ -498,6 +544,14 @@ function LearnPageContent() {
                 {name}
               </button>
             ))}
+            {/* Nói ra khi lớp được chọn sẵn. Không có dòng này thì học sinh thấy
+                danh sách ngắn hơn mong đợi mà không hiểu vì sao — giấu bớt nội dung
+                thì phải nói là đang giấu, và chỉ chỗ xem đầy đủ. */}
+            {gradeParam === null && myGrade && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Đang mở sẵn lớp của em — bấm “Tất cả lớp” để xem thêm.
+              </span>
+            )}
           </div>
         )}
 
