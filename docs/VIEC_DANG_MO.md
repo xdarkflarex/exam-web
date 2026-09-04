@@ -340,3 +340,41 @@ ca này được xử. Đó là đúng với trạng thái hiện tại, không 
 Form đăng ký chọn khối (server tra khoá), `/admin/users` ô chọn lớp thật,
 `/admin/classes` vốn đã đúng, `/student/settings` bỏ hẳn ô. Không còn ô chữ tự do
 nào ghi vào `class_id` — nên con số 1 ở trên sẽ **không tăng thêm**.
+
+## 15. XONG 2026-09-04 — nhập toàn bộ 29 bài lý thuyết từ kho LaTeX
+
+`npm run theories:import` (thêm `--ghi` để thực sự ghi; mặc định chạy thử).
+
+Kết quả lần chạy: **25 bài tạo mới, 4 bài cập nhật, 388 khối tri thức** — khớp
+đúng con số `lint-tri-thuc.mjs` báo (388 khối có id). 29 bài xuất bản 4, nháp 25.
+
+### Lỗi `Misplaced \hline` đã hết, và nó là DỮ LIỆU CŨ chứ không phải parser
+
+Bốn bài nhập tay trước đây lưu display math bằng **một** dấu `$` (inline), nên
+MathJax gặp `\hline` trong `array` ở chế độ inline và báo lỗi đỏ giữa bài.
+
+Parser đã được sửa từ trước (`latex-parser.ts` bước 8 dùng hàm thay thế, vì chuỗi
+thay thế của `String.replace` coi `$$` là **một** dấu `$` — chính lỗi đó làm mọi
+display math tụt xuống inline). Nhưng bốn bài kia chưa bao giờ được nhập lại.
+
+Đo sau khi nhập lại: **35 chỗ `\hline`, 0 chỗ nằm ngoài `$$...$$`.**
+
+### Ba cái bẫy của việc nhập, đã xử trong script
+
+1. **Nguồn sự thật là ba file `filechinh-lop*.tex`, không phải thư mục.**
+   `chapters/lop12/.../bai01-on-tap-dao-ham.tex` (280 dòng) là bản nháp KHÔNG nằm
+   trong sách — file chính nạp bản `-chuan` (70 dòng). Quét thư mục sẽ lấy cả hai,
+   mà chúng trùng tiêu đề "ÔN TẬP ĐẠO HÀM".
+2. **Khoá đối chiếu là (chương, tiêu đề bài lý thuyết)**, không phải tên section
+   và không phải tiêu đề trần. Section của bốn bài cũ tên "Bài 1. Ôn tập đạo hàm"
+   trong khi theory tên "ÔN TẬP ĐẠO HÀM" — khớp theo tên section thì ba bài bị coi
+   là mới và script đẻ bản trùng, để lại bản lỗi cho học sinh đọc. Còn "HỆ THỐNG
+   HÓA VÀ BÀI TẬP CUỐI CHƯƠNG" có ở cả chương 2 và 3 lớp 12, nên khoá phải kèm chương.
+3. **`is_published` không bị đụng.** Bài đang cho học sinh đọc giữ nguyên; 25 bài
+   mới vào ở dạng nháp. Xuất bản là quyết định của giáo viên.
+
+### Còn phải làm
+
+- **Xem lại rồi xuất bản 25 bài nháp** ở `/admin/theories`.
+- Hình: 109 hình trong 29 bài, **109 đã có SVG** (`npm run tikz:svg` sau mỗi lần
+  sửa hình trong LaTeX).
