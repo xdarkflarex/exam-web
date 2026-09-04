@@ -47,7 +47,6 @@ export default function StudentSettingsPage() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    className: '',
     school: '',
   })
   const [loading, setLoading] = useState(true)
@@ -76,16 +75,31 @@ export default function StudentSettingsPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        const { data: profile } = await supabase
+        /* `class_name` KHÔNG PHẢI LÀ MỘT CỘT. `profiles` có `class_id` (khoá trỏ
+           tới `classes`), không có `class_name`. Câu select cũ liệt kê nó nên
+           PostgREST trả `42703 column does not exist` cho CẢ câu, `profile` về
+           null, và MỌI ô trên form rỗng — kể cả Họ và tên. Lỗi lại bị nuốt vì
+           chỗ này chỉ hứng `data`, không hứng `error`. Nhìn từ ngoài: form trống
+           trơn, không một thông báo.
+
+           Không thay bằng `class_id`: học sinh không đọc được bảng `classes`
+           (RLS `20260722` chỉ mở cho admin và giáo viên chủ nhiệm), nên có lấy
+           được khoá cũng không đổi ra tên lớp. Xem thêm ở chỗ ô Lớp bên dưới. */
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('full_name, class_name, school')
+          .select('full_name, school')
           .eq('id', user.id)
           .single()
+
+        if (profileError) {
+          console.error('Fetch profile error:', profileError)
+          setSaveError('Không tải được thông tin cá nhân. Tải lại trang giúp thầy cô nhé.')
+          return
+        }
 
         setFormData({
           fullName: profile?.full_name || '',
           email: user.email || '',
-          className: profile?.class_name || '',
           school: profile?.school || ''
         })
       } catch (error) {
@@ -119,7 +133,6 @@ export default function StudentSettingsPage() {
         .from('profiles')
         .update({
           full_name: formData.fullName,
-          class_name: formData.className,
           school: formData.school,
           updated_at: new Date().toISOString()
         })
@@ -249,11 +262,6 @@ export default function StudentSettingsPage() {
                 </h1>
                 <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">{formData.email}</p>
                 <p className="mt-2 flex flex-wrap gap-2 text-xs">
-                  {formData.className && (
-                    <span className="rounded-full bg-teal-100 px-2.5 py-1 font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
-                      Lớp {formData.className}
-                    </span>
-                  )}
                   {formData.school && (
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
                       {formData.school}
@@ -305,21 +313,28 @@ export default function StudentSettingsPage() {
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Email không thể thay đổi</p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="settings-class" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Lớp
-                  </label>
-                  <input
-                    id="settings-class"
-                    type="text"
-                    value={formData.className}
-                    onChange={(e) => handleInputChange('className', e.target.value)}
-                    placeholder="Ví dụ: 12A1"
-                    className={FIELD_CLASS}
-                  />
-                </div>
+              {/* KHÔNG CÓ Ô "LỚP" Ở ĐÂY, và đó là chủ ý.
 
+                  Ô cũ là ô chữ tự do, và nó vừa không ĐỌC được vừa không GHI
+                  được:
+
+                    * ghi — trigger `protect_profile_writes` (`20260722`) ném
+                      `PROFILE_SECURITY_FIELD_UPDATE_FORBIDDEN` khi học sinh đổi
+                      `class_id` của chính mình. Xếp lớp là quyền của giáo viên;
+                      cho học sinh tự đổi là cho các em tự rời lớp và mất luôn
+                      bài tập được giao theo lớp.
+                    * đọc — RLS trên `classes` chỉ mở cho admin và giáo viên chủ
+                      nhiệm, nên phiên của học sinh có khoá lớp cũng không đổi ra
+                      được tên lớp.
+
+                  Một ô không đọc được cũng không ghi được thì không phải tính
+                  năng, nó là cái bẫy: học sinh gõ vào, bấm Lưu, rồi nhận lỗi mà
+                  không hiểu vì sao. Bỏ hẳn thật thà hơn là làm nó xám đi.
+
+                  Muốn học sinh THẤY lớp mình thì phải mở một đường đọc riêng
+                  (RPC `SECURITY DEFINER` chỉ trả tên lớp của chính người gọi) —
+                  việc đó chưa ai yêu cầu. */}
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label htmlFor="settings-school" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Trường

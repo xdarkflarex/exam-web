@@ -911,6 +911,35 @@ lại đúng cái cửa vừa đóng.
 phải là `SET NULL` chứ tuyệt đối không `CASCADE` — xoá một lớp mà cascade là xoá
 luôn hồ sơ học sinh. Ghi chú đầy đủ ở cuối file migration.
 
+### Mọi đường ghi `class_id` — rà ngày 2026-09-04
+
+Bốn chỗ, và chỉ hai chỗ được phép ghi khoá lớp:
+
+| Chỗ | Trước | Sau |
+|---|---|---|
+| Form đăng ký | ô gõ tự do | chọn khối 10/11/12, **server** tra ra khoá |
+| `/admin/users` | ô gõ tự do | ô chọn lớp có thật |
+| `/admin/classes` | đã đúng — ghi khoá thật | không đổi |
+| `/student/settings` | ô gõ tự do, ghi cột **không tồn tại** | bỏ hẳn ô |
+
+Học sinh **không được** đổi lớp của chính mình: trigger `protect_profile_writes`
+(`20260722:2393`) ném `PROFILE_SECURITY_FIELD_UPDATE_FORBIDDEN` khi `class_id`
+đổi. Và học sinh cũng **không đọc được** bảng `classes` (RLS chỉ mở cho admin và
+giáo viên chủ nhiệm). Ô ở `/student/settings` vừa không đọc vừa không ghi được —
+nên bỏ, không phải làm xám.
+
+**Lỗi kèm theo, đã sửa cùng đợt:** `/student/settings` select và update cột
+`profiles.class_name`, **không tồn tại**. PostgREST trả `42703` cho cả câu, và
+chỗ đó chỉ hứng `data` chứ không hứng `error` — nên form hiện **trống trơn** (kể
+cả Họ và tên) và nút "Lưu thay đổi" **chưa bao giờ chạy được**, không một thông
+báo nào. Một cột sai làm chết cả hai chiều đọc và ghi.
+
+Ba trạng thái của `class_id` phải phân biệt được ở mọi màn hình — dùng
+[`describeClassId`](../src/lib/classes/class-options.ts): `NULL` = chưa xếp lớp;
+khớp = tên lớp; không khớp = **hiện nguyên giá trị rác** kèm "không khớp lớp
+nào". Gộp hai trạng thái cuối thành một chữ "Lớp khác" chính là cách lỗi này sống
+sót lâu như vậy.
+
 ### Cách xếp lớp cho học sinh bằng tay
 
 `/admin/classes` → chọn lớp ở cột trái → ba nhóm hiện bên phải:

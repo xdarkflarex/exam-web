@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { classOptionLabel, describeClassId, type ClassOption } from '@/lib/classes/class-options'
 import { 
   Users, Search, Filter, UserCheck, UserX, Shield, GraduationCap,
   Mail, Calendar, MoreVertical, ChevronDown, Eye, Trash2, RefreshCw, AlertCircle,
@@ -28,6 +29,11 @@ export default function AdminUsersPage() {
   const supabase = createClient()
   
   const [users, setUsers] = useState<UserProfile[]>([])
+  /* Danh sách lớp có thật, để ô "Lớp" là ô CHỌN chứ không phải ô gõ.
+     `profiles.class_id` không có foreign key sang `classes.id`, nên ô gõ tự do
+     ghi thẳng được chữ người dùng nhập vào một cột vốn là khoá — đó là gốc của
+     mớ "10a1", "9/1", "12" đang có trong database. */
+  const [classes, setClasses] = useState<ClassOption[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('')
@@ -43,6 +49,15 @@ export default function AdminUsersPage() {
     setLoading(true)
     setErrorMessage(null)
     try {
+      // Lớp chỉ có admin và giáo viên chủ nhiệm đọc được (RLS `20260722`).
+      // Trang này đã sau cổng admin nên đọc được; lỗi ở đây không chặn danh sách
+      // người dùng, chỉ làm ô chọn lớp rỗng.
+      const { data: classRows } = await supabase
+        .from('classes')
+        .select('id, name, grade')
+        .order('grade', { ascending: true })
+      setClasses(classRows || [])
+
       // Fetch profiles
       const { data: profiles, error } = await supabase
         .from('profiles')
@@ -311,6 +326,7 @@ export default function AdminUsersPage() {
       {showDetailModal && selectedUser && (
         <UserDetailModal
           user={selectedUser}
+          classes={classes}
           onClose={() => setShowDetailModal(false)}
           onSave={() => fetchUsers()}
           formatDate={formatDate}
@@ -322,11 +338,13 @@ export default function AdminUsersPage() {
 
 function UserDetailModal({
   user,
+  classes,
   onClose,
   onSave,
   formatDate
 }: {
   user: UserProfile
+  classes: ClassOption[]
   onClose: () => void
   onSave: () => void
   formatDate: (date: string) => string
@@ -355,7 +373,7 @@ function UserDetailModal({
           full_name: editName.trim() || null,
           school: editSchool.trim() || null,
           role: editRole,
-          class_id: editClassId.trim() || null,
+          class_id: editClassId || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
@@ -540,16 +558,35 @@ function UserDetailModal({
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Lớp</p>
               </div>
               {isEditing ? (
-                <input
-                  type="text"
-                  value={editClassId}
-                  onChange={(e) => setEditClassId(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-white"
-                  placeholder="Nhập lớp..."
-                />
+                <>
+                  <select
+                    value={editClassId}
+                    onChange={(e) => setEditClassId(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-white"
+                  >
+                    <option value="">Chưa xếp lớp</option>
+                    {classes.map((option) => (
+                      <option key={option.id} value={option.id}>{classOptionLabel(option)}</option>
+                    ))}
+                    {/* Giá trị hiện tại không nằm trong danh sách lớp thì vẫn
+                        phải có mặt, nếu không mở form sửa ra là ô nhảy về "Chưa
+                        xếp lớp" và bấm Lưu sẽ ÂM THẦM xoá lớp của học sinh —
+                        kể cả khi người dùng chỉ định sửa cái tên. */}
+                    {editClassId && !classes.some((option) => option.id === editClassId) && (
+                      <option value={editClassId}>{describeClassId(editClassId, classes)}</option>
+                    )}
+                  </select>
+                  {classes.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      Chưa tạo lớp nào. Tạo ở trang Quản lý lớp học trước.
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="font-medium text-slate-800 dark:text-white text-sm">
-                  {user.class_id || <span className="text-slate-400 italic">Chưa cập nhật</span>}
+                  {user.class_id
+                    ? describeClassId(user.class_id, classes)
+                    : <span className="text-slate-400 italic">Chưa xếp lớp</span>}
                 </p>
               )}
             </div>
