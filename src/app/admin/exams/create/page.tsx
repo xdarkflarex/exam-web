@@ -449,7 +449,17 @@ export default function CreateExamPage() {
       // Chỉ ghi được lúc INSERT: `20260806` cố ý không grant UPDATE cho cột này,
       // vì đổi hồ sơ của đề đã có câu hỏi làm mọi trọng số hiện có thành sai thang.
       scoring_profile: profile,
-      session_size: 10,
+      /* KHÔNG ghi `session_size`. Cột đó vẫn còn trên `exams` nhưng KHÔNG AI ĐỌC:
+         đề ôn tập hiện cả ba phần một lượt rồi nộp một lần (`PracticeRunner` +
+         `submit_practice_attempt`), không chia đoạn. Chia đoạn là chuyện của bài
+         tập về nhà, và nó đọc `homeworks.session_size`.
+
+         Cột này là di sản từ hồi bài tập về nhà còn là `exam_mode = 'homework'`;
+         `20260621` tách miền ra và copy `e.session_size` sang bảng `homeworks`,
+         nhưng để lại cột cũ. Ghi 10 vào đây làm người đọc code tưởng đề ôn tập
+         cũng chia đoạn — đúng thứ khiến hai tính năng trông như một.
+
+         Cột `NOT NULL DEFAULT 10` nên bỏ dòng ghi không làm INSERT hỏng. */
       created_by: user?.id || null,
     })
     if (examError) {
