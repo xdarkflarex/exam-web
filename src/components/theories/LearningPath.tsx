@@ -418,6 +418,9 @@ export default function LearningPath({ items, selectedId, filtering = false, now
       const list = byGroup.get(name) ?? []
       return {
         name,
+        /* Lớp của chặng. Mọi bài trong một chương luôn cùng một lớp — chương
+           nằm dưới lớp trong cây tri thức — nên lấy của bài đầu là đủ. */
+        grade: list[0]?.grade ?? null,
         items: list,
         solid: list.filter((item) => item.mastery === 'stable' || item.mastery === 'mastered').length,
         weak: list.filter((item) => item.mastery === 'needs_work' || item.mastery === 'building').length,
@@ -467,9 +470,19 @@ export default function LearningPath({ items, selectedId, filtering = false, now
     <div className="space-y-8">
       {stages.map((stage, stageIndex) => {
         const headingId = `stage-${stageIndex}`
+        /* Chỉ hiện tên lớp khi nó ĐỔI so với chặng trước. Lặp lại "Toán 12" trên
+           bảy chặng liên tiếp là nhiễu; chỉ hiện lúc chuyển lớp thì nó thành vạch
+           ngăn, đúng thứ danh sách này đang thiếu. */
+        const showGrade = Boolean(stage.grade) && stage.grade !== stages[stageIndex - 1]?.grade
 
         return (
           <section key={stage.name} aria-labelledby={headingId}>
+            {showGrade && (
+              <p className="mb-2 mt-1 flex items-center gap-2 text-sm font-black uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">
+                <span className="h-px flex-none bg-teal-600/40" style={{ width: '1.25rem' }} aria-hidden="true" />
+                {stage.grade}
+              </p>
+            )}
             {/*
               Header dính. `top-14` khớp chiều cao thanh nav dính của
               `src/app/learn/layout.tsx` — đổi nav thì đổi cả số này.

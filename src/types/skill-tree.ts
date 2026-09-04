@@ -49,7 +49,19 @@ export interface SkillTreePrerequisite {
 export interface SkillTreeItem {
   id: string
   title: string
+  /** Chương, ví dụ "Chương 1. Ứng dụng đạo hàm". */
   group: string
+  /**
+   * LỚP, ví dụ "Toán 10". Lấy từ `topics` — tầng trên cùng của cây tri thức.
+   *
+   * Vì sao phải có riêng trường này chứ không gộp vào `group`: cả ba lớp đều có
+   * "Chương 1", nên một danh sách chỉ hiện tên chương cho ra ba dòng "Chương 1"
+   * khác nhau mà không cách nào phân biệt. Gộp vào `group` thì sửa được chỗ đó
+   * nhưng mất khả năng lọc theo lớp, và nhãn chặng dài gấp đôi.
+   *
+   * `null` khi bài nằm ngoài ba nhánh lớp (các chuyên đề cũ trong `topics`).
+   */
+  grade: string | null
   difficulty: number
   /** Tỷ lệ câu ĐÃ LÀM trên tổng số câu được giao. Không phải tỷ lệ đúng. */
   progress: number | null

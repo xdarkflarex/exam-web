@@ -33,8 +33,19 @@ interface TheoryRow {
   description: string | null
   content_md?: string | null
   difficulty_level: number
+  /** Thứ tự bài TRONG CHƯƠNG (0..N mỗi chương), không phải thứ tự toàn cục. */
+  order_index?: number | null
   section_id: string
-  sections?: { name: string; categories?: { name: string; topics?: { name: string } } }
+  /* `order_index` của lớp và chương được lấy kèm để sắp lại ở client — xem
+     khối chú thích ở chỗ `rows.sort(...)`. */
+  sections?: {
+    name: string
+    categories?: {
+      name: string
+      order_index?: number | null
+      topics?: { name: string; order_index?: number | null }
+    }
+  }
 }
 interface EdgeRow { from_theory_id: string; to_theory_id: string; relation_type: SkillTreeLink['relation'] }
 
@@ -122,14 +133,77 @@ function LearnPageContent() {
   const selectedId = searchParams.get('theory')
   const groupOf = useCallback((theory: TheoryRow) => theory.sections?.categories?.name || theory.sections?.name || 'Khác', [])
 
+  /*
+    LỚP của một bài, lấy từ `topics` — tầng trên cùng của cây tri thức
+    (`topics` lớp -> `categories` chương -> `sections` bài).
+
+    Trước khi có nó, trang này gom nhóm chỉ theo TÊN CHƯƠNG. Cả ba lớp đều có
+    "Chương 1", nên 29 bài đổ ra thành tám chặng trong đó có ba chặng tên gần
+    giống nhau và không dấu hiệu nào cho biết đang ở lớp nào.
+  */
+  const gradeOf = useCallback(
+    (theory: TheoryRow) => theory.sections?.categories?.topics?.name || null,
+    []
+  )
+
+  /*
+    Lớp đang chọn nằm ở QUERY STRING, không ở state riêng.
+
+    Trang này đã dùng `?theory=` cho bài đang mở, nên `?grade=` đi cùng chỗ là
+    nhất quán. Đổi lại còn được ba thứ miễn phí: nút back của trình duyệt hoạt
+    động đúng, đường dẫn chia sẻ được, và không cần `useEffect` đọc
+    `localStorage` — cái mà `react-hooks/set-state-in-effect` cấm, và cấm có lý:
+    đọc storage rồi `setState` là render một lần bằng giá trị sai rồi sửa lại, tức
+    là nháy.
+  */
+  const grade = searchParams.get('grade') || ''
+  const chooseGrade = useCallback((value: string) => {
+    const next = new URLSearchParams(searchParams.toString())
+    if (value) next.set('grade', value)
+    else next.delete('grade')
+    // Bỏ bài đang mở khi đổi lớp: bài đó gần như chắc chắn thuộc lớp vừa rời đi.
+    next.delete('theory')
+    const qs = next.toString()
+    router.push(qs ? `/learn?${qs}` : '/learn', { scroll: false })
+  }, [router, searchParams])
+
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       const [theoryRes, edgeRes] = await Promise.all([
-        supabase.from('theories').select('id, title, description, difficulty_level, section_id, sections(name, categories(name, topics(name)))').eq('is_published', true).order('order_index'),
+        supabase.from('theories').select('id, title, description, difficulty_level, order_index, section_id, sections(name, categories(name, order_index, topics(name, order_index)))').eq('is_published', true).order('order_index'),
         supabase.from('theory_edges').select('from_theory_id, to_theory_id, relation_type'),
       ])
-      setTheories((theoryRes.data || []) as unknown as TheoryRow[])
+      /*
+        SẮP LẠI THEO LỚP → CHƯƠNG → BÀI.
+
+        `.order('order_index')` của truy vấn sắp theo thứ tự bài TRONG CHƯƠNG, mà
+        cột đó chạy 0..N ở mỗi chương — nên tất cả bài số 0 của tám chương đứng
+        cạnh nhau, rồi đến tất cả bài số 1. Các chương bị trộn vào nhau, và vì
+        các bài cùng `order_index` không có tiêu chí phá hòa nào nên thứ tự còn
+        KHÔNG ỔN ĐỊNH giữa hai lần tải.
+
+        Đo ngày 2026-09-04: bài đầu tiên học sinh nhìn thấy là "HÌNH HỌC THCS CẦN
+        NHỚ" — phụ lục lớp 12 — rồi nhảy sang lớp 10, lớp 12, lớp 11.
+
+        `topics.order_index` (110/111/112) và `categories.order_index` (1,2,3,90) đã
+        được đặt đúng từ trước; trang này chỉ không đọc tới. Sắp ở client chứ
+        không ở PostgREST vì `.order()` không sắp được theo cột của bảng lồng nhau.
+      */
+      const rows = (theoryRes.data || []) as unknown as TheoryRow[]
+      const rank = (theory: TheoryRow) => [
+        theory.sections?.categories?.topics?.order_index ?? 9999,
+        theory.sections?.categories?.order_index ?? 9999,
+        theory.order_index ?? 9999,
+      ]
+      rows.sort((left, right) => {
+        const a = rank(left), b = rank(right)
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]
+        // Tiêu chí phá hòa cuối cùng: không có nó thì hai bài trùng hạng vẫn đổi
+        // chỗ cho nhau giữa hai lần tải.
+        return left.title.localeCompare(right.title, 'vi')
+      })
+      setTheories(rows)
       setEdges((edgeRes.data || []) as EdgeRow[])
 
       if (user) {
@@ -208,11 +282,18 @@ function LearnPageContent() {
   [groupOf, incoming, masteryByTheory, theoryById])
 
   const groups = useMemo(() => [...new Set(theories.map(groupOf))].sort(), [groupOf, theories])
+  /* Chỉ liệt kê lớp THỰC SỰ có bài đã xuất bản. Hiện sẵn ba tab 10/11/12 rồi
+     để hai tab rỗng là mời học sinh bấm vào chỗ không có gì. */
+  const grades = useMemo(
+    () => [...new Set(theories.map(gradeOf).filter((name): name is string => Boolean(name)))].sort(),
+    [gradeOf, theories]
+  )
 
   const matches = useCallback((theory: TheoryRow) => (
+    (!grade || gradeOf(theory) === grade) &&
     (!group || groupOf(theory) === group)
     && (!query.trim() || theory.title.toLowerCase().includes(query.trim().toLowerCase()))
-  ), [group, groupOf, query])
+  ), [grade, gradeOf, group, groupOf, query])
 
   /**
    * Dựng TOÀN BỘ node, kể cả node không khớp bộ lọc.
@@ -248,6 +329,7 @@ function LearnPageContent() {
         id: theory.id,
         title: theory.title,
         group: groupOf(theory),
+        grade: gradeOf(theory),
         difficulty: theory.difficulty_level,
         progress: completion,
         answered,
@@ -273,11 +355,24 @@ function LearnPageContent() {
         matched: matches(theory),
       }
     })
-  }, [assignmentsByTheory, groupOf, masteryByTheory, matches, now, prerequisitesOf, progress, theories])
+  }, [assignmentsByTheory, gradeOf, groupOf, masteryByTheory, matches, now, prerequisitesOf, progress, theories])
+
+  /* Đóng bài đang mở mà GIỮ bộ lọc lớp. Hai nút đóng trước đây đều
+     `router.push('/learn')` trống trơn, tức là xóa luôn `?grade=`. */
+  const closeTheory = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('theory')
+    const qs = next.toString()
+    router.push(qs ? `/learn?${qs}` : '/learn', { scroll: false })
+  }, [router, searchParams])
 
   const selectTheory = useCallback((id: string) => {
-    router.push(`/learn?theory=${id}`, { scroll: false })
-  }, [router])
+    // Giữ nguyên `?grade=`: mở một bài rồi đóng lại mà mất bộ lọc lớp thì học sinh
+    // bị đẩy về danh sách cả ba lớp — đúng cái vừa dọn đi.
+    const next = new URLSearchParams(searchParams.toString())
+    next.set('theory', id)
+    router.push(`/learn?${next.toString()}`, { scroll: false })
+  }, [router, searchParams])
 
   const content = selectedId ? contentCache.get(selectedId) : null
   const blocks = selectedId ? blockCache.get(selectedId) || [] : []
@@ -288,7 +383,7 @@ function LearnPageContent() {
     ? prerequisitesOf(selectedId).filter(prerequisite => prerequisite.met === false).map(prerequisite => prerequisite.title)
     : []
   const matchedCount = items.filter(item => item.matched).length
-  const isFiltering = Boolean(group || query.trim())
+  const isFiltering = Boolean(grade || group || query.trim())
 
   // Số liệu tóm tắt cho hero. Mỗi con số neo vào dữ liệu thật; con số bằng 0 thì
   // KHÔNG hiện dòng đó, thay vì hiện một số 0 trông như thất bại.
@@ -364,6 +459,48 @@ function LearnPageContent() {
           </div>
         </header>
 
+        {/*
+          THANH CHỌN LỚP.
+
+          Đặt trên ô tìm kiếm và trên bộ lọc chương, vì lớp là câu hỏi đầu tiên học
+          sinh tự hỏi khi mở trang. Trước đây 29 bài của ba lớp đổ chung một
+          danh sách, mà cả ba lớp đều có "Chương 1" — không ai biết mình đang xem lớp nào.
+
+          Dùng nút chứ không dùng ô xổ: ba lựa chọn cố định và học sinh đổi rất
+          thường xuyên; ô xổ bắt hai thao tác cho một việc mỗi lần.
+        */}
+        {grades.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Chọn lớp">
+            <button
+              type="button"
+              onClick={() => chooseGrade('')}
+              aria-pressed={grade === ''}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                grade === ''
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-[var(--background-raised)] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+              }`}
+            >
+              Tất cả lớp
+            </button>
+            {grades.map(name => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => chooseGrade(name)}
+                aria-pressed={grade === name}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                  grade === name
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-[var(--background-raised)] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <label className="relative flex-1">
             <span className="sr-only">Tìm bài học</span>
@@ -415,7 +552,7 @@ function LearnPageContent() {
 
           {selectedTheory && (
             <>
-              <button aria-label="Đóng nội dung" onClick={() => router.push('/learn', { scroll: false })} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
+              <button aria-label="Đóng nội dung" onClick={closeTheory} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
               {/*
                 Panel trước đây hardcode `bg-slate-950 text-slate-100`, tức ép dark
                 mode ngay cả khi cả trang đang sáng. Chuyển sang token nền/viền để
@@ -436,7 +573,7 @@ function LearnPageContent() {
                     </div>
                     <button
                       aria-label="Đóng nội dung bài học"
-                      onClick={() => router.push('/learn', { scroll: false })}
+                      onClick={closeTheory}
                       className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                     >
                       <X className="h-5 w-5" aria-hidden="true" />
