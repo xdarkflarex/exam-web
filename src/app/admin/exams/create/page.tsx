@@ -436,13 +436,7 @@ export default function CreateExamPage() {
       title: title.trim(),
       subject: 'Toán',
       duration: mode === 'practice' ? 0 : duration,
-      // 0 = không giới hạn lượt, đúng quy ước mà `start_exam_attempt` và
-      // `20260803` đã dùng. Đề ôn tập phải làm lại được bao nhiêu lần tuỳ ý.
-      //
-      // Ghi tường minh chứ không để cột tự lấy DEFAULT 1: mặc định của cột nói
-      // về đề THI, và dựa vào nó nghĩa là ý định của trang này chỉ tồn tại ở
-      // chỗ nó KHÔNG được viết ra — đọc code không thấy, đổi default là hỏng.
-      max_attempts: mode === 'practice' ? 0 : 1,
+      // KHÔNG ghi `max_attempts` ở đây — xem khối UPDATE ngay sau INSERT.
       total_score: totalScore,
       passing_score: 5,
       is_published: false,
@@ -463,6 +457,38 @@ export default function CreateExamPage() {
       setSaving(false)
       return
     }
+
+    /*
+      Đề ôn tập: mở số lượt làm thành không giới hạn (0 = không giới hạn, quy ước
+      của `start_exam_attempt` và `20260803`).
+
+      VÌ SAO LÀ UPDATE RIÊNG CHỨ KHÔNG NẰM TRONG INSERT Ở TRÊN.
+      `20260722` cấp INSERT trên `exams` theo DANH SÁCH CỘT ĐÓNG, và
+      `max_attempts` không có trong danh sách đó — nó chỉ có trong danh sách
+      GRANT UPDATE. Đưa cột này vào INSERT làm cả câu lệnh bị từ chối với
+      "permission denied for table exams", và thông báo đó KHÔNG nói cột nào có
+      lỗi, nên nhìn như mất sạch quyền tạo đề. Đúng cái bẫy mà `20260806` đã phải
+      thêm `GRANT INSERT (scoring_profile)` để thoát ra.
+
+      Tách làm hai bước là an toàn ở đây vì đề sinh ra ở trạng thái nháp
+      (`is_published: false`): chưa học sinh nào với tới được nó trong lúc giữa
+      hai câu lệnh.
+
+      Lỗi ở bước này KHÔNG chặn việc tạo đề. Đề đã tồn tại cùng câu hỏi, và trang
+      xuất bản luôn ghi `max_attempts = 0` cho đề ôn tập — mà muốn xuất bản thì
+      bắt buộc qua trang đó, nên giá trị sai không thể theo đề ra tới học sinh.
+      Dừng cả luồng ở đây chỉ để lại một đề nửa vời, tệ hơn hẳn.
+    */
+    if (mode === 'practice') {
+      const { error: attemptsError } = await supabase
+        .from('exams')
+        .update({ max_attempts: 0 })
+        .eq('id', examId)
+      if (attemptsError) {
+        console.warn('Không đặt được số lượt không giới hạn cho đề ôn tập:', attemptsError.message)
+      }
+    }
+
     const orderByPart: Record<number, number> = { 1: 0, 2: 0, 3: 0 }
     const examQuestions = pickedQuestions.map((question) => {
       const partNumber = question.questionType === 'multiple_choice'

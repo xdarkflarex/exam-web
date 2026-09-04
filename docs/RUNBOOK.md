@@ -891,6 +891,31 @@ rg -n "status.*completed|\.eq\('user_id'|time_limit|classes.*description" src
 rg -n "theory_mastery|knowledge_block_mastery|process_mastery" src
 ```
 
+### "permission denied for table exams" khi tạo đề
+
+Thông báo này nói dối về phạm vi: nó KHÔNG có nghĩa là mất quyền trên cả bảng.
+`20260722` cấp `INSERT` trên `exams` theo **danh sách cột đóng** — thêm một cột
+vào câu INSERT mà cột đó không có trong danh sách thì **cả câu lệnh** bị từ chối,
+và Postgres không cho biết cột nào có lỗi.
+
+Danh sách cột được phép INSERT (`20260722:3342`, cộng `scoring_profile` từ
+`20260806`):
+
+```
+id, title, subject, duration, total_score, passing_score, is_published,
+source_exam, grade, exam_mode, session_size, created_by, class_id,
+scoring_profile
+```
+
+`max_attempts`, `description`, `start_time`, `end_time`,
+`show_results_immediately`, `allow_review` **chỉ có quyền UPDATE**, không có
+INSERT. Muốn đặt chúng lúc tạo đề thì hoặc UPDATE ngay sau INSERT, hoặc viết
+migration `GRANT INSERT (<cột>) ON TABLE public.exams TO authenticated;` như
+`20260806` đã làm.
+
+Đã sập một lần ngày 2026-09-03 vì thêm `max_attempts` vào INSERT. Kiểm nhanh khi
+gặp lại: bỏ từng cột mới thêm ra khỏi câu INSERT cho tới khi hết lỗi.
+
 Nếu `tsc` báo lỗi trong `.next/dev/types/**`, dừng dev server, xóa đúng thư mục `.next` rồi chạy lại trước khi kết luận source hỏng.
 
 ## 10. MCP Supabase
