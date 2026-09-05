@@ -1,7 +1,7 @@
 import { type NextRequest } from 'next/server'
 import { ProviderError } from '@/lib/essay-ai/contracts'
 import { json, requireAuditAdmin } from '@/lib/questions/audit-server'
-import { suggestTopic } from '@/lib/questions/classify'
+import { findRuleConflict, suggestTopic } from '@/lib/questions/classify'
 import { createDeepSeekClassifyProvider } from '@/lib/questions/classify-ai-provider'
 import type { ClassifySuggestion, TaxonomyTree } from '@/lib/questions/classify-ai'
 import { selectScopeIds } from '@/lib/questions/audit-scope'
@@ -147,18 +147,23 @@ export async function POST(request: NextRequest) {
   const suggestions: ClassifySuggestion[] = []
   const needAi: Array<{ id: string; content: string }> = []
   let byRule = 0
+  /** Số gợi ý AI bị hàng rào luật từ chối. Hiện cho người duyệt biết, không giấu. */
+  let rejectedByRule = 0
 
   for (const question of questions) {
-    const ruleHit = suggestTopic(question.content ?? '', tree.topics)
+    /* Truyền CẢ `categories`. Thiếu nó thì lớp luật gần như chết: tên môn học
+       thật ("Cấp số cộng", "Lượng giác (Lớp 11)"...) nằm ở tầng chương, không
+       phải tầng chủ đề — xem khối chú thích đầu `classify.ts`. */
+    const ruleHit = suggestTopic(question.content ?? '', tree.topics, tree.categories)
 
     if (ruleHit && !deepSuggest) {
       suggestions.push({
         question_id: question.id,
         ly_do: `Luật: ${ruleHit.signals.join(', ')}`,
-        // Luật chỉ ra tới tầng topic — đó là giới hạn của `classify.ts`, không
-        // phải thiếu sót của lời gọi này.
         topic_id: ruleHit.topicId,
-        category_id: null,
+        // Luật giờ ra được tới tầng chương khi tên chương đủ rõ; `null` nghĩa là
+        // nó chỉ chắc tới chủ đề, không phải là nó bỏ trống cho có.
+        category_id: ruleHit.categoryId,
         section_id: null,
         subsection_id: null,
         // Luật không sinh xác suất. 1 ở đây nghĩa là "tất định", không phải
@@ -193,7 +198,34 @@ export async function POST(request: NextRequest) {
       const batch = needAi.slice(i, i + BATCH_SIZE)
       try {
         const result = await provider.classify(batch, tree)
-        suggestions.push(...result.suggestions)
+
+        /*
+          HÀNG RÀO: từ chối gợi ý mâu thuẫn với bằng chứng hiển nhiên.
+
+          "Luật chạy trước" chỉ chặn được câu mà luật kết luận CHẮC CHẮN; câu nào
+          luật trả `null` vẫn đi xuống đây, và model tự do chọn bất cứ nhánh nào.
+          Đo trên ngân hàng thật: câu ghi thẳng "cấp số cộng, công sai d = 2" bị
+          xếp vào "Thống kê liên tục" — không tầng nào nói "không" với chuyện đó.
+
+          Hàng rào chỉ TỪ CHỐI, không sửa hộ. Sửa hộ là đoán thay model, mà đoán
+          chính là thứ đang hỏng. Bị từ chối thì câu về nhóm "máy chịu" và người
+          soạn quyết — đúng như thiết kế của cả luồng này.
+        */
+        const byId = new Map(batch.map((item) => [item.id, item.content]))
+        for (const item of result.suggestions) {
+          const conflict = findRuleConflict(
+            byId.get(item.question_id) ?? '',
+            { topicId: item.topic_id, categoryId: item.category_id },
+            tree.topics,
+            tree.categories,
+          )
+          if (conflict) {
+            rejectedByRule++
+            continue
+          }
+          suggestions.push(item)
+        }
+
         promptTokens += result.promptTokens
         completionTokens += result.completionTokens
         costUsd += result.estimatedCostUsd
@@ -220,6 +252,15 @@ export async function POST(request: NextRequest) {
     byRule,
     /** Số câu đã phải hỏi model. */
     askedAi: needAi.length,
+    /**
+     * Số gợi ý của model bị HÀNG RÀO LUẬT từ chối vì mâu thuẫn với bằng chứng
+     * trong đề bài.
+     *
+     * Trả ra thay vì nuốt: con số này là thước đo model đang lệch tới đâu. Nó
+     * tăng đột ngột thì hoặc model đổi hành vi, hoặc bảng luật vừa bị siết quá
+     * tay — cả hai đều cần biết, và không cách nào biết nếu giấu đi.
+     */
+    rejectedByRule,
     suggestions,
     /**
      * Nội dung rút gọn theo id.

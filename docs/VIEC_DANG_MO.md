@@ -388,21 +388,24 @@ display math tụt xuống inline). Nhưng bốn bài kia chưa bao giờ đư�
 **Quét bằng regex là không đủ, và đã chứng minh.** Bản quét tĩnh (môi trường lạ,
 lệnh ngoài danh sách, `$$` lẻ cặp) báo *sạch trơn* trong khi trên `/learn` vẫn có
 chỗ hỏng. Lỗi MathJax phần lớn là lỗi ngữ pháp — thiếu `}`, `&` sai số cột,
-`\left` không có `ight` — không mẫu regex nào bắt được nhóm đó.
+`\left` không có `
+ight` — không mẫu regex nào bắt được nhóm đó.
 
 ### Lỗi tìm được: placeholder nội bộ của parser lọt ra nội dung
 
 3927 công thức, 7 lỗi, tất cả cùng một hình dạng:
 
 ```
-\left\{%%PROTECTED_0%%ight.
+\left\{%%PROTECTED_0%%
+ight.
 ```
 
 `%%PROTECTED_n%%` là placeholder nội bộ của `latexToMarkdown`. **8 chỗ trên 2
 bài** hiện nguyên chuỗi đó giữa bài cho học sinh đọc.
 
 Nguyên nhân là **bảo vệ lồng nhau + khôi phục một lượt**. Với
-`$\left\{egin{aligned}…\end{aligned}ight.$`:
+`$\left\{egin{aligned}…\end{aligned}
+ight.$`:
 
 1. bước bảo vệ môi trường thay khối `aligned` bằng `%%PROTECTED_0%%`;
 2. bước bảo vệ `$...$` bọc cả cụm thành `%%PROTECTED_1%%`;
@@ -425,3 +428,63 @@ Sau khi nhập lại 29 bài: **3927/3927 công thức sạch, 0 placeholder l�
 ### Chạy lại khi nào
 
 Sau mỗi lần `npm run theories:import --ghi`. Mã thoát khác 0 khi còn lỗi.
+
+## 17. XONG 2026-09-04 — siết luật phân loại, và thêm chương "Dãy số"
+
+### Vấn đề đo được trên ngân hàng thật (1621 câu)
+
+112 câu ghi thẳng "cấp số cộng", "công sai", "dãy số" bị AI xếp vào:
+**Tổ hợp và nhị thức Newton (52), Thống kê liên tục (36), Lượng giác (8)**.
+KHÔNG câu nào vào đúng chương.
+
+### Ba nguyên nhân, không phải một
+
+1. **Lớp luật gần như chết.** `topicHints` chỉ dò trong tên `topics`, mà cây đang
+   dùng có topics là "Đại số", "Thống kê", "MỘT SỐ YẾU TỐ GIẢI TÍCH" — tên môn
+   học thật nằm ở tầng **chương**. Chỉ đúng một luật từng khớp được. Mọi câu rơi
+   xuống AI, và AI đoán.
+2. **Không có dấu hiệu phủ định.** "Tổ hợp" hút mọi câu có `u_n`, luỹ thừa,
+   `C_n^k` — kể cả câu cấp số nhân.
+3. **Dấu hiệu quá rộng.** `\sin` trần đủ để kết luận "Lượng giác", mà `\sin` có
+   trong câu đạo hàm, tích phân, giới hạn.
+
+### Đã sửa
+
+| | trước | sau |
+|---|---|---|
+| 112 câu dãy số/cấp số luật tự quyết | 0 | **110** |
+| Hàng rào bắt được là đang xếp sai | — | **107/112** |
+| Tỷ lệ mâu thuẫn trên 1324 câu đã phân loại | 43,1% (bản đầu) | **11,7%** |
+
+Con số 43% là của bản sửa đầu tiên và nó **là một lỗi**: khi nhiều chương cùng
+khớp, code lấy chương đầu tiên trong mảng — tức chọn theo thứ tự database trả về.
+Giờ khớp nhiều là **không chọn chương nào**, rơi xuống tầng chủ đề.
+
+**Hàng rào `findRuleConflict`** chặn gợi ý AI mâu thuẫn với bằng chứng hiển
+nhiên. Chỉ **từ chối**, không sửa hộ — sửa hộ là đoán thay model, mà đoán chính
+là thứ đang hỏng. Route trả `rejectedByRule` để theo dõi.
+
+### Migration chờ nạp
+
+`20260910_them_chuong_day_so.sql` — thêm chương **Dãy số** + 3 mục con vào cây
+**cũ** (dưới "Đại số"). Không có nó thì 40 câu dãy số thuần vẫn không có chỗ xếp.
+
+Quyết định của chủ dự án: **giữ cây cũ**, không chuyển sang cây `sgk-*`. 1324 câu
+đã phân loại theo cây cũ; chuyển hết là làm lại từ đầu.
+
+### Đã mang sang question-bank
+
+`question-bank/src/services/classify-rules.ts` là **bản song sinh** của
+`classify.ts`. Bên đó trước nay hỏi thẳng DeepSeek cho mọi câu, không tầng nào
+chặn trước, không tầng nào kiểm sau, `temperature: 0.3`, và **ép model đi tới
+tận `subsection`** — chính thứ exam-web ghi rõ là "cách chắc chắn để nó bịa".
+Nay: luật chạy trước, hàng rào kiểm sau, temperature 0, và không ép độ sâu.
+
+**Sửa bảng luật một bên phải sửa cả bên kia.** Hai kho không dùng chung package
+nên không có gì ép điều đó — chỉ có chú thích ở đầu mỗi file.
+
+### Còn nợ
+
+Hai cây taxonomy vẫn song song: ngân hàng câu hỏi ở cây cũ (1324 câu), lý thuyết
+và `/learn` ở cây `sgk-*` (0 câu). Chúng không gặp nhau. Đó là lý do chọn chương
+nào ở màn bốc câu theo cây SGK cũng thấy trống.
