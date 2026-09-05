@@ -975,6 +975,42 @@ mang `grade = NULL`, 2 trong đó đã xuất bản — điền `profiles.grade`
 
 Hoàn tác: `DROP FUNCTION public.get_my_grade();`. Không đổi dữ liệu.
 
+## 8septendecies. Nạp `20260909_exams_grade_updatable.sql` — sửa được lớp của đề
+
+**CHƯA NẠP.** Nạp cùng đợt với `20260908_get_my_grade.sql` — hai file phục vụ
+cùng một việc: cho đề thi thử chỉ hiện với lớp 12.
+
+`20260722:3346` grant UPDATE trên `exams` theo **danh sách cột đóng**, và `grade`
+không có trong đó. Nên lớp chỉ đặt được đúng một lần lúc tạo đề; hai đề đã xuất
+bản đang mang `grade = NULL` không có đường nào sửa ngoài việc xoá đi tạo lại — mà
+tạo lại thì mất hết lượt làm của học sinh đã nộp.
+
+Cùng họ với lỗi ngày 2026-09-03 (`max_attempts` trong câu INSERT làm đứt cả trang
+tạo đề). Danh sách cột đóng là quyết định đúng, nhưng nó đòi mỗi cột mới phải được
+cấp quyền tường minh — xem mục 9.
+
+1. Chạy [`../supabase/migrations/20260909_exams_grade_updatable.sql`](../supabase/migrations/20260909_exams_grade_updatable.sql).
+2. Hậu kiểm (2 cột). Cột thứ hai là chốt ngược: `scoring_profile` **không**
+   được trở thành UPDATE được — đổi hồ sơ điểm của đề đã có câu làm mọi trọng số
+   thành sai thang.
+3. Mở `/admin/exams/<id>/publish`, chọn **Lớp**, bấm Lưu.
+
+### Cách cho đề thi thử chỉ hiện với lớp 12
+
+Đặt `exams.grade = 12` cho đề thi thử. `exams.grade = NULL` nghĩa là **đề cho mọi
+lớp**, không phải đề thiếu dữ liệu — bộ lọc của học sinh dùng
+`grade.is.null,grade.eq.<khối>` chứ không dùng `.eq()` trần. Dùng `.eq()` thì hai đề
+`grade = NULL` đang xuất bản biến mất khỏi **tất cả** học sinh cùng lúc, im lặng.
+
+**"Thi thử" và "Thi học kì" cùng là `exam_mode = 'simulation'`**, chỉ khác
+`scoring_profile` (`moet_standard` vs `custom`). Không chặn được nhóm này bằng
+`exam_mode`; lớp là đường đúng.
+
+**CẢNH BÁO cho kế hoạch "lớp 10/11 có thi học kì".** `student_has_feature('simulation')`
+mặc định **TẮT** cho gói `basic`, mà 17/22 học sinh đang là `basic`. Các em đó
+không thấy **bất kỳ đề `simulation` nào**, kể cả thi học kì, bất kể cột lớp. Muốn
+lớp 10/11 thi học kì được thì phải nâng các em lên `full` ở `/admin/access`.
+
 ## 9. Database troubleshooting
 
 Không chạy các setup guide cũ. Trước khi debug UI, xác nhận:

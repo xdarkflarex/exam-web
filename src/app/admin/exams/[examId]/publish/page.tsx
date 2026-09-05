@@ -18,6 +18,7 @@ interface ExamConfig {
   title: string
   description: string | null
   duration: number
+  grade: number | null
   start_time: string | null
   end_time: string | null
   max_attempts: number
@@ -72,6 +73,7 @@ export default function ExamPublishPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [duration, setDuration] = useState(90)
+  const [grade, setGrade] = useState<string>('')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [maxAttempts, setMaxAttempts] = useState(1)
@@ -94,6 +96,7 @@ export default function ExamPublishPage() {
           title,
           description,
           duration,
+          grade,
           start_time,
           end_time,
           max_attempts,
@@ -122,6 +125,7 @@ export default function ExamPublishPage() {
          trị hợp lệ và có nghĩa, nhưng nó falsy nên `||` nuốt mất. Đề ôn tập ép
          về 0 luôn — ô nhập không hiện thì không có gì để giữ. */
       setDuration(practice ? 0 : (data.duration ?? 90))
+      setGrade(data.grade === null || data.grade === undefined ? '' : String(data.grade))
       /* Hai ô này đổi KIỂU theo loại đề: đề ôn tập dùng `type="date"`, đề thi
          dùng `type="datetime-local"`. `exam_mode` không sửa được ở trang này nên
          kiểu đã chọn lúc tải là cố định trong suốt vòng đời trang — nhưng mọi
@@ -163,6 +167,9 @@ export default function ExamPublishPage() {
            đúng là 0, đọc qua state là để ngỏ đường cho một lần sửa sau vô tình
            nối lại ô nhập rồi ghi 90 vào đây. Hằng số ở đây nói rõ ý định. */
         duration: practice ? 0 : duration,
+        /* '' = không gán lớp = đề cho mọi lớp. Ghi NULL chứ không ghi 0:
+           `grade` có CHECK IN (10,11,12) nên 0 sẽ bị từ chối. */
+        grade: grade === '' ? null : Number(grade),
         start_time: practice ? fromDateInput(startTime, 'start') : fromDateTimeInput(startTime),
         end_time: practice ? fromDateInput(endTime, 'end') : fromDateTimeInput(endTime),
         /* Đề ôn tập luôn 0 = không giới hạn lượt. Ôn tập theo chương mà chỉ làm
@@ -359,6 +366,35 @@ export default function ExamPublishPage() {
                   className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Mô tả chi tiết về bài thi (tùy chọn)"
                 />
+              </div>
+
+              {/* LỚP — quyết định AI NHÌN THẤY đề này.
+
+                  Đề thi thử THPT thì đặt lớp 12: học sinh lớp 10, 11 sẽ không thấy nó
+                  nữa. Để trống nghĩa là đề cho mọi lớp, không phải đề thiếu dữ liệu.
+
+                  Học sinh chưa được xếp lớp thì thấy HẾT, bất kể ô này — giấu nội dung
+                  của người mà hệ thống không phân loại nổi là phạt học sinh vì một ô dữ
+                  liệu chưa kịp điền. */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                  Lớp
+                </label>
+                <select
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="">Mọi lớp (không giới hạn)</option>
+                  <option value="10">Lớp 10</option>
+                  <option value="11">Lớp 11</option>
+                  <option value="12">Lớp 12</option>
+                </select>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {grade
+                    ? `Chỉ học sinh lớp ${grade} thấy đề này.`
+                    : 'Mọi học sinh đều thấy đề này.'}
+                </p>
               </div>
             </div>
           </div>

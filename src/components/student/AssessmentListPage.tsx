@@ -182,13 +182,22 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('grade')
-        .eq('id', user.id)
-        .single()
+      /*
+        KHỐI CỦA HỌC SINH LẤY QUA RPC, KHÔNG ĐỌC `profiles.grade`.
 
-      const grade = profile?.grade || null
+        Bản cũ đọc thẳng `profiles.grade`, mà cột đó NULL ở 23/24 hồ sơ (đo
+        2026-09-04) — nên bộ lọc theo lớp ở dưới **chưa bao giờ chạy**, và học
+        sinh lớp 10 vẫn thấy đề thi thử THPT của lớp 12.
+
+        `get_my_grade()` suy khối từ `classes.grade` qua `profiles.class_id` —
+        thứ đã đúng sau `20260907`. Phải là RPC vì RLS trên `classes` không cho
+        phiên học sinh đọc bảng đó (xem `20260908_get_my_grade.sql`).
+
+        Chưa nạp `20260908` thì RPC lỗi, `grade` về `null`, và trang chạy y như
+        trước — không lọc gì. Không nhánh nào hỏng vì thiếu nó.
+      */
+      const { data: gradeValue } = await supabase.rpc('get_my_grade')
+      const grade = typeof gradeValue === 'number' ? gradeValue : null
       setStudentGrade(grade)
 
       let query = supabase
@@ -198,7 +207,19 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
         .eq('exam_mode', config.examMode)
         .order('created_at', { ascending: false })
 
-      if (grade) query = query.eq('grade', grade)
+      /*
+        `exams.grade = NULL` nghĩa là ĐỀ CHO MỌI LỚP, không phải "đề bị lỗi".
+
+        Bản cũ dùng `.eq('grade', grade)`, tức loại luôn mọi đề chưa gán lớp.
+        Hiện có 2 đề đã xuất bản mang `grade = NULL` ("Test", "Đề thi thử TN THPT
+        Bãi Cháy lần 1"); bật bộ lọc kiểu cũ là hai đề đó biến mất khỏi TẤT CẢ
+        học sinh cùng lúc — im lặng, và rất khó đoán ra nguyên nhân.
+
+        Khối chưa biết (`grade === null`, 9 học sinh chưa được xếp lớp) thì KHÔNG
+        lọc gì. Giấu nội dung của người mà mình không phân loại nổi là phạt học
+        sinh vì một ô dữ liệu giáo viên chưa kịp điền.
+      */
+      if (grade) query = query.or(`grade.is.null,grade.eq.${grade}`)
 
       const { data: examsData, error } = await query
       if (error) {
