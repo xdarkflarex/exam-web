@@ -233,7 +233,7 @@ bộ). Đo được lúc làm: **297/1436 câu chưa phân loại**.
 > phần đầu `src/lib/questions/classify.ts` — repo đã cố ý chọn luật thay vì AI ở
 > chỗ đó.
 
-## 12. XONG CODE, CHỜ NẠP MIGRATION — bài tập về nhà đi từ dễ tới khó
+## 12. XONG 2026-09-06 — bài tập về nhà đi từ dễ tới khó
 
 Yêu cầu chủ dự án 2026-09-03: "1 session 10 câu hỏi thì làm 10 câu độ khó tăng
 dần theo level NB, TH, VD, VDC".
@@ -244,10 +244,13 @@ dần theo level NB, TH, VD, VDC".
   hàm thuần `arrangeHomeworkSessions`, 10 test ở file `.test.ts` cạnh nó.
 - [`src/app/homework/[attemptId]/page.tsx`](../src/app/homework/[attemptId]/page.tsx)
   gọi hàm đó thay cho phép `sort` theo `order_index` trước đây.
-- `supabase/migrations/20260904_homework_session_difficulty.sql` — **chưa nạp**,
-  quy trình ở `RUNBOOK.md` mục 8duodecies.
+- `supabase/migrations/20260904_homework_session_difficulty.sql` — **đã nạp**,
+  xác minh 2026-09-06 bằng `pg_get_functiondef`: thân hàm live của
+  `get_homework_attempt_questions` có `cognitive_level`, mà chuỗi đó không xuất
+  hiện ở đâu trong `20260827_homework_test_phase.sql` — nên bản live đúng là bản
+  của file này. Quy trình ở `RUNBOOK.md` mục 8duodecies.
 
-Chưa nạp migration thì trang vẫn chạy: `cognitive_level` và `difficulty` về
+Nếu chưa nạp migration thì trang vẫn chạy: `cognitive_level` và `difficulty` về
 `undefined`, `resolveCognitiveLevel` trả `NB` cho mọi câu, và thứ tự rơi về đúng
 `order_index` giáo viên đặt — tức là y như trước khi có thay đổi này.
 
@@ -267,7 +270,7 @@ Ràng buộc phải giữ khi làm: bài đã giao rồi thì tập câu **khôn
 Hiệu chỉnh chỉ áp cho lần giao mới, nếu không thì hai học sinh cùng lớp làm hai
 đề khác nhau mà điểm vẫn nằm chung một bảng.
 
-## 13. XONG CODE, CHỜ NẠP MIGRATION — đề ôn tập không còn đếm ngược
+## 13. XONG 2026-09-06 — đề ôn tập không còn đếm ngược
 
 Chủ dự án 2026-09-03: "bài tập ôn tập theo chương thì cấu hình bài lại có thời
 gian là như thế nào. Chỉ cần chọn ngày bắt đầu và ngày kết thúc để thúc học sinh
@@ -285,7 +288,9 @@ làm chứ ra giờ như đề thi thì sao được."
   ngày/giờ tách thành hàm thuần, 8 test. Sửa luôn lỗi cũ
   `toISOString().slice(0,16)` làm mốc giờ **lùi 7 tiếng mỗi lượt mở-rồi-lưu**.
 - Trang chi tiết đề hiện "Không giới hạn giờ" thay vì "0 phút" cho đề ôn tập.
-- `supabase/migrations/20260905_practice_exams_no_timer.sql` — **chưa nạp**.
+- `supabase/migrations/20260905_practice_exams_no_timer.sql` — **đã nạp**
+  (chủ dự án nạp 2026-09-03; hậu kiểm lại 2026-09-06: không còn đề ôn tập nào
+  mang `duration <> 0`).
 
 **Chưa nhìn bằng mắt.** Trang xuất bản cần tài khoản admin; phần đã kiểm là logic
 ngày/giờ (8 test), typecheck, và lint không thêm lỗi mới (22 vấn đề trước và sau).
@@ -299,7 +304,8 @@ Chủ dự án chốt 2026-09-03: đề ôn tập không giới hạn số lần
 - Trang tạo đề: ghi tường minh `max_attempts: mode === 'practice' ? 0 : 1` thay
   vì dựa vào `DEFAULT 1` của cột.
 - `supabase/migrations/20260906_practice_exams_unlimited_attempts.sql` —
-  **chưa nạp**, quy trình ở `RUNBOOK.md` mục 8quaterdecies.
+  **đã nạp** (chủ dự án nạp 2026-09-03; hậu kiểm lại 2026-09-06: không còn đề ôn
+  tập nào mang `max_attempts <> 0`). Quy trình ở `RUNBOOK.md` mục 8quaterdecies.
 
 Không phải sửa SQL runtime: quy ước `0 = không giới hạn` đã có từ `20260722` và
 `20260803`, giao diện học sinh cũng đã đúng. Chỉ dữ liệu mang sai giá trị.
@@ -373,11 +379,13 @@ display math tụt xuống inline). Nhưng bốn bài kia chưa bao giờ đư�
 3. **`is_published` không bị đụng.** Bài đang cho học sinh đọc giữ nguyên; 25 bài
    mới vào ở dạng nháp. Xuất bản là quyết định của giáo viên.
 
-### Còn phải làm
+### Đã xuất bản 2026-09-06
 
-- **Xem lại rồi xuất bản 25 bài nháp** ở `/admin/theories`.
-- Hình: 109 hình trong 29 bài, **109 đã có SVG** (`npm run tikz:svg` sau mỗi lần
-  sửa hình trong LaTeX).
+Cả 29 bài đã ở trạng thái `is_published = true` — 14 bài nháp cuối cùng xuất bản
+bằng `npm run theories:publish -- --ghi`, sau ba phép kiểm chặn: đủ chuỗi
+section → category → topic, 59/59 hình có SVG dựng sẵn, 3927 công thức sạch.
+Hình toàn bộ: 111 hình trong 29 bài, **111 đã có SVG** (`npm run tikz:svg` sau
+mỗi lần sửa hình trong LaTeX).
 
 ## 16. XONG 2026-09-04 — rà toàn bộ công thức của 29 bài bằng MathJax thật
 
@@ -488,3 +496,51 @@ nên không có gì ép điều đó — chỉ có chú thích ở đầu mỗi 
 Hai cây taxonomy vẫn song song: ngân hàng câu hỏi ở cây cũ (1324 câu), lý thuyết
 và `/learn` ở cây `sgk-*` (0 câu). Chúng không gặp nhau. Đó là lý do chọn chương
 nào ở màn bốc câu theo cây SGK cũng thấy trống.
+
+## 18. XONG 2026-09-06 — xuất bản nốt 14 bài lý thuyết, và chấm sao độ khó
+
+Cả 29 bài lý thuyết nay đều `is_published = true`. 14 bài nháp cuối cùng lên
+bằng [`scripts/publish-theories.mjs`](../scripts/publish-theories.mjs)
+(`npm run theories:publish -- --ghi`).
+
+### Vì sao không bấm tay ở /admin/theories
+
+Bấm tay 14 bài thì được, nhưng không kiểm được gì trước khi bấm. Ba lớp lỗi đã
+gặp thật ở dự án này đều chỉ lộ ra SAU khi học sinh mở bài: công thức lỗi cú pháp
+hiện chữ đỏ giữa bài (mục 1), hình TikZ chưa dựng sẵn rơi xuống TikZJax và ra
+khung mã nguồn, và bài thiếu mắt xích `section → category → topic` thì xuất bản
+xong vẫn không hiện ở `/learn`.
+
+Script chạy cả ba phép kiểm trước, và **không ghi gì nếu có bài hỏng**. Kết quả
+lượt này: 14/14 bài đủ chuỗi cây, 59/59 hình có SVG dựng sẵn, 3927 công thức sạch
+(`npm run theories:check-math`).
+
+### Độ khó: 22 bài đang mang giá trị mặc định, không phải đánh giá
+
+`import-theories-from-latex.mjs` đặt cứng `difficulty_level: 3` cho mọi bài tạo
+mới. Nên số 3 của một bài mới nhập **không nói lên điều gì** — nó chỉ là giá trị
+khởi tạo. Thang thay vào:
+
+| sao | nghĩa |
+|-----|-------|
+| 1 | chỉ cần nhớ, không có kỹ thuật |
+| 2 | một quy trình, áp thẳng vào là ra |
+| 3 | vài quy trình, phải chọn đúng cái nào |
+| 4 | phối hợp nhiều công cụ, sai một bước là hỏng cả bài |
+| 5 | tổng hợp cả chương hoặc mô hình hoá nhiều bước |
+
+Thang căn theo chính các bài thầy đã tự chấm: MỆNH ĐỀ 2, PHƯƠNG TRÌNH LƯỢNG GIÁC
+CƠ BẢN 3, CÔNG THỨC LƯỢNG GIÁC 4, CẤP SỐ NHÂN 5. Phân bố sau khi chấm: 2 bài ★★,
+13 bài ★★★, 8 bài ★★★★, 6 bài ★★★★★.
+
+**Chỉ chấm bài còn nháp.** Bài đã xuất bản là bài thầy đã đọc và duyệt; chấm đè
+lên đó là lấy phỏng đoán của máy ghi đè lên đánh giá của người dạy.
+
+`difficulty_level` không khoá bài, không lọc bài, không đụng tới điểm — nó chỉ
+hiện thành sao ở `/admin/theories`. `/learn` có mang nó xuống thẻ nhưng không vẽ
+ra. Chấm sai thì sửa ở trang soạn bài, không có hậu quả nào với học sinh.
+
+### Hoàn tác
+
+`.theories-published-<dấu thời gian>.json` ghi trạng thái cũ của đúng 14 bài bị
+đổi (đã cho vào `.gitignore`); PATCH ngược lại là về nguyên trạng.

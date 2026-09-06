@@ -52,3 +52,4 @@ next-env.d.ts
 .ocr-review/
 .taxonomy-backup-*.json
 .taxonomy-added-*.json
+.theories-published-*.json
