@@ -126,6 +126,11 @@ const RULES: readonly Rule[] = [
   {
     label: 'Hình học không gian',
     match: [/hình chóp/, /lăng trụ/, /khối (chóp|lăng trụ|nón|trụ|cầu)/, /góc giữa hai mặt phẳng/, /khoảng cách từ điểm/],
+    /* Bài tính thể tích BẰNG TÍCH PHÂN thuộc mạch tích phân, dù đề nói "khối
+       nón", "khối trụ" — "thể tích phần giao của khối nón và khối trụ" là bài
+       ứng dụng tích phân. Không loại trừ thì hàng rào đòi kéo chúng ra khỏi
+       chương Nguyên hàm – Tích phân, nơi chúng đang nằm đúng. */
+    exclude: [/nguyên hàm/, /tích phân/, /\\int/],
     categoryHints: ['hình học không gian'],
     topicHints: ['không gian', 'hình học', 'khối'],
   },
@@ -133,8 +138,23 @@ const RULES: readonly Rule[] = [
     label: 'Mũ – Logarit',
     match: [/logarit/, /\\log/, /\\ln/, /phương trình mũ/, /bất phương trình mũ/],
     /* Cấp số nhân đầy luỹ thừa, và lời giải hay dùng `\log` để tìm `n`. Không
-       loại trừ thì luật này nuốt luôn mạch cấp số. */
-    exclude: [/cấp số (cộng|nhân)/, /công bội/, /công sai/],
+       loại trừ thì luật này nuốt luôn mạch cấp số.
+
+       Nhóm thứ hai là CÙNG NGUYÊN TẮC với luật Lượng giác: VIỆC PHẢI LÀM quyết
+       định mạch, không phải ký hiệu xuất hiện trong đề. "Số điểm cực trị của
+       $f'(x)=(x-4)^2\log x$" là bài cực trị, chỉ tình cờ có `\log`. Đo được:
+       thiếu nhóm này thì hàng rào đòi chuyển 5 câu giải tích sang mũ–logarit. */
+    exclude: [
+      /cấp số (cộng|nhân)/,
+      /công bội/,
+      /công sai/,
+      /cực (đại|tiểu|trị)/,
+      /đạo hàm/,
+      /đồng biến/,
+      /nghịch biến/,
+      /bảng biến thiên/,
+      /tiệm cận/,
+    ],
     categoryHints: ['mũ và lôgarit', 'mũ và logarit'],
     topicHints: ['mũ', 'logarit'],
   },
