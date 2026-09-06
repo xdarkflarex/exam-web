@@ -51,3 +51,4 @@ next-env.d.ts
 # Dựng lại được bất cứ lúc nào; ảnh trang PDF nặng và không phải mã nguồn.
 .ocr-review/
 .taxonomy-backup-*.json
+.taxonomy-added-*.json

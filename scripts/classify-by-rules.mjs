@@ -32,7 +32,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const { suggestTopic, findRuleConflict } = await import(`file:///${APP}/src/lib/questions/classify.ts`)
+const { suggestTopic, findRuleConflict, classificationText } = await import(`file:///${APP}/src/lib/questions/classify.ts`)
 
 const WRITE = process.argv.includes('--ghi')
 const FIX_WRONG = process.argv.includes('--sua-sai')
@@ -59,7 +59,16 @@ async function all(path, page = 500) {
   }
 }
 
-const questions = await all('questions?select=id,content&order=id.asc')
+const questions = await all('questions?select=id,content,question_type&order=id.asc')
+/* Đáp án của câu Đúng/Sai và trả lời ngắn mang phần lớn từ khoá — xem
+   `classificationText`. Không đọc chúng thì 86 câu có đề dưới 120 ký tự gần như
+   không có gì để luật bám vào. */
+const answerRows = await all('answers?select=question_id,content')
+const answersByQuestion = new Map()
+for (const row of answerRows) {
+  if (!answersByQuestion.has(row.question_id)) answersByQuestion.set(row.question_id, [])
+  answersByQuestion.get(row.question_id).push(row.content ?? '')
+}
 const taxonomy = await all('question_taxonomy?select=question_id,topic_id,category_id,section_id,subsection_id')
 /* Chỉ lấy nhánh CŨ. Cây `sgk-*` là của lý thuyết và `/learn`; ngân hàng câu hỏi
    phân loại theo cây cũ (quyết định của chủ dự án 2026-09-04). Trộn hai cây vào
@@ -80,7 +89,11 @@ let ruleAgrees = 0
 let skippedWrongButNotAsked = 0
 
 for (const question of questions) {
-  const content = question.content ?? ''
+  const content = classificationText(
+    question.content ?? '',
+    question.question_type,
+    answersByQuestion.get(question.id) ?? [],
+  )
   const current = taxById.get(question.id)
   const hit = suggestTopic(content, topics, categories)
 
@@ -164,6 +177,18 @@ async function upsert(rows) {
   Chỉ sao lưu các dòng SẼ BỊ ĐỔI, không sao lưu cả bảng: file nhỏ, và khi cần
   lùi thì nạp thẳng lại đúng những dòng đó.
 */
+/* Phần THÊM MỚI cũng phải lùi được. Nó không ghi đè gì, nhưng "không ghi đè"
+   không có nghĩa là "không cần hoàn tác" — 142 dòng sai vẫn là 142 dòng phải đi
+   tìm lại bằng tay nếu không có danh sách. Lùi: xoá đúng các `question_id` này. */
+if (willInsert.length > 0) {
+  const { writeFileSync } = await import('node:fs')
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const file = resolve(APP, `.taxonomy-added-${stamp}.json`)
+  writeFileSync(file, JSON.stringify(willInsert.map((item) => item.question.id), null, 2), 'utf8')
+  console.log(`\nĐã ghi danh sách ${willInsert.length} câu THÊM MỚI vào ${file}`)
+  console.log('Lùi lại: DELETE /rest/v1/question_taxonomy?question_id=in.(...)')
+}
+
 if (willUpdate.length > 0) {
   const { writeFileSync } = await import('node:fs')
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')

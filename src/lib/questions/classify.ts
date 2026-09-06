@@ -109,13 +109,48 @@ const RULES: readonly Rule[] = [
     topicHints: ['nguyên hàm', 'tích phân'],
   },
   {
-    label: 'Ứng dụng đạo hàm',
-    match: [/đồng biến/, /nghịch biến/, /cực (đại|tiểu|trị)/, /tiệm cận/, /bảng biến thiên/, /giá trị (lớn|nhỏ) nhất/],
-    /* Dãy số cũng "tăng/giảm", cũng có "giá trị lớn nhất", nên phải loại trừ —
-       nếu không, mạch đạo hàm nuốt câu về tính đơn điệu của dãy. */
-    exclude: [/cấp số (cộng|nhân)/, /công sai/, /công bội/, /dãy số/],
-    categoryHints: ['giải tích', 'đạo hàm'],
-    topicHints: ['đạo hàm', 'khảo sát', 'hàm số'],
+    label: 'Khảo sát hàm số',
+    /* Thêm `đồ thị` và `đường cong`: 187/252 câu chưa phân loại là dạng "cho hàm
+       số có đồ thị như hình vẽ…", không hề nói "đồng biến" hay "cực trị" — chúng
+       hỏi ĐỌC ĐỒ THỊ. Thiếu hai dấu hiệu này thì cả nhóm đó vô hình với luật. */
+    match: [
+      /đồng biến/, /nghịch biến/, /cực (đại|tiểu|trị)/, /tiệm cận/,
+      /bảng biến thiên/, /giá trị (lớn|nhỏ) nhất/, /đồ thị/, /đường cong/,
+    ],
+    /* Dãy số cũng "tăng/giảm", cũng có "giá trị lớn nhất". Và `đồ thị` là từ
+       dùng chung của ba mạch — hàm số bậc hai lớp 10, hàm số lượng giác lớp 11,
+       khảo sát lớp 12 — nên phải loại hai mạch kia ra bằng dấu hiệu riêng của
+       chúng, nếu không luật này hút hết. */
+    exclude: [
+      /cấp số (cộng|nhân)/, /công sai/, /công bội/, /dãy số/,
+      /* LỚP 10 — hàm số bậc hai. Đề thường KHÔNG nói chữ "parabol" hay "bậc
+         hai"; nó viết thẳng `y = ax^2 + bx + c`, `(P):`, hoặc nói "đỉnh I".
+         Thiếu ba mẫu này thì 19 câu lớp 10 bị kéo sang giải tích lớp 12. */
+      /parabol/, /bậc hai/, /tam thức/, /\(p\) ?:/, /đỉnh ?i\(/, /x\^2 ?\+ ?bx/, /ax\^2/,
+      /* LƯỢNG GIÁC — đề mô tả hình bằng CHỮ TIẾNG VIỆT ("đồ thị hàm tang",
+         "đường hình sin"), không bằng lệnh LaTeX, nên chặn theo `\sin` là hụt. */
+      /lượng giác/, /\\sin/, /\\cos/, /\\tan/, /\\cot/,
+      /hàm (sin|cosin|cos|tang|cotang)/, /hình sin/, /đồ thị hàm (sin|cos|tang|cotang)/,
+    ],
+    /* `giải tích` thôi là ĐỦ và PHẢI ĐỦ. Thêm `đạo hàm` vào đây là hint khớp hai
+       chương ("Đạo hàm (Lớp 11)" và "Chương 1. Ứng dụng đạo hàm" của cây SGK),
+       luật thành nhập nhằng và im lặng — đó chính là lý do 187 câu khảo sát hàm
+       số không câu nào được phân loại. Mạch đạo hàm lớp 11 có luật riêng bên dưới. */
+    categoryHints: ['yếu tố giải tích'],
+    /* `topicHints` vẫn rộng, và điều đó AN TOÀN: không CHỦ ĐỀ nào trong cây thật
+       mang tên "đạo hàm"/"khảo sát"/"hàm số" (chúng là tên CHƯƠNG). Cây khác có
+       chủ đề tên vậy thì luật vẫn khớp được — đó là ý nghĩa của tầng dự phòng. */
+    topicHints: ['giải tích', 'đạo hàm', 'khảo sát', 'hàm số'],
+  },
+  {
+    /* Mạch ĐẠO HÀM LỚP 11 — khác hẳn "Khảo sát hàm số" ở trên.
+       Chương "Đạo hàm (Lớp 11)" gồm: ý nghĩa đạo hàm, quy tắc tính, đạo hàm cấp
+       hai. Còn đơn điệu / cực trị / GTLN / khảo sát đồ thị là chương "Một số yếu
+       tố giải tích". Gộp hai mạch làm một chính là thứ khiến hint `đạo hàm` khớp
+       nhiều chương và cả luật chết. */
+    label: 'Đạo hàm (quy tắc)',
+    match: [/quy tắc tính đạo hàm/, /đạo hàm cấp hai/, /ý nghĩa.*đạo hàm/, /đạo hàm của hàm số hợp/],
+    categoryHints: ['đạo hàm (lớp 11)'],
   },
   {
     label: 'Toạ độ trong không gian',
@@ -268,6 +303,31 @@ const RULES: readonly Rule[] = [
     topicHints: ['mệnh đề'],
   },
 ]
+
+/**
+ * Chuỗi đem đi phân loại: đề bài, cộng thêm các Ý với hai dạng câu mà đề bài
+ * gần như trống.
+ *
+ * VÌ SAO. Câu Đúng/Sai có đề chỉ là "Cho hàm số $y=f(x)$ có đồ thị như hình vẽ."
+ * — mọi từ khoá quyết định (nghịch biến, tiệm cận, $f'(x)$) nằm ở BỐN Ý, mà lớp
+ * luật và cả model chỉ được đưa `questions.content`. Đo trên 252 câu chưa phân
+ * loại: 86 câu có đề dưới 120 ký tự, và ghép các ý vào làm số câu luật quyết
+ * được tăng từ 114 lên 142.
+ *
+ * CHỈ GHÉP CHO `true_false` VÀ `short_answer`. Với `multiple_choice`, ba trong
+ * bốn phương án là ĐÁP ÁN SAI — chúng thường là công thức của mạch khác, cố tình
+ * đặt vào để gây nhiễu. Ghép chúng vào là mời chính cái nhiễu đó đi quyết định
+ * mạch, tức là biến bẫy của đề thành bẫy của máy.
+ */
+export function classificationText(
+  content: string,
+  questionType: string | null | undefined,
+  answers: readonly string[] = [],
+): string {
+  if (questionType !== 'true_false' && questionType !== 'short_answer') return content ?? ''
+  const extra = answers.filter(Boolean).join(' ')
+  return extra ? `${content ?? ''} ${extra}` : (content ?? '')
+}
 
 /** Bỏ dấu tiếng Việt để so tên nhánh chịu được cách gõ khác nhau. */
 function foldVietnamese(text: string): string {
@@ -446,7 +506,16 @@ export function findRuleConflict(
 ): string | null {
   if (!chosen.topicId) return null
 
-  const best = suggestTopics(content, topics, categories)[0]
+  /* Dùng `suggestTopic`, KHÔNG dùng `suggestTopics()[0]`.
+
+     Hai hàm khác nhau ở đúng chỗ quan trọng: `suggestTopic` TỪ CHỐI khi hai mạch
+     ngang điểm, còn `[0]` thì cứ lấy cái đầu. Bản trước lấy `[0]`, nên hàng rào
+     phản đối dựa trên một gợi ý mà chính lớp luật không dám đưa ra — đo được:
+     nó đòi kéo câu hình chóp ra khỏi Hình học không gian trong khi `suggestTopic`
+     trả `null` cho đúng câu đó.
+
+     Hàng rào không được phép chắc chắn hơn thứ nó dựa vào. */
+  const best = suggestTopic(content, topics, categories)
   if (!best) return null
 
   /* Chỉ chặn khi luật CHẮC CHẮN. Một dấu hiệu đơn lẻ có thể là trùng hợp; từ
