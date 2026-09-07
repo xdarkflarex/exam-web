@@ -1,5 +1,56 @@
 # Runbook phát triển và vận hành
 
+## 0. Trạng thái migration — đọc trước khi kết luận bất cứ điều gì về schema
+
+Rà lại 2026-09-07 bằng cách gọi thẳng vào database đang chạy, **không** đọc từ
+tài liệu. Lý do phải làm việc này: bảng trạng thái cũ nói sai 10/11 dòng, và một
+lượt báo cáo dựa vào nó đã kết luận nhầm rằng bốn migration còn đang treo trong
+khi cả bốn đã live.
+
+| Migration | Trạng thái | Xác minh bằng |
+|---|---|---|
+| `20260827` homework test phase | đã nạp | hồ sơ 2026-08-28 |
+| `20260830` question audit | đã nạp | hai bảng `question_audit_*` đọc được |
+| `20260831` audit full check | đã nạp | ba cột `loi_de`, `mo_ta_dap_an`, `mo_ta_loi_giai` |
+| `20260901` audit scope | đã nạp | hàm `question_audit_scope_ids` |
+| `20260902` audit incremental | đã nạp | `question_audit_select_scope` nhận đủ 8 tham số |
+| `20260903` sửa nút Áp dụng | **chưa xác minh được** | cùng chữ ký với bản `20260830`, phải đọc thân hàm |
+| `20260904` độ khó tăng dần | đã nạp | `pg_get_functiondef` có `cognitive_level` |
+| `20260905` đề ôn tập bỏ đồng hồ | đã nạp | 0 đề practice còn `duration <> 0` |
+| `20260906` đề ôn tập bỏ giới hạn lượt | đã nạp | 0 đề practice còn `max_attempts <> 0` |
+| `20260907` sửa `class_id` rác | đã nạp | 16/17 hồ sơ khớp `classes.id` |
+| `20260908` `get_my_grade` | đã nạp | `to_regprocedure` khác NULL |
+| `20260909` sửa lớp của đề | đã nạp | `has_column_privilege(...)` = true |
+| `20260910` thêm chương Dãy số | đã nạp | 4 bản ghi `categories` khớp "dãy số"/"cấp số" |
+
+### Cách kiểm, và cái bẫy của từng cách
+
+**Không có bảng lịch sử migration.** Supabase CLI chưa link (`supabase/.temp` không
+tồn tại), nên `supabase_migrations.schema_migrations` không phản ánh kho này. Mọi
+kết luận phải đến từ **dấu vết của chính migration đó** trên database.
+
+| Loại migration | Kiểm bằng | Bẫy |
+|---|---|---|
+| tạo bảng / thêm cột | `GET /rest/v1/<bảng>?select=<cột>&limit=0` | tên cột đoán sai thì trả 42703 và trông như "chưa nạp" |
+| tạo hàm mới | gọi RPC; `404 PGRST202` là chưa có | phải truyền **đủ và đúng tên** tham số, thiếu thì PostgREST cũng trả PGRST202 |
+| đổi chữ ký hàm | gọi với bộ tham số **mới** | nếu chữ ký không đổi thì cách này **không** phân biệt được — phải đọc `pg_get_functiondef` |
+| sửa dữ liệu | chạy lại chính câu hậu kiểm trong file | "must_be_zero = 0" cũng đúng khi dữ liệu vốn đã sạch |
+| cấp quyền | `has_column_privilege` / `has_table_privilege` | cần kết nối Postgres trực tiếp |
+
+**Kết nối Postgres trực tiếp** (cần cho `pg_get_functiondef`, `pg_policies`,
+`information_schema.role_table_grants`): dùng `DATABASE_URL` trong `.env` với
+driver `pg`. Máy chủ dự án không có `psql` và repo không phụ thuộc `pg`, nên cài
+tạm ra ngoài repo:
+
+```powershell
+npm install pg --prefix "$env:TEMP\pgtool"
+```
+
+Host `db.<ref>.supabase.co` có lúc **không phân giải được DNS** (đã gặp ngày
+2026-09-07, mất giữa buổi và không trở lại). Khi đó chỉ còn đường PostgREST, và
+phải nói rõ cái gì kiểm được, cái gì không — đừng chép lại trạng thái cũ trong
+tài liệu rồi coi là đã kiểm.
+
 ## 1. Yêu cầu
 
 - Windows PowerShell (các lệnh dưới đây) hoặc shell tương đương.
@@ -49,15 +100,34 @@ npm.cmd run lint
 npm.cmd run build
 npm.cmd run start
 npm.cmd test
-npm.cmd run tikz:svg -- --chapters "D:/ToanTHPT/LATEX/HethongtrithucToanTHPT"
 ```
 
-Baseline 2026-07-19:
+Script theo miền (tất cả đọc `.env`; loại có ghi dữ liệu đều **mặc định chạy thử**,
+phải thêm `--ghi`):
 
-- Typecheck pass.
-- Lint fail: 113 error, 192 warning trên 85 file.
-- Production build pass; Next.js 16 cảnh báo nên chuyển convention `middleware` sang `proxy` trong một thay đổi auth được kiểm thử riêng.
-- Không có `test` script/test runner/CI.
+| Lệnh | Việc |
+|---|---|
+| `tikz:svg -- --chapters "<kho LaTeX>"` | dựng SVG cho hình TikZ, xem mục 12 |
+| `tikz:review` | bảng đối chiếu hình với trang PDF gốc |
+| `theories:import -- --chapters "<kho LaTeX>"` | nhập bài lý thuyết từ LaTeX, xem mục 13 |
+| `theories:check-math` | chạy MathJax thật trên `content_md` đã nạp |
+| `theories:publish` | xuất bản bài nháp + chấm sao độ khó |
+| `questions:classify-rules` | phân loại ngân hàng câu hỏi bằng lớp luật |
+| `questions:duplicates` | dò câu hỏi trùng |
+| `exams:check-practice` | soát cấu hình đề ôn tập |
+| `ai:index` / `ai:context` / `ai:rag` | đóng gói ngữ cảnh cho AI, xem mục 5 |
+
+Baseline **đo lại 2026-09-07**:
+
+- Typecheck: **pass**, 0 lỗi.
+- Test: **410/410 pass** (`node --experimental-strip-types --test "src/**/*.test.ts"`, ~2 giây).
+- Lint: **fail — 68 error, 124 warning trên 59 file.** Con số cũ trong tài liệu
+  (113 error / 192 warning / 85 file, đo 2026-07-19) đã lạc hậu; nợ lint đang
+  giảm chứ không tăng.
+- Production build pass; Next.js 16 cảnh báo nên chuyển convention `middleware`
+  sang `proxy` trong một thay đổi auth được kiểm thử riêng.
+- Vẫn **không có CI**. Mọi phép kiểm là do người chạy tay, nên nhớ ghi lại số đo
+  vào tài liệu khi nó đổi — đây chính là chỗ tài liệu hay nói sai nhất.
 
 Khi repo còn lint debt, luôn lint file sửa:
 
@@ -587,7 +657,7 @@ Không mất dữ liệu bài làm: cột chỉ mô tả cấu trúc đề.
 
 ## 8septies. Nạp `20260830_question_audit.sql` — rà soát ngân hàng câu hỏi bằng AI
 
-**CHƯA NẠP.** Đây là hướng dẫn nạp, không phải hồ sơ một lượt nạp đã xong.
+**ĐÃ NẠP** — xác minh 2026-09-07: hai bảng `question_audit_runs` và `question_audit_findings` đọc được qua PostgREST. Giữ mục này làm hồ sơ.
 
 Migration tạo hai bảng (`question_audit_runs`, `question_audit_findings`), một hàm đếm attempt bị
 ảnh hưởng, và `apply_question_audit_finding` — **đường ghi duy nhất** của công cụ. Không có policy
@@ -626,7 +696,7 @@ Nó **không** hoàn tác những bản sửa đã áp vào `answers`/`questions
 
 ## 8octies. Nạp `20260831_question_audit_full_check.sql` — soát cả đề, đáp án, lời giải
 
-**CHƯA NẠP.** Phải nạp SAU `20260830`; khối `DO $$` đầu file dừng ngay nếu chưa có.
+**ĐÃ NẠP** — xác minh 2026-09-07: ba cột `loi_de`, `mo_ta_dap_an`, `mo_ta_loi_giai` đều có trên `question_audit_findings`.
 
 Vá ba lỗi lộ ra ở lượt chạy thật đầu tiên (2026-08-30):
 
@@ -663,7 +733,7 @@ bản sửa `solution` chưa áp. File có sẵn câu SELECT để xuất ra tr�
 
 ## 8nonies. Nạp `20260901_question_audit_scope.sql` — quét câu chưa phân loại và quét toàn bộ
 
-**CHƯA NẠP.** Nạp SAU `20260830`.
+**ĐÃ NẠP** — xác minh 2026-09-07: hàm `question_audit_scope_ids` tồn tại (gọi qua PostgREST chạy tới thân hàm).
 
 Vá một điểm mù và một cái bẫy im lặng:
 
@@ -706,7 +776,7 @@ chạy sẽ làm nút quét lỗi ở mọi chế độ.
 
 ## 8decies. Nạp `20260902_question_audit_incremental.sql` — quét dần dần
 
-**CHƯA NẠP.** Nạp SAU `20260901`.
+**ĐÃ NẠP** — xác minh 2026-09-07: `question_audit_select_scope` nhận đủ **8 tham số** của bản này (bản cũ 6 tham số thì PostgREST đã trả `PGRST202`).
 
 Vá một lỗi im lặng: `question_audit_scope_ids` lấy `ORDER BY id LIMIT p_limit`,
 mà trần mặc định là 300 câu/lượt còn ngân hàng có 1436 câu. Bấm "Toàn bộ ngân
@@ -744,8 +814,7 @@ drop — code cũ vẫn chạy, và rollback code không cần rollback database
 
 ## 8undecies. Nạp `20260903_question_audit_fix_apply.sql` — SỬA LỖI, nút Áp dụng không chạy
 
-**CHƯA NẠP. Ưu tiên cao** — không có nó thì nút "Áp dụng" ở `/admin/questions/audit`
-hỏng hoàn toàn với **mọi** đề xuất.
+**CHƯA XÁC MINH ĐƯỢC — ưu tiên cao.** Hàm `apply_question_audit_finding` có tồn tại, nhưng nó đã tồn tại từ `20260830` **với đúng chữ ký này**, nên gọi qua PostgREST không phân biệt được bản cũ hay bản đã vá. Muốn biết chắc phải đọc thân hàm bằng `pg_get_functiondef` (tìm `array_append(v_applied, 'dap_an'::text)`) — cần kết nối Postgres trực tiếp. Nếu chưa nạp thì nút "Áp dụng" ở `/admin/questions/audit` hỏng hoàn toàn với **mọi** đề xuất.
 
 Triệu chứng: bấm Áp dụng trả 409 kèm `malformed array literal`, không phụ thuộc
 dạng câu hay loại kết luận.
@@ -776,8 +845,7 @@ Không cần rollback: bản trước không áp dụng được gì.
 
 ## 8duodecies. Nạp `20260904_homework_session_difficulty.sql` — mỗi đoạn bài tập là một đường dốc
 
-**CHƯA NẠP. Ưu tiên thấp** — không có nó thì mọi thứ vẫn chạy, bài tập chỉ giữ
-đúng thứ tự `order_index` giáo viên đặt như trước.
+**ĐÃ NẠP** — xác minh 2026-09-06 bằng `pg_get_functiondef`: thân hàm live của `get_homework_attempt_questions` có `cognitive_level`, mà chuỗi đó không xuất hiện ở đâu trong `20260827_homework_test_phase.sql`, nên bản live đúng là bản của file này.
 
 Migration trả thêm `cognitive_level` và `difficulty` vào payload của
 `get_homework_attempt_questions`. Luật xếp nằm ở client
@@ -807,7 +875,7 @@ nên không mất câu trả lời; học sinh chỉ thấy một câu đã làm
 
 ## 8tredecies. Nạp `20260905_practice_exams_no_timer.sql` — gỡ đồng hồ khỏi đề ôn tập
 
-**CHƯA NẠP.** Nạp nếu đã từng xuất bản đề ôn tập trước 2026-09-03.
+**ĐÃ NẠP** (chủ dự án nạp 2026-09-03) — hậu kiểm lại 2026-09-07: không còn đề ôn tập nào mang `duration <> 0`.
 
 Triệu chứng: đề ôn tập theo chương hiện thời gian làm bài tính bằng phút và đếm
 ngược như đề thi.
@@ -846,7 +914,7 @@ Với bài **đang làm dở**: đây là nới lỏng, không phải siết. H�
 
 ## 8quaterdecies. Nạp `20260906_practice_exams_unlimited_attempts.sql` — đề ôn tập làm lại tuỳ ý
 
-**CHƯA NẠP.** Nạp cùng đợt với `20260905` — cùng một loại lỗi, cùng một trang gây ra.
+**ĐÃ NẠP** (chủ dự án nạp 2026-09-03) — hậu kiểm lại 2026-09-07: không còn đề ôn tập nào mang `max_attempts <> 0`.
 
 Đề ôn tập theo chương chỉ làm được một lần. Ôn tập là để học sinh luyện tới khi
 chắc, nên giới hạn lượt ở đây trái với chính mục đích của nó.
@@ -877,7 +945,7 @@ làm nào bị xoá, không điểm nào đổi.
 
 ## 8quindecies. Nạp `20260907_fix_profile_class_ids.sql` — hồ sơ mang lớp không có thật
 
-**CHƯA NẠP.**
+**ĐÃ NẠP** (chủ dự án nạp 2026-09-04) — hậu kiểm lại 2026-09-07: 16/17 hồ sơ có `class_id` khớp `classes.id`; một hồ sơ còn `9/1` là ca lớp 9 đã biết, chủ dự án chốt để nguyên.
 
 Form đăng ký cũ hỏi "Lớp" bằng ô **chữ tự do** ("VD: 12A1") và ghi thẳng vào
 `profiles.class_id` — trong khi cột đó là **khoá** trỏ tới `classes.id`, có dạng
@@ -954,8 +1022,7 @@ nên hồ sơ hỏng trông y hệt hồ sơ đang ở một lớp thật.
 
 ## 8sexdecies. Nạp `20260908_get_my_grade.sql` — `/learn` tự mở đúng lớp của học sinh
 
-**CHƯA NẠP. Ưu tiên thấp** — không có nó thì `/learn` vẫn chạy, chỉ là mở ra ở
-chế độ “Tất cả lớp” thay vì lớp của chính học sinh.
+**ĐÃ NẠP** — xác minh 2026-09-06: `to_regprocedure('public.get_my_grade()')` khác NULL, gọi qua PostgREST trả `null` (đúng, vì service key không có `auth.uid()`).
 
 Phiên học sinh không có đường nào biết lớp của mình: `profiles.grade` NULL ở
 23/24 hồ sơ, còn `classes.grade` thì RLS (`20260722`) chỉ mở cho admin và giáo viên
@@ -977,8 +1044,7 @@ Hoàn tác: `DROP FUNCTION public.get_my_grade();`. Không đổi dữ liệu.
 
 ## 8septendecies. Nạp `20260909_exams_grade_updatable.sql` — sửa được lớp của đề
 
-**CHƯA NẠP.** Nạp cùng đợt với `20260908_get_my_grade.sql` — hai file phục vụ
-cùng một việc: cho đề thi thử chỉ hiện với lớp 12.
+**ĐÃ NẠP** — xác minh 2026-09-06: `has_column_privilege('authenticated', 'public.exams', 'grade', 'UPDATE')` trả `true`.
 
 `20260722:3346` grant UPDATE trên `exams` theo **danh sách cột đóng**, và `grade`
 không có trong đó. Nên lớp chỉ đặt được đúng một lần lúc tạo đề; hai đề đã xuất
@@ -1010,6 +1076,33 @@ lớp**, không phải đề thiếu dữ liệu — bộ lọc của học sinh
 mặc định **TẮT** cho gói `basic`, mà 17/22 học sinh đang là `basic`. Các em đó
 không thấy **bất kỳ đề `simulation` nào**, kể cả thi học kì, bất kể cột lớp. Muốn
 lớp 10/11 thi học kì được thì phải nâng các em lên `full` ở `/admin/access`.
+
+## 8octodecies. Nạp `20260910_them_chuong_day_so.sql` — thêm chương Dãy số vào cây cũ
+
+**ĐÃ NẠP** — xác minh 2026-09-06: `categories` có 4 bản ghi khớp "dãy số"/"cấp số".
+
+Cây phân loại cũ có "Cấp số cộng" và "Cấp số nhân" nhưng **không** có "Dãy số",
+trong khi ngân hàng có 112 câu thuộc mạch này (phần lớn từ bộ đề OCR giữa kì lớp
+11). Không có chỗ để xếp, chúng bị đẩy đi nơi khác: 52 câu sang "Tổ hợp và nhị
+thức Newton", 36 câu sang "Thống kê liên tục", 8 câu sang "Lượng giác (Lớp 11)",
+và **0 câu** vào đúng chương.
+
+Ba mục con đặt theo đúng khuôn của hai chương hàng xóm (một mục lý thuyết, một
+mục Đúng/Sai, một mục vận dụng) — lệch khuôn thì màn chọn câu hiện ba chương cạnh
+nhau với ba kiểu chia khác nhau.
+
+Sau khi nạp, chạy lớp luật để xếp lại:
+
+```powershell
+npm.cmd run questions:classify-rules              # chạy thử
+npm.cmd run questions:classify-rules -- --ghi     # ghi thật
+```
+
+Kết quả lượt 2026-09-05: 112 câu dãy số từ **0 → 110** vào đúng chương; toàn ngân
+hàng 1324 → 1511 câu đã phân loại. Mặc định script **không ghi đè** câu đã phân
+loại; `--sua-sai` mới cho phép, và chỉ với câu mà hàng rào luật khẳng định đang
+sai. Mọi lượt ghi để lại file hoàn tác `.taxonomy-added-*.json` /
+`.taxonomy-backup-*.json` (đã gitignore).
 
 ## 9. Database troubleshooting
 
@@ -1086,23 +1179,18 @@ Nếu `tsc` báo lỗi trong `.next/dev/types/**`, dừng dev server, xóa đún
 npm.cmd run tikz:svg -- --chapters "D:/ToanTHPT/LATEX/HethongtrithucToanTHPT"
 ```
 
-Cần `pdflatex` + `dvisvgm` trong PATH (MiKTeX đã có trên máy chủ dự án). Script
-đọc `preamble.tex` + `tri-thuc.sty` để lấy màu, `\usetikzlibrary` và khối
+Cần `pdflatex`, `dvisvgm` **và `pdftocairo`** trong PATH (MiKTeX có sẵn cả ba).
+Script đọc `preamble.tex` + `tri-thuc.sty` để lấy màu, `\usetikzlibrary` và khối
 `\tikzset`, biên dịch từng `tikzpicture` rồi ghi ra `public/tikz/<khoá>.svg`.
 
 - Chạy lại nhiều lần thoải mái: hình đã có SVG thì bỏ qua. `--force` để làm lại tất cả.
+- Muốn dựng lại **vài hình** thì đừng dùng `--force` (nó làm lại cả trăm hình): xoá
+  đúng những file `.svg` đó rồi chạy lại, script chỉ dựng cái thiếu.
 - **Sửa hình trong `.tex` thì phải chạy lại**, nếu không web vẫn hiện hình cũ.
 - Xem lại toàn bộ hình đã dựng: mở `/tikz/_preview.html`.
-- Trạng thái 2026-08-11: 110/110 hình dựng thành công.
+- Trạng thái 2026-09-07: **111/111 hình dựng thành công**, 0 hình trắng.
 
-### ĐANG HỎNG: hình chưa hiện trên web (2026-08-11)
-
-SVG đã dựng đủ và parser đã sinh đúng khối ```` ```tikz ````, nhưng **hình vẫn
-chưa hiện khi xem thật trên trình duyệt**. Chưa tìm ra nguyên nhân — dừng ở đây
-để làm tiếp sau. Không có gì phải rollback: các phần khác của màn nhập lý thuyết
-đã chạy ổn.
-
-Đường đi của một hình, để soi cho đúng chỗ:
+### Đường đi của một hình
 
 ```
 file .tex  →  latexToMarkdown() bọc thành ```tikz
@@ -1112,28 +1200,128 @@ file .tex  →  latexToMarkdown() bọc thành ```tikz
            →  onError  →  TikZJax  →  khung xổ mã
 ```
 
-Nghi can, xếp theo thứ tự nên kiểm:
+Khoá băm từ chính mã nguồn hình (`src/lib/theories/tikz-figure-key.ts`, FNV-1a
+hai vòng). Script và component dùng chung hàm đó nên không cần biết nhau: sửa hình
+trong `.tex` là ra khoá mới, chạy lại script là có SVG mới, web tự nhặt.
 
-1. **Lệch khoá.** Đây là nghi can số một vì nó hỏng *im lặng*: web đi tìm tệp
-   không có, `onError` bắn, rơi thẳng xuống TikZJax mà không báo gì. Script băm
-   mã lấy trực tiếp từ `.tex`; component băm chuỗi mà react-markdown truyền vào
-   (`String(children).replace(/\n$/, '')`). Hai chuỗi đó **chưa được kiểm là
-   giống nhau trên trình duyệt**. Cách đo nhanh: mở DevTools → Network, lọc
-   `tikz`, xem có request `/tikz/*.svg` nào 404 không, rồi so khoá trong URL với
-   `public/tikz/manifest.json`.
-2. **Dữ liệu cũ trong database.** Các bài lý thuyết nạp từ tháng 6 mang
-   `content_md` sinh bởi parser CŨ (display math tụt thành `$`, và với 19/30
-   file thì nội dung vốn đã hỏng). Xem trang `/learn` sẽ thấy bản cũ chứ không
-   phải kết quả của parser mới. **Phải nhập lại** mới đánh giá được.
-3. **Dev server chưa thấy tệp mới.** `public/tikz/` được thêm sau khi server
-   đang chạy — dừng `npm run dev` và chạy lại.
-4. **`format="markdown"` mới thêm.** Nếu thử trước lúc đó thì nội dung không đi
-   qua react-markdown, nên `code` component không chạy và TikZ chỉ là chữ.
-5. **`<img>` kẹt ở trạng thái `checking`.** `TikzRenderer` ẩn ảnh cho tới khi
-   `onLoad` bắn. Nếu thấy vòng xoay "Đang tải hình..." đứng mãi thì là nhánh này.
+### Hai cái bẫy đã tốn thời gian, cả hai đều hỏng IM LẶNG
 
-Nếu cuối cùng phải bỏ `<img>`: phương án thay thế là nhúng thẳng nội dung SVG
-vào DOM (fetch rồi `innerHTML` trong `.tikz-container`, class đó đã nằm trong
-`ignoreHtmlClass` của MathJax). Đổi lại là mất cache ảnh của trình duyệt.
+**1. `loading="lazy"` làm hình kẹt ở "Đang tải hình…" (đã sửa 2026-09-04).**
+`TikzRenderer` ẩn `<img>` cho tới khi `onLoad` bắn, mà trình duyệt được phép hoãn
+vô hạn việc tải một ảnh `lazy` đang bị ẩn — nên **không** `onLoad` mà cũng **không**
+`onError`, vòng xoay quay mãi. Nghi can lúc đầu là lệch khoá; bác bỏ được bằng thí
+nghiệm trong trình duyệt: `eager` + `display:none` thì `onLoad` vẫn bắn.
+
+**2. dvisvgm 3.6 dịch `opacity=` của TikZ thành 0 (đã sửa 2026-09-07).**
+TikZ hiện `opacity=0.7` bằng ExtGState trong PDF. Bản dvisvgm này đọc không ra và
+ghi `opacity='0'` — không chỉ cho nét mờ mà cho **mọi nét vẽ sau đó**. Kết quả là
+SVG hợp lệ, đúng kích thước, đủ path, đủ màu, và **trắng tinh** khi mở ra.
+
+Tái hiện bằng bốn dòng LaTeX:
+
+```latex
+\fill[SoftAccent,opacity=0.7] (0,0) rectangle (3,2);
+\draw[thick,Primary] (0,0)--(3,2);
+```
+
+→ dvisvgm cho `fill-opacity='0'` **và** `stroke-opacity='0'`; `pdftocairo -svg` trên
+đúng file PDF đó cho `fill-opacity="0.7"` và `stroke-opacity="1"`.
+
+Script nay tự xử lý: SVG nào chứa `opacity='0'` thì dựng lại bằng `pdftocairo`, và
+nếu **mọi** nét đều trong suốt thì **không ghi file**, báo lỗi. Vẫn để dvisvgm làm
+chính vì `--exact-bbox` cắt sát hơn.
+
+### Cách kiểm hình trắng
+
+Không có phép kiểm tĩnh nào bắt được lớp lỗi này. Kiểm file thấy đủ path đủ màu;
+kiểm HTTP thấy 200 đúng số byte. **Phải vẽ ra rồi đếm điểm ảnh.**
+
+Cách làm khi truy ngày 2026-09-07: nạp cả 111 SVG vào một trang cùng origin, vẽ
+từng hình lên canvas 120×120 nền trắng, đếm điểm không trắng.
+
+```js
+const cv = document.createElement('canvas'); cv.width = cv.height = 120
+const ctx = cv.getContext('2d')
+ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 120, 120)
+ctx.drawImage(img, 0, 0, 120, 120)
+const d = ctx.getImageData(0, 0, 120, 120).data
+let ink = 0
+for (let i = 0; i < d.length; i += 4) if (d[i] < 245 || d[i+1] < 245 || d[i+2] < 245) ink++
+// hình bình thường: 2,19% trở lên. Hình hỏng: đúng 0.
+```
+
+Ranh giới rất rõ, không có vùng mờ: bảy hình hỏng cho đúng 0, hình thấp nhất
+trong số còn lại là 2,19%.
+
+**Còn nợ:** gói phép kiểm này thành script chạy được ngoài trình duyệt. Chặn cuối
+trong `render-tikz-svg.mjs` chỉ bắt được trường hợp **toàn bộ** trong suốt — hình
+mất một nửa nét thì vẫn lọt.
 
 Bối cảnh đầy đủ và lý do không dùng TikZJax: [`LATEX_PARSER_DEBUG.md`](LATEX_PARSER_DEBUG.md).
+
+## 13. Bài lý thuyết: nhập từ LaTeX rồi xuất bản
+
+### Nhập
+
+```powershell
+npm.cmd run theories:import -- --chapters "D:/ToanTHPT/LATEX/HethongtrithucToanTHPT"
+```
+
+Mặc định chạy thử, thêm `--ghi` mới ghi. Bài mới vào ở **dạng nháp**
+(`is_published = false`) — xuất bản là quyết định của giáo viên. Bài đã có thì chỉ
+cập nhật nội dung, **không** đụng `is_published`.
+
+Khoá đối chiếu là **(chương, tiêu đề bài lý thuyết)**, không phải tên section. Lần
+chạy đầu khớp nhầm theo tên section và báo "28 tạo mới, 1 cập nhật" — đúng ra là
+25/4; nếu ghi thật thì đã tạo 3 bản trùng và để nguyên 3 bản hỏng đang cho học
+sinh đọc. Con số lệch trong bản chạy thử là dấu hiệu đáng dừng lại.
+
+### Kiểm công thức
+
+```powershell
+npm.cmd run theories:check-math
+```
+
+Chạy **chính MathJax của trình duyệt** (`mathjax-full` có sẵn trong
+`node_modules`) trên `theories.content_md` đọc từ database — tức đúng thứ học sinh
+nhận, không phải file `.tex`, cũng không phải kết quả parser chạy lại. Nếu parser
+và dữ liệu đã nạp lệch nhau thì đây là chỗ duy nhất nhìn thấy được.
+
+Quét bằng regex **không** thay thế được: đã thử tìm môi trường lạ, lệnh ngoài danh
+sách, `$$` lẻ cặp — sạch trơn, trong khi `/learn` vẫn hiện chữ đỏ. Lỗi MathJax phần
+lớn là lỗi **ngữ pháp** (thiếu `}`, `&` sai số cột, `\left` không có `\right`).
+
+Trạng thái 2026-09-07: 3927 công thức trong 29 bài, **0 lỗi**.
+
+### Xuất bản
+
+```powershell
+npm.cmd run theories:publish            # chạy thử
+npm.cmd run theories:publish -- --ghi   # ghi thật
+```
+
+Xuất bản mọi bài còn nháp, kèm chấm sao độ khó theo bảng trong script. Chạy **ba
+phép kiểm chặn trước khi ghi**, và không ghi gì nếu có bài hỏng:
+
+| Kiểm | Vì sao |
+|---|---|
+| đủ chuỗi `section → category → topic` | `/learn` join bằng PostgREST; thiếu mắt xích thì bài rơi khỏi cây, xuất bản rồi mà không ai thấy |
+| mọi hình TikZ đã có SVG dựng sẵn | thiếu thì rơi xuống TikZJax, mà TikZJax không có `tkz-tab` và không biết màu riêng của bộ bài → ra khung mã nguồn |
+| công thức sạch | chạy riêng bằng `theories:check-math` |
+
+**Độ khó (`theories.difficulty_level`, 1..5)** chỉ hiện thành sao ở
+`/admin/theories`. Không khoá bài, không lọc bài, không đụng tới điểm. Trình nhập
+đặt cứng `3` cho mọi bài tạo mới, nên số 3 của một bài mới nhập **không phải một
+đánh giá**. Script chỉ chấm bài còn nháp — bài đã xuất bản là bài giáo viên đã
+duyệt.
+
+Hoàn tác: `.theories-published-<dấu thời gian>.json` (đã gitignore) giữ trạng thái
+cũ của đúng những bài bị đổi; PATCH ngược lại là về nguyên trạng.
+
+### Hai cây taxonomy chạy song song
+
+Ngân hàng câu hỏi phân loại theo **cây cũ** (`topics`/`categories` không có tiền
+tố), còn lý thuyết và `/learn` dùng cây **`sgk-*`**. Hai cây **không gặp nhau**: cây
+`sgk-*` có 0 câu hỏi. Đó là lý do chọn chương nào ở màn bốc câu theo cây SGK cũng
+thấy trống. Chủ dự án đã chốt 2026-09-04 giữ cây cũ cho câu hỏi. Khi viết script
+đụng taxonomy, **lọc bỏ `sgk-*`** nếu đang làm việc với câu hỏi.

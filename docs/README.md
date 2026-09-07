@@ -2,7 +2,9 @@
 
 Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn sự thật nhỏ, có chủ sở hữu rõ và đủ để người hoặc AI tìm đúng code trước khi sửa.
 
-**Mở phiên làm việc mới thì bắt đầu ở [`VIEC_DANG_MO.md`](VIEC_DANG_MO.md)**: danh sách việc đang mở, mỗi việc kèm sẵn câu mở phiên copy-paste được. File đó chỉ điều phối và trỏ sang tài liệu chi tiết; làm xong việc nào thì xoá mục đó khỏi nó.
+**Mở phiên làm việc mới thì bắt đầu ở [`VIEC_DANG_MO.md`](VIEC_DANG_MO.md)**: **phần A** là việc còn phải làm, **phần B** là việc chờ chủ dự án quyết, **phần C** là hồ sơ việc đã xong. Làm xong một việc thì chuyển mục đó xuống phần C — đừng xoá, vì phần lớn bài học nằm trong các mục đã xong. Kiến thức dùng lại được thì chuyển hẳn sang `RUNBOOK.md` hoặc `AGENTS.md` rồi để lại con trỏ.
+
+**Số đo trong tài liệu không tự cập nhật và đã từng sai hàng loạt** (xem `AGENTS.md` mục 3). Trước khi dựa vào một con số hay một dòng trạng thái migration, kiểm lại trên hệ thống đang chạy — cách kiểm ở `RUNBOOK.md` mục 0.
 
 ## Thứ tự đọc
 

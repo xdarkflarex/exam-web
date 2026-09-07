@@ -33,6 +33,25 @@ Vector/output của `ai-rag` cũng nằm trong `.ai-cache/rag/`, chỉ dùng Oll
 
 Bộ migration hiện chưa dựng được database trắng. Không khẳng định schema chỉ từ một snapshot và không chạy `database/SUPABASE_SCHEMA.sql` vào production. Khi phát hiện lệch, ghi rõ bằng chứng và cập nhật tài liệu cùng bản sửa.
 
+**Tài liệu là nguồn HẠNG TƯ, và nó nói sai thường xuyên.** Rà ngày 2026-09-07:
+`RUNBOOK.md` ghi "CHƯA NẠP" cho 10 migration đã live, `AGENTS.md` ghi `20260805`
+chưa áp trong khi bảng và hàm đều tồn tại, `VIEC_DANG_MO.md` mở đầu bằng "đang ở
+nhánh `design/visual-overhaul`, 17 commit chưa đẩy" trong khi repo đã ở `main` và
+sạch. Không có CI và không có bảng lịch sử migration, nên không gì tự sửa những
+dòng đó. **Trước khi báo cáo trạng thái schema/migration cho người dùng, phải kiểm
+lại trên database đang chạy** — cách kiểm và bẫy của từng cách nằm ở `RUNBOOK.md`
+mục 0.
+
+**PostgREST cắt ở 1000 dòng và KHÔNG báo.** Mặc định `db-max-rows` là 1000; truy
+vấn trả đúng 1000 dòng, status 200, không cảnh báo, không cờ nào. Ngân hàng câu
+hỏi đang hơn 1600 câu, nên mọi script đọc `questions`, `answers` hay
+`question_taxonomy` một phát là im lặng mất một phần ba — và báo cáo trông vẫn
+sạch. Luôn phân trang bằng header `Range`.
+
+**`supabase-js` KHÔNG ném lỗi**, nó trả `{ data, error }`. Bọc `try/catch` quanh
+một lệnh ghi rồi đếm là thành công khi không có exception là đếm cả những lần ghi
+hỏng — lỗi này đang có thật ở `hybrid-sync.ts` bên question-bank.
+
 ## 4. Bất biến nghiệp vụ
 
 ### Mode đánh giá
@@ -69,7 +88,7 @@ Bộ migration hiện chưa dựng được database trắng. Không khẳng đ�
 - `20260721_essay_assisted_grading.sql` và backfill cấu hình 6 câu essay legacy đã được áp trên Primary Database ngày 2026-07-22; hậu kiểm cấu trúc tương ứng đều trả toàn bộ `must_be_zero=0`. Đây chưa phải bằng chứng JWT/E2E. `20260722_runtime_security_hardening.sql` **đã được áp** — xác minh ngày 2026-08-06 bằng `to_regprocedure`: `submit_exam_attempt_trusted_internal`, `can_edit_homework_question_links` và `get_my_safe_bookmarks` đều tồn tại live và cả ba chỉ được định nghĩa trong file đó. Điều còn thiếu là **negative test bằng JWT thật và E2E**, không phải bản thân migration; đọc `docs/ESSAY_GRADING.md` và `docs/RUNBOOK.md` trước khi rollout.
 - Source đi kèm hardening 20260722 chuyển ba loại câu cũ của `simulation`, `practice` và `homework` sang RPC server-side, khóa direct grading/key access và lưu policy feedback/review. Migration đã live nên các RPC này tồn tại; nhưng chưa có JWT negative test chứng minh mọi đường ghi trực tiếp đã bị khóa, nên đừng coi "policy đã đúng" là chuyện đã kiểm.
 - Hardening ba luồng làm bài không đồng nghĩa toàn website đã an toàn. `history`/`analytics` vẫn chưa có entitlement server-side đầy đủ, và semantics `teacher` so với exact `admin` ở homework còn chưa thống nhất.
-- Trạng thái pipeline chấm tự động ngày 2026-08-04: đã có đủ đường đi đầu-cuối trong source — lớp logic thuần `src/lib/essay-ai/` (contracts, allowlist, redaction, normalize, validator, quyết định auto-finalize), worker `src/lib/essay-ai/worker.ts`, route handler `POST /api/essay-ai/grade-queue` (xác thực bằng `CRON_SECRET`), route OCR `POST /api/essay-ai/ocr`, dashboard `/admin/essay-ai` + `GET /api/admin/essay-ai/stats`, và benchmark `scripts/essay-ai-benchmark.mjs`. Migration `20260804_essay_ai_auto_grading.sql` đã áp trên Primary; `20260805_essay_ai_usage.sql` (bảng nhật ký chi phí + hàm `essay_ai_month_to_date_cost`) **chưa áp**. Kế hoạch và thứ tự gate nằm ở `docs/ESSAY_AUTO_GRADING_PLAN.md`.
+- Trạng thái pipeline chấm tự động ngày 2026-08-04: đã có đủ đường đi đầu-cuối trong source — lớp logic thuần `src/lib/essay-ai/` (contracts, allowlist, redaction, normalize, validator, quyết định auto-finalize), worker `src/lib/essay-ai/worker.ts`, route handler `POST /api/essay-ai/grade-queue` (xác thực bằng `CRON_SECRET`), route OCR `POST /api/essay-ai/ocr`, dashboard `/admin/essay-ai` + `GET /api/admin/essay-ai/stats`, và benchmark `scripts/essay-ai-benchmark.mjs`. Migration `20260804_essay_ai_auto_grading.sql` đã áp trên Primary; `20260805_essay_ai_usage.sql` (bảng nhật ký chi phí + hàm `essay_ai_month_to_date_cost`) **cũng đã áp** — xác minh 2026-09-07: bảng `essay_ai_usage` đọc được và RPC `essay_ai_month_to_date_cost` tồn tại. Bản trước của file này ghi "chưa áp"; đó là ví dụ của đúng cái bẫy nói ở mục 3. Kế hoạch và thứ tự gate nằm ở `docs/ESSAY_AUTO_GRADING_PLAN.md`.
 - **`ESSAY_AI_AUTO_FINALIZE` đã bật `true` (quyết định của chủ dự án, 2026-08-06).** Lý do: đây là lớp học thêm, điểm không phải điểm học bạ của trường, nên chủ dự án chấp nhận rủi ro AI chấm sai và sẽ sửa tay khi phát hiện. Quyết định này thay thế yêu cầu "phải giữ `false` cho tới khi benchmark trên fixture thật xong" ở các bản trước.
 
   **`ESSAY_AI_OVERRIDE_MIN_COMPARED` = 0 (đổi 2026-08-07).** Chủ dự án bỏ yêu cầu tích luỹ 20 bài đối chiếu trước khi cho auto-chốt: bài ĐẦU TIÊN cũng được AI chốt điểm ngay, vì yêu cầu sản phẩm là học sinh nộp xong thấy điểm luôn. Hai ngưỡng tỷ lệ (`MAX_CHANGED_RATE`, `MAX_SERIOUS_RATE`) vẫn siết từ bài đối chiếu đầu tiên, nên phanh tự động không mất — nó chỉ không còn chặn lúc chưa có dữ liệu. **Bất biến phải giữ:** nhánh `compared === 0` trong `evaluateOverrideGuard` phải tường minh. `0/0` cho `NaN` và `NaN > ngưỡng` luôn false, nên xoá nhánh đó thì cổng vẫn "mở" nhưng vì số học chứ không vì quyết định — đúng-tình-cờ, và đúng-tình-cờ thì hỏng lúc nào không biết.
@@ -100,6 +119,38 @@ Quy tắc này rút ra từ **ba lỗi thật trong cùng ngày 2026-08-07**, ba
 - **`FOR ALL` bao gồm `SELECT`.** Policy quản trị viết `FOR ALL` mà không giới hạn `TO` sẽ chen vào mọi truy vấn đọc của mọi người.
 - **Postflight đọc catalog KHÔNG chứng minh được lớp lỗi này.** `20260809` có postflight đạt toàn bộ trong khi tính năng hỏng hoàn toàn. Mọi migration đụng policy phải kèm phép thử bằng JWT/anon key thật qua PostgREST, và phải kiểm cả nhánh ngược khi bản sửa nới quyền.
 - **Không dùng Supabase SQL Editor để kiểm RLS.** Editor chạy bằng vai trò chủ sở hữu: `auth.uid()` là `NULL` và `FORCE ROW LEVEL SECURITY` không áp, nên mọi policy trông như bị bỏ qua.
+
+### Lớp học sinh và phạm vi hiển thị đề
+
+- **`profiles.grade` gần như luôn NULL** (23/24 hồ sơ lúc đo 2026-09-04). Nguồn
+  đáng tin về khối là `classes.grade`, đọc qua RPC `get_my_grade()`
+  (`SECURITY DEFINER`, trả đúng một số nguyên). Học sinh **không** đọc được bảng
+  `classes` trực tiếp — RLS chỉ mở cho admin và giáo viên chủ nhiệm.
+- **Không backfill `profiles.grade` từ `classes.grade`.** `AssessmentListPage` lọc
+  đề bằng `query.eq('grade', studentGrade)` **khi cột này có giá trị**; điền vào là
+  lập tức giấu mọi đề đang mang `grade = NULL` khỏi mọi học sinh.
+- `get_my_grade()` trả **NULL là hợp lệ** — nghĩa là "chưa biết", và hiện có 11 học
+  sinh chưa được xếp lớp. Client phải hiện đủ cả ba lớp, không được đoán bừa một
+  lớp.
+- `exams.grade` quyết định **ai nhìn thấy đề**, không đụng tới điểm. Thi thử chỉ
+  cho lớp 12 là một giá trị ở cột này, không phải một nhánh code riêng.
+
+### GRANT theo danh sách cột đóng
+
+`20260722` cấp `INSERT`/`UPDATE` trên `exams` theo **danh sách cột liệt kê sẵn**.
+Thêm một cột vào câu INSERT/UPDATE mà không cấp quyền cho nó thì **cả câu lệnh**
+hỏng với `permission denied for table exams` — không phải lỗi cột, mà lỗi cả bảng,
+nên thông báo không chỉ được vào chỗ sai. Đã xảy ra hai lần: `max_attempts`
+(2026-09-03, làm đứt trang tạo đề) và `grade` (2026-09-04). Danh sách cột hiện
+hành và cách chẩn đoán ở `RUNBOOK.md` mục 9.
+
+### Hai cây taxonomy chạy song song
+
+Ngân hàng câu hỏi phân loại theo **cây cũ**; lý thuyết và `/learn` dùng cây
+**`sgk-*`**. Hai cây không gặp nhau — cây `sgk-*` có **0 câu hỏi**. Chủ dự án chốt
+2026-09-04 giữ nguyên cả hai. Script nào đụng taxonomy của **câu hỏi** phải lọc bỏ
+`sgk-*`, nếu không câu sẽ rơi vào nhánh không màn nào bốc tới. Đây là nợ kỹ thuật
+đã biết, không phải lỗi cần "sửa" tiện tay.
 
 ### Quyền truy cập
 
@@ -171,12 +222,22 @@ Thay đổi pilot essay:
 
 ## 9. Baseline chưa được phép che giấu
 
-- Typecheck pass ở audit 2026-07-19.
-- Lint toàn repo đang fail: 113 error, 192 warning.
-- Không có CI. Có test đơn vị chạy bằng test runner của Node: `npm test` (`node --experimental-strip-types --test "src/**/*.test.ts"`).
+- **Đo lại 2026-09-07** — mọi con số dưới đây phải cập nhật lại khi nó đổi; không
+  có CI nên không gì tự làm việc đó.
+- Typecheck: pass, 0 lỗi.
+- Test: 410/410 pass (`npm test` → `node --experimental-strip-types --test "src/**/*.test.ts"`, khoảng 2 giây).
+- Lint toàn repo đang fail: **68 error, 124 warning trên 59 file** (con số cũ
+  113/192 là của audit 2026-07-19).
+- Không có CI.
 - Có các P0 bảo mật/schema trong `docs/SECURITY_AND_AUDIT.md`.
 - Schema/RPC pilot essay 20260721 và backfill legacy đã live với hậu kiểm cấu trúc bằng 0; hardening ba mode 20260722 cũng đã live (xác minh 2026-08-06). Điều còn thiếu là JWT negative test và E2E, không phải migration. `essay` không mở rộng sang practice/homework.
 - Thang điểm (`20260806_moet_scoring_scale.sql` + `src/lib/exam/scoring.ts`): thang Bộ GD&ĐT chỉ áp cho **đề thi thử** (`exams.scoring_profile = 'moet_standard'`) — trắc nghiệm 0,25, Đúng/Sai 1,0, trả lời ngắn 0,5, tự luận bằng tổng rubric. Đề thi học kì, ôn tập và bài tập về nhà là `custom`: giáo viên tự đặt trọng số. Bậc thang Đúng/Sai 1,0/0,5/0,25/0,1/0 theo số ý đúng áp cho mọi loại đề. `scoring_profile` **độc lập** với `exam_mode` (thi thử và thi học kì cùng `simulation`) — đừng suy cột này từ cột kia. Đừng hardcode trọng số ở chỗ mới; đọc `docs/SCORING.md` trước khi chạm bất cứ đường tính điểm nào.
 - Cổng chặn auto-chốt theo override rate (`src/lib/essay-ai/override-guard.ts`) là cổng **chỉ-siết**: nó chỉ được biến `auto_finalize` thành `pending_review`, không bao giờ ngược lại. `FinalizeInput.overrideGuard` cố ý **không** có mặc định "cho qua" — `undefined` là chặn, để một call-site mới quên truyền không làm mất một cổng an toàn. Worker và `GET /api/admin/essay-ai/stats` phải dùng chung `override-stats.ts`; tính lại riêng ở một bên là để dashboard nói khác cái hệ thống đang làm.
+- Hình TikZ của bài lý thuyết là **SVG dựng sẵn** ở `public/tikz/<khoá>.svg`, khoá
+  băm từ chính mã nguồn hình (`src/lib/theories/tikz-figure-key.ts`) và dùng chung
+  giữa script dựng và `TikzRenderer`. Sửa hàm băm là làm lệch cả 111 hình cùng lúc,
+  và chúng hỏng **im lặng** (rơi xuống TikZJax). Hai cái bẫy đã tốn thời gian —
+  `loading="lazy"` và `opacity` bị dvisvgm dịch thành 0 — ghi ở `RUNBOOK.md` mục 12.
+  Cả hai đều không có cảnh báo ở bất kỳ khâu nào: **phải vẽ ra rồi nhìn**.
 
 Không nới ESLint, thêm `any`, tắt rule, bỏ guard hoặc gọi lỗi cũ là “không liên quan” để làm check xanh. Nếu baseline chặn xác minh, lint file thay đổi và ghi lại số liệu trước/sau.

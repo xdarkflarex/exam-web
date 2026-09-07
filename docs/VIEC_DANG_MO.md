@@ -1,66 +1,92 @@
 # Việc đang mở
 
-Cập nhật 2026-08-13. Mỗi việc kèm sẵn **câu mở phiên** — copy nguyên khối trích
-dẫn, dán vào một phiên Claude Code mới là chạy được ngay.
+Sổ ghi việc của dự án. **Phần A** là việc còn phải làm, **phần B** là việc đang chờ
+chủ dự án quyết, **phần C** là hồ sơ việc đã xong — giữ lại vì phần lớn bài học
+nằm trong đó.
 
-File này chỉ **điều phối**, không chép lại chi tiết kỹ thuật: chi tiết nằm ở tài
-liệu được trỏ tới trong từng mục. Làm xong việc nào thì **xoá mục đó** khỏi đây
-(quy ước của `docs/README.md`: xoá thông tin lỗi thời thay vì chồng bản cập
-nhật).
+## Trạng thái kho code — rà 2026-09-07
 
-Mọi phiên mới đều phải đọc `AGENTS.md` trước, và nếu chạm giao diện thì đọc thêm
-`DESIGN_TODO.md` mục 0 (bốn bất biến theme không được phá).
+- Nhánh `main`, **0 commit chưa đẩy**, working tree sạch. (Bản trước của file này
+  nói "đang ở nhánh `design/visual-overhaul`, 17 commit chưa đẩy, web thật chưa hề
+  đổi" — sai từ lâu; đợt làm đẹp đã gộp vào `main` ngày 2026-08-25.)
+- Typecheck pass · test 410/410 pass · lint 68 error, 124 warning trên 59 file.
+- Không có CI. Mọi con số trong tài liệu là do người đo tay, nên **kiểm lại trước
+  khi dựa vào nó** — xem `AGENTS.md` mục 3.
+- Working tree thường có sẵn thay đổi chưa commit của chủ dự án; đừng gộp chúng
+  vào commit của mình.
 
----
+## Số đo hiện tại
 
-## Trạng thái kho code, đọc trước khi làm bất cứ việc nào
-
-- Đang ở nhánh `design/visual-overhaul`. **17 commit chưa đẩy lên GitHub**, tức
-  web thật chưa hề đổi. Chưa quyết khi nào gộp vào `main`.
-- Working tree luôn có sẵn thay đổi chưa commit của phiên khác. **Không reset,
-  không checkout đè.** Hiện có: `docs/LATEX_PARSER_DEBUG.md`, `docs/RUNBOOK.md`,
-  `scripts/render-tikz-svg.mjs`, và đúng một dòng `tikz:svg` trong
-  `package.json`.
-- Ba thứ đang nằm ngoài quản lý phiên bản, **chưa được commit và chưa quyết**:
-  `testAI_OCR.jpg`, thư mục `.claude/`, thư mục `public/tikz/` (hình SVG dựng
-  sẵn). Xem việc 8.
-
----
-
-## 1. ĐÃ SỬA 2026-09-04 — hình vẽ trong bài lý thuyết không hiện
-
-Triệu chứng cũ: mở `/learn` chọn bài bất kỳ của Chương 1 lớp 12, chỗ nào có hình
-cũng dừng ở "Đang tải hình…" và không bao giờ ra hình.
-
-**Nguyên nhân: `loading="lazy"` trên thẻ `<img>` dò ảnh dựng sẵn trong
-`TikzRenderer`.** Thẻ đó vừa là ảnh vừa là phép dò "có tệp hay không", mà phép dò
-chỉ kết luận được bằng `onLoad`/`onError`. `lazy` cho phép trình duyệt hoãn tải
-vô thời hạn; hoãn tải nghĩa là không sự kiện nào bắn, nên `prebuilt` kẹt ở
-`'checking'` vĩnh viễn. Ảnh không hiện, mà TikZJax cũng không được gọi vì
-`prebuilt` chưa bao giờ thành `'missing'` — hỏng cả hai đường cùng lúc, im lặng.
-
-Đo trong trình duyệt ngày 2026-09-04, đủ ba cấu hình:
-
-| Cấu hình | Kết quả |
+| Thứ | Số đo 2026-09-07 |
 |---|---|
-| `lazy` + `display:none` (bản cũ) | KHÔNG sự kiện nào |
-| `lazy` + đang hiện | KHÔNG sự kiện nào |
-| `eager` + `display:none` | `onload`, chạy đúng |
+| Câu hỏi trong ngân hàng | 1621 · đã phân loại 1511 · **chưa 110** |
+| Câu nhắc tới hình mà chưa có hình | **176** / 312 câu có nhắc hình |
+| Bài lý thuyết | 29 · đã xuất bản **29** · nháp 0 |
+| Hình TikZ | 111 dựng sẵn · **0 hình trắng** |
+| Công thức trong bài lý thuyết | 3927 · **0 lỗi** |
+| Hồ sơ học sinh | 30 · khớp lớp 16 · lệch 1 · **chưa xếp lớp 13** |
 
-Bản sửa bỏ `lazy` và hoãn tải bằng `IntersectionObserver` sẵn có của component
-(`isVisible`, đệm 240px): observer quyết định KHI NÀO gắn thẻ vào cây, gắn rồi
-thì tải ngay và trả lời dứt khoát.
+---
 
-Hai mắt xích còn lại đã đo và đều đúng, nên không phải nghi ngờ nữa:
+# Phần A — việc đang mở
 
-- **Khoá hình khớp tên tệp: 34/34** trên ba bài mẫu (`tikzFigureKey` so với
-  `public/tikz/*.svg`, 112 tệp).
-- **Dev server phục vụ SVG: HTTP 200.**
+## A0. Mười một học sinh chưa được xếp lớp
 
-**Chưa mở `/learn` xem tận mắt** — trang đó nằm sau đăng nhập học sinh. Ba mắt
-xích đã đo rời từng cái; việc còn lại là nhìn một bài thật.
+Chặn hai tính năng vừa làm xong, và chặn **im lặng**: `get_my_grade()` trả NULL nên
+`/learn` không mở sẵn đúng lớp, và bộ lọc "thi thử chỉ cho lớp 12" không áp được.
+Không có lỗi nào hiện ra — chỉ là học sinh thấy cả ba lớp.
 
-## 2. Còn lại phần cần tài khoản thật — "Mảng cần củng cố" trống
+13 hồ sơ trống `class_id`, trừ 2 tài khoản admin:
+
+```
+Khánh Ngọc · Nguyễn Hoàng Gia An · Hoàng Phương Vy · Phạm Quốc Nam
+Lê Việt Thái (2 hồ sơ trùng tên)
+Ngọc Diệp Nguyên / Nguyên Ngọc Diệp (nghi trùng)
+Trần Văn A · Lê Thị B · Phạm Văn C  (nhiều khả năng là tài khoản thử)
+```
+
+Xếp lớp bằng tay: `RUNBOOK.md` mục 8quindecies. Cần chủ dự án nhìn để tách tài
+khoản thử khỏi học sinh thật trùng tên.
+
+## A1. Bốn dòng nối màn "Rà hình theo PDF" chưa commit (question-bank)
+
+Màn đã xong và đã đẩy lên GitHub (`figure-review-api.ts`, `FigureReview.tsx`),
+nhưng bốn dòng nối nó vào `App.tsx` và `Sidebar.tsx` **vẫn nằm ngoài git** vì hai
+file đó đang mang 364 và 25 dòng việc dở của chủ dự án. App chạy được; chỉ là chưa
+commit. Khi chủ dự án commit đợt việc của mình thì bốn dòng đi kèm.
+
+## A2. 176 câu thiếu hình
+
+Công cụ đã xong (màn "Rà hình theo PDF" bên question-bank: mở PDF gốc, tìm câu
+bằng từ khoá, dán TikZ, dựng thử, lưu và đẩy). Việc rà thì chưa bắt đầu. Cố ý
+**không** ghép tự động — ghép sai thì học sinh đọc đề một đằng nhìn hình một nẻo
+và không ai phát hiện ra.
+
+## A3. 110 câu chưa phân loại
+
+Còn lại sau lượt luật ngày 2026-09-05 (1324 → 1511). Dành cho tab "Gợi ý AI", nay
+đã có hàng rào `findRuleConflict` chặn sau.
+
+## A4. `20260903_question_audit_fix_apply.sql` — không xác minh được
+
+Ưu tiên cao: không có nó thì nút "Áp dụng" ở `/admin/questions/audit` hỏng với
+**mọi** đề xuất. Hàm có tồn tại nhưng chữ ký trùng với bản `20260830` nên PostgREST
+không phân biệt được. Phải đọc thân hàm bằng `pg_get_functiondef` — cần kết nối
+Postgres trực tiếp, mà host `db.<ref>.supabase.co` mất DNS từ giữa buổi 2026-09-07.
+
+## A5. `hybrid-sync.ts` đếm push hỏng thành thành công (question-bank)
+
+`hybrid-sync.ts:840` tăng `result.pushed` vô điều kiện. `supabase-js` trả
+`{ error }` chứ **không ném lỗi**, nên `try/catch` không bắt được gì và một lượt
+đồng bộ hỏng vẫn báo thành công. Đã báo, chưa được duyệt sửa.
+
+## A6. Phép kiểm hình trắng chưa thành script
+
+Chặn cuối trong `render-tikz-svg.mjs` chỉ bắt được hình **toàn bộ** trong suốt;
+hình mất một nửa nét vẫn lọt. Phép kiểm thật (vẽ lên canvas rồi đếm điểm ảnh) hiện
+làm tay trong trình duyệt — công thức ở `RUNBOOK.md` mục 12.
+
+## A7. Còn lại phần cần tài khoản thật — "Mảng cần củng cố" trống
 
 **Lưới hoạt động: đã sửa 2026-08-14.** `TodayHero.tsx` không còn vẽ 28 ô xám khi
 không có hoạt động; nó hiện ô "Chưa ghi nhận hoạt động". Không cần làm lại.
@@ -79,7 +105,7 @@ Vậy nên **đừng sửa RPC trước**. Việc cần làm là đo phủ sóng
 > `question_knowledge_links`. Nếu thưa thì đây là việc nối link dữ liệu, không
 > phải lỗi code — kết luận nào cũng ghi ngược lại vào mục 4 của tài liệu trên.
 
-## 3. Giao diện tối ở khu quản trị — còn phần lớn
+## A8. Giao diện tối ở khu quản trị — còn phần lớn
 
 Đây là khối việc lớn nhất còn lại của đợt làm đẹp, đã có danh sách file và cặp
 màu thay thế để giữ nhất quán.
@@ -88,7 +114,7 @@ màu thay thế để giữ nhất quán.
 > khu quản trị theo đúng cặp màu thay thế đã chốt ngày 2026-08-07. Sửa xong màn
 > nào thì mở màn đó xem tận mắt ở cả hai chế độ sáng/tối.
 
-## 4. Sáu màn đã sửa nhưng chưa ai nhìn bằng mắt
+## A9. Sáu màn đã sửa nhưng chưa ai nhìn bằng mắt
 
 144 biến thể `dark:` thêm ngày 2026-08-07 ở 6 màn (soạn câu hỏi, phát hành đề,
 xem bài làm, `QuestionEditor`, `ExamListCard`, `ImageCarousel`) đúng về mặt cơ
@@ -99,20 +125,7 @@ chưa đo lần nào — số đo hiện có chỉ lấy từ trang chủ.
 > sáng và tối, chụp lại chỗ sai, sửa, và đo tương phản cho các trang cần đăng
 > nhập (trước nay mới đo trang chủ).
 
-## 5. CHỜ QUYẾT — chữ phụ màu xám hơi nhạt
-
-`text-slate-500` đang ở 3.9:1, dưới chuẩn 4.5 cho chữ nhỏ, dùng ở 531 chỗ. Đậm
-lên thì đạt chuẩn nhưng chữ chính và chữ phụ gần bằng nhau, mất phân cấp thị
-giác. Ba phương án đã ghi sẵn ở `docs/DESIGN_TODO.md` mục 1 — **cần chủ dự án
-chọn trước**, không phải việc AI tự quyết.
-
-## 6. CHỜ QUYẾT — hai hình lạc ngoài khối
-
-Hai hình TikZ ở bài 2 lớp 10 nằm ngoài mọi khối tri thức nên sẽ không hiện ở bài
-nào. Chọn một trong hai: đưa vào khối gần nhất, hay sửa parser để giữ cả phần
-văn bản ngoài khối. Chi tiết ở `docs/LATEX_PARSER_DEBUG.md` mục "Còn treo".
-
-## 7. Khâu học chưa nói được học sinh đã qua khâu nào
+## A10. Khâu học chưa nói được học sinh đã qua khâu nào
 
 Panel bài học đã đọc theo khâu (Khái niệm → Kết quả lý thuyết → Công thức →
 Phương pháp → Ví dụ → Bài tập), nhưng dải khâu **cố ý** chỉ nói bài có những khâu
@@ -126,24 +139,7 @@ KHỐI. Muốn có thật thì phải gộp năng lực theo `knowledge_block_id
 > `TheoryStages.tsx` nói được học sinh đã vững tới khâu nào. Ràng buộc: không có
 > dữ liệu thì phải im lặng, tuyệt đối không tô "đã xong" bằng suy đoán.
 
-## 8. CHỜ QUYẾT — mấy file đang nằm lẫn trong thư mục dự án
-
-- `testAI_OCR.jpg`: nếu là ảnh bài làm của học sinh thật thì `AGENTS.md` mục 5
-  cấm đưa vào kho code. Cần xác nhận rồi thêm vào `.gitignore` hoặc xoá.
-- `.claude/`: cấu hình phiên làm việc, nên bỏ qua khỏi git.
-- `public/tikz/`: 110 hình SVG dựng sẵn. Cần quyết commit hay dựng lại mỗi lần
-  deploy — liên quan trực tiếp tới việc 1.
-
-## 9. Đẩy code lên GitHub
-
-17 commit đang chỉ nằm trên một ổ đĩa. Đẩy nhánh lên **không** đụng tới web
-thật: production dựng từ `main`, nhánh này lên chỉ ra bản xem thử.
-
-```bash
-git push -u origin design/visual-overhaul
-```
-
-## 10. CHƯA BẮT ĐẦU — tool quét câu hỏi trùng
+## A11. CHƯA BẮT ĐẦU — tool quét câu hỏi trùng
 
 Đã chốt: làm ở **question-bank** (app Tauri), không phải exam-web. Lý do: mọi câu
 hỏi đều sinh ra ở đó — exam-web không có một đường ghi nào vào bảng `questions` —
@@ -163,7 +159,7 @@ vân tay phải gộp cả đáp án chứ không chỉ đề.
 > chỉ gợi ý chứ không tự xoá. Câu khác nhau một con số là câu khác — không chuẩn
 > hoá số.
 
-## 10bis. ĐANG LÀM Ở QUESTION-BANK — ghép hình TikZ bộ GK1
+## A12. ĐANG LÀM Ở QUESTION-BANK — ghép hình TikZ bộ GK1
 
 Đợt OCR bộ đề GK1 tách nội dung đề và mã TikZ ra hai file riêng; 20 hình / 8 đề
 cần ghép lại vào câu hỏi. Việc này **làm ở question-bank**, không phải ở đây:
@@ -181,7 +177,7 @@ Bàn giao đầy đủ (kèm hai lỗi lệch trong đường sync phải sửa 
 - Nút **"Rà hình"** ở `/admin/questions/audit` là thước nghiệm thu sau khi bên
   kia đẩy lên: nhóm `co_ma_chua_co_anh` không được tăng.
 
-## 11. ĐANG LÀM — rà soát lời giải/đáp án bằng AI, và gợi ý phân loại
+## A13. ĐANG LÀM — rà soát lời giải/đáp án bằng AI, và gợi ý phân loại
 
 Đợt nhập phần **Thống kê** bằng OCR sai nhiều; lỗi lộ ra lúc chủ dự án đang đọc
 đáp án cho học sinh. Cần công cụ quét theo **chương hoặc bài**: DeepSeek tự giải
@@ -232,6 +228,118 @@ bộ). Đo được lúc làm: **297/1436 câu chưa phân loại**.
 > attempt đã nộp phải cảnh báo riêng. Trước khi viết phần phân loại, đọc mục 8 và
 > phần đầu `src/lib/questions/classify.ts` — repo đã cố ý chọn luật thay vì AI ở
 > chỗ đó.
+
+## A14. ĐANG TREO — một hồ sơ lớp 9 giữ chỗ `class_id` rác
+
+> Mục này trước đây đánh số **14**; `20260908_get_my_grade.sql` còn trỏ tới số cũ.
+
+`20260907` đã nạp ngày 2026-09-04. Hậu kiểm: sửa 4 hồ sơ, **còn 1**.
+
+| | |
+|---|---|
+| Hồ sơ | `Khanh Huong Nguyen` |
+| `class_id` | `"9/1"` — không trỏ tới lớp nào |
+| Vì sao migration không đụng | khối 9 không có lớp; `classes.grade` và `profiles.grade` đều `CHECK IN (10, 11, 12)` |
+
+**Chủ dự án quyết ngày 2026-09-04: để nguyên, tính sau.** Đây là lựa chọn có ý
+thức, không phải việc bị bỏ quên — đừng "dọn" nó trong một lượt refactor.
+
+Cái đang mất, để khi nào cần thì biết mà cân:
+
+- Em này **không nhận được bài tập giao theo lớp** (`homework_assignment_recipients`
+  khớp bằng `class_id`).
+- Không hiện trong bộ lọc lớp ở `/admin/students` và `/admin/analytics`.
+- **Chặn việc thêm FOREIGN KEY** `profiles.class_id → classes.id`. FK là thứ đóng
+  vĩnh viễn cả lớp lỗi này, và nó không tạo được khi còn một dòng không khớp.
+  Nên hàng rào cuối cùng vẫn để ngỏ vì đúng một dòng dữ liệu.
+
+Ba đường xử, ghi đầy đủ ở PHẦN 3 của
+[`20260907`](../supabase/migrations/20260907_fix_profile_class_ids.sql): hỏi lại
+em rồi xếp tay ở `/admin/classes`; đặt `class_id = NULL` để hồ sơ nói thật là
+chưa có lớp; hoặc mở hẳn khối 9 — việc lớn hơn ba dòng SQL, vì còn phải rà mọi
+chỗ đang hardcode 10/11/12 (form đăng ký, chọn khối khi tạo đề, lọc đề theo khối).
+
+Hậu kiểm `must_be_zero_class_id_khong_khop` sẽ **giữ nguyên bằng 1** cho tới khi
+ca này được xử. Đó là đúng với trạng thái hiện tại, không phải migration lỗi.
+
+### Đường ghi `class_id` đã khoá hết (2026-09-04)
+
+Form đăng ký chọn khối (server tra khoá), `/admin/users` ô chọn lớp thật,
+`/admin/classes` vốn đã đúng, `/student/settings` bỏ hẳn ô. Không còn ô chữ tự do
+nào ghi vào `class_id` — nên con số 1 ở trên sẽ **không tăng thêm**.
+
+---
+
+# Phần B — chờ chủ dự án quyết
+
+## B1. Chữ phụ màu xám hơi nhạt
+
+`text-slate-500` đang ở 3.9:1, dưới chuẩn 4.5 cho chữ nhỏ, dùng ở 531 chỗ. Đậm
+lên thì đạt chuẩn nhưng chữ chính và chữ phụ gần bằng nhau, mất phân cấp thị
+giác. Ba phương án đã ghi sẵn ở `docs/DESIGN_TODO.md` mục 1 — **cần chủ dự án
+chọn trước**, không phải việc AI tự quyết.
+
+## B2. Hai hình lạc ngoài khối
+
+Hai hình TikZ ở bài 2 lớp 10 nằm ngoài mọi khối tri thức nên sẽ không hiện ở bài
+nào. Chọn một trong hai: đưa vào khối gần nhất, hay sửa parser để giữ cả phần
+văn bản ngoài khối. Chi tiết ở `docs/LATEX_PARSER_DEBUG.md` mục "Còn treo".
+
+## B3. Mấy file đang nằm lẫn trong thư mục dự án
+
+- `testAI_OCR.jpg`: nếu là ảnh bài làm của học sinh thật thì `AGENTS.md` mục 5
+  cấm đưa vào kho code. Cần xác nhận rồi thêm vào `.gitignore` hoặc xoá.
+- `.claude/`: cấu hình phiên làm việc, nên bỏ qua khỏi git.
+- `public/tikz/`: 110 hình SVG dựng sẵn. Cần quyết commit hay dựng lại mỗi lần
+  deploy — liên quan trực tiếp tới việc 1.
+
+---
+
+# Phần C — hồ sơ việc đã xong
+
+Giữ lại vì bài học nằm trong đó, không phải vì việc còn dở. Phần kiến thức dùng
+lại được đã chuyển sang chỗ ở cố định:
+
+| Việc | Kiến thức nay nằm ở |
+|---|---|
+| hình lý thuyết không hiện, hình trắng | `RUNBOOK.md` mục 12 |
+| nhập / kiểm / xuất bản bài lý thuyết | `RUNBOOK.md` mục 13 |
+| thêm chương Dãy số, chạy lớp luật | `RUNBOOK.md` mục 8octodecies |
+| trạng thái từng migration | `RUNBOOK.md` mục 0 |
+| PostgREST 1000 dòng, GRANT cột đóng, hai cây taxonomy | `AGENTS.md` mục 3 và 4 |
+
+## 1. ĐÃ SỬA 2026-09-04 — hình vẽ trong bài lý thuyết không hiện
+
+Triệu chứng cũ: mở `/learn` chọn bài bất kỳ của Chương 1 lớp 12, chỗ nào có hình
+cũng dừng ở "Đang tải hình…" và không bao giờ ra hình.
+
+**Nguyên nhân: `loading="lazy"` trên thẻ `<img>` dò ảnh dựng sẵn trong
+`TikzRenderer`.** Thẻ đó vừa là ảnh vừa là phép dò "có tệp hay không", mà phép dò
+chỉ kết luận được bằng `onLoad`/`onError`. `lazy` cho phép trình duyệt hoãn tải
+vô thời hạn; hoãn tải nghĩa là không sự kiện nào bắn, nên `prebuilt` kẹt ở
+`'checking'` vĩnh viễn. Ảnh không hiện, mà TikZJax cũng không được gọi vì
+`prebuilt` chưa bao giờ thành `'missing'` — hỏng cả hai đường cùng lúc, im lặng.
+
+Đo trong trình duyệt ngày 2026-09-04, đủ ba cấu hình:
+
+| Cấu hình | Kết quả |
+|---|---|
+| `lazy` + `display:none` (bản cũ) | KHÔNG sự kiện nào |
+| `lazy` + đang hiện | KHÔNG sự kiện nào |
+| `eager` + `display:none` | `onload`, chạy đúng |
+
+Bản sửa bỏ `lazy` và hoãn tải bằng `IntersectionObserver` sẵn có của component
+(`isVisible`, đệm 240px): observer quyết định KHI NÀO gắn thẻ vào cây, gắn rồi
+thì tải ngay và trả lời dứt khoát.
+
+Hai mắt xích còn lại đã đo và đều đúng, nên không phải nghi ngờ nữa:
+
+- **Khoá hình khớp tên tệp: 34/34** trên ba bài mẫu (`tikzFigureKey` so với
+  `public/tikz/*.svg`, 112 tệp).
+- **Dev server phục vụ SVG: HTTP 200.**
+
+**Chưa mở `/learn` xem tận mắt** — trang đó nằm sau đăng nhập học sinh. Ba mắt
+xích đã đo rời từng cái; việc còn lại là nhìn một bài thật.
 
 ## 12. XONG 2026-09-06 — bài tập về nhà đi từ dễ tới khó
 
@@ -309,43 +417,6 @@ Chủ dự án chốt 2026-09-03: đề ôn tập không giới hạn số lần
 
 Không phải sửa SQL runtime: quy ước `0 = không giới hạn` đã có từ `20260722` và
 `20260803`, giao diện học sinh cũng đã đúng. Chỉ dữ liệu mang sai giá trị.
-
-## 14. ĐANG TREO — một hồ sơ lớp 9 giữ chỗ `class_id` rác
-
-`20260907` đã nạp ngày 2026-09-04. Hậu kiểm: sửa 4 hồ sơ, **còn 1**.
-
-| | |
-|---|---|
-| Hồ sơ | `Khanh Huong Nguyen` |
-| `class_id` | `"9/1"` — không trỏ tới lớp nào |
-| Vì sao migration không đụng | khối 9 không có lớp; `classes.grade` và `profiles.grade` đều `CHECK IN (10, 11, 12)` |
-
-**Chủ dự án quyết ngày 2026-09-04: để nguyên, tính sau.** Đây là lựa chọn có ý
-thức, không phải việc bị bỏ quên — đừng "dọn" nó trong một lượt refactor.
-
-Cái đang mất, để khi nào cần thì biết mà cân:
-
-- Em này **không nhận được bài tập giao theo lớp** (`homework_assignment_recipients`
-  khớp bằng `class_id`).
-- Không hiện trong bộ lọc lớp ở `/admin/students` và `/admin/analytics`.
-- **Chặn việc thêm FOREIGN KEY** `profiles.class_id → classes.id`. FK là thứ đóng
-  vĩnh viễn cả lớp lỗi này, và nó không tạo được khi còn một dòng không khớp.
-  Nên hàng rào cuối cùng vẫn để ngỏ vì đúng một dòng dữ liệu.
-
-Ba đường xử, ghi đầy đủ ở PHẦN 3 của
-[`20260907`](../supabase/migrations/20260907_fix_profile_class_ids.sql): hỏi lại
-em rồi xếp tay ở `/admin/classes`; đặt `class_id = NULL` để hồ sơ nói thật là
-chưa có lớp; hoặc mở hẳn khối 9 — việc lớn hơn ba dòng SQL, vì còn phải rà mọi
-chỗ đang hardcode 10/11/12 (form đăng ký, chọn khối khi tạo đề, lọc đề theo khối).
-
-Hậu kiểm `must_be_zero_class_id_khong_khop` sẽ **giữ nguyên bằng 1** cho tới khi
-ca này được xử. Đó là đúng với trạng thái hiện tại, không phải migration lỗi.
-
-### Đường ghi `class_id` đã khoá hết (2026-09-04)
-
-Form đăng ký chọn khối (server tra khoá), `/admin/users` ô chọn lớp thật,
-`/admin/classes` vốn đã đúng, `/student/settings` bỏ hẳn ô. Không còn ô chữ tự do
-nào ghi vào `class_id` — nên con số 1 ở trên sẽ **không tăng thêm**.
 
 ## 15. XONG 2026-09-04 — nhập toàn bộ 29 bài lý thuyết từ kho LaTeX
 
