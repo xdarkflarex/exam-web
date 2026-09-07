@@ -587,7 +587,22 @@ function LearnPageContent() {
           </p>
         )}
 
-        <div className={`grid gap-5 ${selectedTheory ? 'lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.65fr)]' : ''}`}>
+        {/*
+          Khung lý thuyết chiếm 0.85fr chứ không phải 0.65fr như trước.
+
+          Lý do: công thức hiển thị dài bị cắt. Ví dụ dòng công sinh bởi một lực
+          trong bài VECTƠ TRONG KHÔNG GIAN — `𝒜 = F⃗·d⃗ = |F⃗||d⃗|cos60° = 50·8·½
+          = 200 J` — vượt quá bề rộng khung, để lại thanh cuộn ngang ngay giữa
+          bài đọc. Cuộn ngang từng công thức một là thứ không ai làm khi đang học.
+
+          Khung trong cùng còn ~588px thay vì ~443px trên màn 1500px (giới hạn của
+          layout), đủ cho phần lớn công thức một dòng. `overflow-x-auto` vẫn giữ
+          nguyên làm lưới an toàn cho những công thức dài hơn nữa.
+
+          Cận dưới 360px là để ở đúng ngưỡng lg (1024px) khung vẫn không bị bóp:
+          0.85/2.10 × 956px ≈ 387px, vẫn trên cận.
+        */}
+        <div className={`grid gap-5 ${selectedTheory ? 'lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.85fr)]' : ''}`}>
           <div className="min-w-0">
             {loading ? (
               <div className="flex min-h-[50vh] items-center justify-center">

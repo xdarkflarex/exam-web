@@ -19,7 +19,9 @@
  * mới hoặc hình vừa sửa (khoá đổi theo nội dung). Thêm `--force` để dựng lại
  * tất cả.
  *
- * CẦN CÓ: `pdflatex` và `dvisvgm` trong PATH (MiKTeX hoặc TeX Live).
+ * CẦN CÓ: `pdflatex`, `dvisvgm` và `pdftocairo` trong PATH (MiKTeX hoặc TeX Live
+ * đều có sẵn cả ba). `pdftocairo` là đường lui cho hình dùng `opacity=` — xem chú
+ * thích trong `renderFigure`.
  */
 
 import { execFile } from 'node:child_process'
@@ -197,9 +199,54 @@ async function renderFigure(figure, preambleBits, outDir) {
       { cwd: workDir, windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
     )
 
-    const svg = await readFile(join(workDir, `${jobName}.svg`), 'utf8')
+    let svg = await readFile(join(workDir, `${jobName}.svg`), 'utf8')
+    let converter = 'dvisvgm'
+
+    /*
+      DVISVGM 3.6 DỊCH `opacity=` CỦA TIKZ THÀNH 0.
+
+      TikZ hiện `opacity=0.7` bằng ExtGState trong PDF. Bản dvisvgm này đọc không
+      ra và ghi `opacity='0'` — không phải cho riêng nét mờ, mà cho MỌI nét vẽ sau
+      đó. Kết quả là một SVG hợp lệ: đúng kích thước, đủ path, đủ màu, và trắng
+      tinh khi mở ra.
+
+      Đó là lớp lỗi tệ nhất vì không khâu nào kêu. pdflatex xong sạch, dvisvgm xong
+      sạch, file ghi ra bình thường, phép kiểm "đã có SVG chưa" thấy đủ. Bảy hình
+      không gian (hình hộp, hình chóp, hệ trục Oxyz, mặt cầu) nằm im như vậy trên
+      bản chạy thật cho tới khi có người nhìn bằng mắt.
+
+      `pdftocairo` (đi kèm MiKTeX, không phải cài thêm) đọc đúng ExtGState: cùng
+      file PDF đó cho ra `fill-opacity="0.7"` và `stroke-opacity="1"`, đúng như bản
+      in. Cả hai công cụ đều đổi chữ thành hình vector nên SVG vẫn không cần font.
+
+      Vẫn để dvisvgm làm chính: nó dựng đúng 104 hình còn lại và `--exact-bbox` cắt
+      sát hơn. Chỉ đổi tay lái khi thấy đúng dấu hiệu hỏng.
+    */
+    if (svg.includes("opacity='0'")) {
+      await run('pdftocairo', ['-svg', `${jobName}.pdf`, `${jobName}-cairo.svg`], {
+        cwd: workDir,
+        windowsHide: true,
+        maxBuffer: 32 * 1024 * 1024,
+      })
+      svg = await readFile(join(workDir, `${jobName}-cairo.svg`), 'utf8')
+      converter = 'pdftocairo'
+    }
+
+    /*
+      CHẶN CUỐI: không bao giờ ghi ra một hình vô hình.
+
+      Nếu mọi nét vẽ đều trong suốt thì hình đó chắc chắn trắng tinh trên web. Thà
+      dừng và báo, còn hơn ghi đè một SVG tốt bằng một SVG trắng rồi vài tuần sau
+      mới có người phát hiện.
+    */
+    const soPath = (svg.match(/<path/g) || []).length
+    const soTrongSuot = (svg.match(/opacity=['"]0['"]/g) || []).length
+    if (soPath > 0 && soTrongSuot >= soPath) {
+      return { ok: false, detail: `hình trong suốt hoàn toàn (${soTrongSuot}/${soPath} nét opacity 0) — không ghi` }
+    }
+
     await writeFile(join(outDir, `${figure.key}.svg`), svg, 'utf8')
-    return { ok: true, bytes: Buffer.byteLength(svg) }
+    return { ok: true, bytes: Buffer.byteLength(svg), converter }
   } catch (error) {
     // Log của pdflatex nói rõ lỗi hơn stderr rất nhiều
     let detail = error?.message || String(error)

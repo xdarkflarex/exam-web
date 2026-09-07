@@ -544,3 +544,67 @@ ra. Chấm sai thì sửa ở trang soạn bài, không có hậu quả nào v�
 
 `.theories-published-<dấu thời gian>.json` ghi trạng thái cũ của đúng 14 bài bị
 đổi (đã cho vào `.gitignore`); PATCH ngược lại là về nguyên trạng.
+
+## 19. XONG 2026-09-07 — bảy hình không gian trắng tinh vì dvisvgm dịch sai `opacity`
+
+Chủ dự án mở `/learn` và thấy "có 2 hình trắng". Đếm lại bằng máy thì không phải
+hai mà **bảy**, và cả bảy đều là hình không gian: ba hình ở VECTƠ TRONG KHÔNG
+GIAN, hai ở HỆ TRỤC TOẠ ĐỘ, một ở bài tập cuối chương Oxyz, một mặt cầu ở phụ lục
+A.
+
+### Nguyên nhân
+
+`dvisvgm 3.6` dịch `opacity=` của TikZ thành **0**.
+
+TikZ hiện `opacity=0.7` bằng ExtGState trong PDF. Bản dvisvgm này đọc không ra và
+ghi `opacity='0'` — không chỉ cho nét mờ, mà cho **mọi nét vẽ sau đó**. Đo trên
+bảy file: 100% số `<path>` đều mang `opacity='0'`.
+
+Tái hiện được bằng bốn dòng LaTeX:
+
+```latex
+\fill[SoftAccent,opacity=0.7] (0,0) rectangle (3,2);
+\draw[thick,Primary] (0,0)--(3,2);
+```
+
+→ dvisvgm cho `fill-opacity='0'` **và** `stroke-opacity='0'`; `pdftocairo -svg`
+trên đúng file PDF đó cho `fill-opacity="0.7"` và `stroke-opacity="1"`.
+
+### Vì sao không khâu nào bắt được
+
+Đây là lớp lỗi im lặng hoàn toàn:
+
+- `pdflatex` xong sạch, `dvisvgm` xong sạch, không cảnh báo nào;
+- file SVG ghi ra **hợp lệ**: đúng kích thước, đủ `<path>`, đủ màu — chỉ có điều
+  mọi nét đều trong suốt;
+- phép kiểm "hình đã có SVG chưa" của `scripts/publish-theories.mjs` thấy đủ
+  111/111 và cho qua;
+- phép kiểm phía production thấy HTTP 200 và đúng số byte;
+- ngay cả quét màu trong file cũng thấy `#2563eb`, `#7c3aed` — hình "có màu".
+
+Chỉ có một cách phát hiện: **vẽ ra rồi đếm điểm ảnh**. Cách làm khi truy: nạp cả
+111 SVG vào một trang, vẽ từng hình lên canvas 120×120 nền trắng, đếm điểm không
+trắng. Bảy hình cho đúng 0.
+
+### Bản sửa
+
+`scripts/render-tikz-svg.mjs`:
+
+1. **Đường lui**: SVG nào chứa `opacity='0'` thì dựng lại bằng `pdftocairo -svg`
+   (đi kèm MiKTeX, không phải cài thêm). Vẫn để dvisvgm làm chính vì nó đang dựng
+   đúng 104 hình còn lại và `--exact-bbox` cắt sát hơn.
+2. **Chặn cuối**: nếu mọi nét vẽ đều trong suốt thì **không ghi file**, báo lỗi.
+   Thà dừng còn hơn ghi đè một SVG tốt bằng một SVG trắng rồi vài tuần sau mới có
+   người nhìn ra.
+
+Cả hai công cụ đều đổi chữ thành hình vector nên SVG vẫn không phụ thuộc font.
+
+Đã dựng lại bảy hình: cả bảy nay mang `fill-opacity="0.7"` (hoặc `0.85`) đúng như
+bản in. Mặt cầu ở phụ lục A nặng lên 645 KB vì `\shade[ball color=...]` thành
+`radialGradient` 259 điểm dừng — vẫn là vector, chấp nhận được cho một hình.
+
+### Còn nợ
+
+Phép kiểm "vẽ ra rồi đếm điểm ảnh" hiện làm bằng tay trong trình duyệt. Nên gói
+thành script chạy được trong CI, vì chặn cuối ở trên chỉ bắt được trường hợp
+**toàn bộ** trong suốt — hình mất một nửa nét thì vẫn lọt.
