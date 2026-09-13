@@ -102,6 +102,8 @@ Route group `(auth)` và `(student)` không xuất hiện trong URL.
 /student/history
 /student/analytics
 /student/settings
+/student/tools                     công cụ học tập (registry: src/lib/tools/registry.ts)
+/student/tools/inequality-region   vẽ miền nghiệm hệ BPT bậc nhất hai ẩn; chạy hoàn toàn ở client, không đọc/ghi DB
 ```
 
 ### Learning và runner

@@ -18,7 +18,8 @@ import {
   PenTool,
   BookOpen,
   ClipboardList,
-  TrendingUp
+  TrendingUp,
+  Wrench
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import MinhMathLogo from '@/components/MinhMathLogo'
@@ -55,10 +56,40 @@ const menuItems: {
   { label: 'Thi thử', href: '/student/exams', icon: FileText, feature: 'simulation' },
   { label: 'Lịch sử', href: '/student/history', icon: BarChart3, feature: 'history' },
   { label: 'Phân tích', href: '/student/analytics', icon: TrendingUp, feature: 'analytics' },
+  // Cuối danh sách: nếu thanh ngang vẫn thiếu chỗ thì mục ít quan trọng nhất
+  // mới là mục bị đẩy ra ngoài. Không có feature flag — công cụ chạy hoàn toàn ở
+  // trình duyệt, không đọc dữ liệu nào cần phân quyền.
+  { label: 'Công cụ', href: '/student/tools', icon: Wrench, feature: null },
 ]
 
 /** Số mục tối đa trên bottom nav để không phải cuộn ngang trên máy 360px. */
 const MAX_BOTTOM_ITEMS = 4
+
+/*
+  ICON TRÊN THANH NGANG TỰ ẨN KHI THIẾU CHỖ — container query theo bề rộng thật
+  của `nav`, không theo breakpoint màn hình.
+
+  Đo bằng font thật ngày 2026-09-13: mỗi mục là 24px lề + 16px icon + 8px khe +
+  chữ; icon cộng thêm 24px một mục. Bề rộng dành cho `nav` chỉ ~588px ở 1024px
+  (tên người dùng ẩn) và ~692px từ 1280px trở lên (khung `max-w-7xl` chặn lại,
+  tên hiện ra). Với icon, 6 mục cần tối đa 664px, 8 mục cần 858px — nên có icon
+  thì học sinh gói cơ bản bị cắt mất mục cuối trên iPad nằm ngang, còn gói `full`
+  bị cắt ở MỌI màn hình (lỗi có từ trước khi thêm "Công cụ").
+
+  Ngưỡng dưới đây = bề rộng lớn nhất có thể của N mục có icon + ~12px dự phòng
+  font. Dưới ngưỡng: chỉ còn chữ (8 mục chữ trơn cần 666px). Tailwind cần thấy
+  NGUYÊN chuỗi class, nên không ghép chuỗi động.
+*/
+const ICON_AT: Record<number, string> = {
+  1: '@min-[240px]:block',
+  2: '@min-[240px]:block',
+  3: '@min-[370px]:block',
+  4: '@min-[480px]:block',
+  5: '@min-[580px]:block',
+  6: '@min-[680px]:block',
+  7: '@min-[776px]:block',
+  8: '@min-[872px]:block',
+}
 
 export default function StudentSidebar() {
   const pathname = usePathname()
@@ -182,10 +213,11 @@ export default function StudentSidebar() {
           </Link>
 
           {/* Điều hướng chính. `overflow-x-auto` là lưới an toàn cho màn hình
-              hẹp bất thường, không phải cách dùng thường ngày. */}
+              hẹp bất thường, không phải cách dùng thường ngày. `@container`
+              để icon tự ẩn khi không đủ chỗ — xem `ICON_AT`. */}
           <nav
             aria-label="Điều hướng học sinh"
-            className="scrollbar-hide flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+            className="@container scrollbar-hide flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
           >
             {visibleItems.map((item) => {
               const Icon = item.icon
@@ -201,7 +233,7 @@ export default function StudentSidebar() {
                       : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <Icon className={`hidden h-4 w-4 ${ICON_AT[visibleItems.length] ?? ICON_AT[8]}`} aria-hidden="true" />
                   {item.label}
                 </Link>
               )

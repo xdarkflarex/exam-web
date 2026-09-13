@@ -1090,6 +1090,27 @@ html.dark .mc-root {
   animation-play-state: paused !important;
 }
 
+/* =============================================
+   CÔNG CỤ MIỀN NGHIỆM — phần hình vừa thêm ở bước hiện tại
+   =============================================
+
+   `components/tools/InequalityPlot.tsx` gắn `.ir-appear` cho đúng thứ vừa xuất
+   hiện ở bước đang xem (đường bờ, điểm thử, lớp gạch, đỉnh), để mắt học sinh
+   biết nhìn vào đâu. Chỉ opacity (NT8). Không lặp nên dùng `both` được: lưới
+   giảm chuyển động cho chạy 0,01ms và giữ trạng thái cuối là hiện đủ. */
+@keyframes ir-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ir-appear {
+  animation: ir-appear var(--mm-motion-slow) var(--mm-ease-out) both;
+}
+
 /* Card nÃ¢ng lÃªn khi hover, dÃ¹ng cho lÆ°á»›i bento/quick-access. */
 .bento-hover {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
