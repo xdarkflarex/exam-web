@@ -342,6 +342,94 @@ html {
 }
 
 /* =============================================
+   TRÀN NGANG: chặn tại nguồn, KHÔNG chặn bằng `body { overflow-x: hidden }`
+   =============================================
+
+   `overflow-x: hidden` trên `body` là cách sửa hay được chọn nhất và là cách
+   sai: nó giấu triệu chứng, và quan trọng hơn, nó làm `position: sticky` mất
+   tác dụng ở MỌI phần tử con — thanh chọn câu trong `ExamRunner`, header
+   `/learn`, thanh công cụ admin đều đang dựa vào sticky. Đổi lấy "trang không
+   trượt ngang" bằng "thanh điều hướng lúc làm bài trôi mất" là lỗ vốn.
+
+   Ba nguồn tràn thật trong dự án này đều nằm ở NỘI DUNG, nên chặn ngay đó:
+
+   1. MathJax CHTML. `mjx-container[display="true"]` là block KHÔNG xuống dòng.
+      Một công thức dài (hệ phương trình, ma trận, `\lim` nhiều tầng) rộng hơn
+      màn hình điện thoại sẽ đẩy cả trang trượt ngang. MathJax không tự thêm
+      cuộn — phải khai báo, và trước bản sửa này file không có dòng nào nhắc
+      tới `mjx-container`.
+   2. HTML dán từ Word đi qua `dangerouslySetInnerHTML` trong `MathContent`:
+      nó mang theo `<table>`, `<img>` và thuộc tính `width` tính bằng pixel của
+      khổ giấy A4 — luôn rộng hơn điện thoại.
+   3. Chuỗi không có khoảng trắng: email, URL, mã đề, UUID. Trình duyệt không
+      tìm được chỗ ngắt nên để nó tràn ra ngoài card.
+*/
+
+mjx-container {
+  max-width: 100%;
+}
+
+/* Công thức khối: cho cuộn ngang bên trong chính nó thay vì đẩy cả trang.
+   `overflow-y` phải là `hidden` chứ không phải `auto`: để `auto` thì Chrome
+   thêm cả thanh cuộn dọc cho phần nét vượt ra ngoài hộp dòng của công thức. */
+mjx-container[display="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Chừa chỗ cho thanh cuộn để nó không đè lên nét dưới của công thức. */
+  padding-bottom: 0.25rem;
+}
+
+/* Nội dung HTML thô (Word/editor cũ) do `MathContent` render.
+   Không đặt các luật này lên `img`/`table` toàn cục: layout ảnh bìa, avatar và
+   thumbnail đang dựa vào `w-full h-full object-cover`, thêm luật toàn cục là
+   đụng vào những chỗ không hỏng. */
+.math-html {
+  overflow-wrap: break-word;
+}
+
+.math-html img,
+.math-html svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* `<table>` từ Word không có bọc ngoài để gắn `overflow-x-auto`, nên cho chính
+   nó thành hộp cuộn. `display: block` là đánh đổi có ý thức: mất `table-layout`
+   nhưng bảng vẫn đọc được trên điện thoại thay vì kéo trang trượt ngang. */
+.math-html table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Word ghi `width="640"` / `style="width: 16cm"` theo khổ A4. */
+.math-html [width],
+.math-html [style*="width"] {
+  max-width: 100%;
+}
+
+/* Chuỗi dài không khoảng trắng: email, URL, mã đề, UUID. */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/*
+  `<select>` tự đặt bề ngang theo option DÀI NHẤT, không theo khung chứa nó.
+  Đây là lỗi phụ thuộc dữ liệu nên không thấy được khi ngồi đọc code: cùng một
+  ô lọc, danh sách chủ đề ngắn thì vừa màn hình, thêm một chuyên đề tên dài là
+  vỡ. Đo trên `/bookmarks` ở 375px: ô "Tất cả chủ đề" rộng 412px, trang thành
+  428px và Chrome mobile nới layout viewport theo.
+
+  Có 51 thẻ `<select>` trong `src` không đặt `w-full`/`max-w-*`, phần lớn đổ
+  option từ database — sửa từng chỗ vừa sót vừa tái phát ở mỗi select mới, nên
+  chặn ở đây. `max-width` không đụng tới select đã có `w-full`.
+*/
+select {
+  max-width: 100%;
+}
+
+/* =============================================
    MICRO-INTERACTIONS & ANIMATIONS
    Based on UI/UX Pro Max recommendations
    ============================================= */
@@ -1448,6 +1536,32 @@ html.dark .glow-teal {
   .xs\:block {
     display: block !important;
   }
+  /*
+    Cặp với `sr-only`: dưới 480px nhãn chỉ còn cho trình đọc màn hình, từ 480px
+    trở lên nó hiện lại như chữ bình thường.
+
+    Lý do cần cặp này thay vì `hidden xs:inline`: `hidden` gỡ chữ khỏi CẢ cây
+    trợ năng. Trên điện thoại hẹp hơn 480px — tức gần như mọi máy: iPhone 375,
+    390, 393; Android 360, 384, 412 — nút "Nộp bài" của `ExamSidebar` chỉ còn
+    hình máy bay giấy và KHÔNG có tên trợ năng nào. Trình đọc màn hình đọc ra
+    "nút", không nói được đó là nút nộp bài giữa lúc đang tính giờ.
+
+    Không dùng `aria-label` để vá: từ 480px trở lên nút có chữ nhìn thấy, mà
+    `aria-label` sẽ đè lên chữ đó — vi phạm WCAG 2.5.3 "Label in Name" và làm
+    lệnh nói của người dùng ("bấm Nộp bài") không khớp nữa. `sr-only` giữ đúng
+    MỘT tên trong mọi bề ngang.
+  */
+  .xs\:not-sr-only {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    white-space: normal !important;
+  }
 }
 
 /* Enrollment modal animations */
@@ -1651,3 +1765,4 @@ html.dark .glow-teal {
     animation-iteration-count: infinite !important;
   }
 }
+
