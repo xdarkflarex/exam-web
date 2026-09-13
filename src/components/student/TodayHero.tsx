@@ -25,6 +25,7 @@ import { ArrowRight, Flame } from 'lucide-react'
 import ProgressRing, { type RingTone } from '@/components/viz/ProgressRing'
 import ActivityHeatmap from '@/components/viz/ActivityHeatmap'
 import CountUpNumber from '@/components/motion/CountUpNumber'
+import MathConstellation from '@/components/motion/MathConstellation'
 import { buildHeatmap, countByDay, currentStreak } from '@/lib/analytics/activity-streak'
 import type { StudentCapabilitySummary } from '@/lib/analytics/student-capability'
 
@@ -83,8 +84,11 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
 
   return (
     <header className="animate-dash-in mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-[var(--background-card)] dark:border-slate-700">
-      <div className="paper-grid">
-        <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+      <div className="paper-grid relative">
+        {/* Lớp nền: hai mô hình toán trôi rất chậm, lùi sau số liệu. Nằm TRƯỚC
+            nội dung trong DOM và nội dung có `relative`, nên luôn bị đè lên. */}
+        <MathConstellation variant="dashboard" className="absolute inset-0" />
+        <div className="relative flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
           {/* Trái: hôm nay là ngày nào, bạn là ai, và việc gấp nhất là gì */}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-teal-700 dark:text-teal-400">{dateLabel}</p>

@@ -367,6 +367,7 @@ Hai bài học về repo này, không phải về CSS:
 | 4a | Gờ inset `::after` cho `.btn-action`, bỏ `scale()` | ✅ xong |
 | 4b | `.btn-action` cho 4 nút dashboard | ✅ xong |
 | 5 | Dashboard chống lặp khuôn (rail, thanh tiến độ, stagger) | ✅ xong |
+| 6 | Nền động "chòm kiến thức" cho hero landing + `TodayHero` (mục 14) | ✅ xong 2026-09-13 |
 
 **Cố ý KHÔNG làm:** nút CTA gradient cuối landing giữ nguyên, không gắn
 `.btn-action`. Nó có bộ bóng riêng (`shadow-lg shadow-teal-600/25` →
@@ -393,3 +394,50 @@ Mỗi phase một commit trên `design/visual-overhaul` để `revert` được 
 - [ ] `backdrop-filter` vẫn sống qua Lightning CSS (nợ đã biết ở mục 3 của
       `DESIGN_OVERHAUL_2026-08-09.md`).
 - [ ] `TodayHero.tsx`: phần `hasActivity` chưa commit còn nguyên (AGENTS.md §2).
+
+---
+
+## 14. Phase 6 — Nền động "chòm kiến thức" (2026-09-13)
+
+Yêu cầu gốc của chủ dự án (2026-09-03): nền động cho landing và trang chủ học
+sinh "về các lý thuyết toán học cấp 3 kết nối tri thức về các bài tập thực tế +
+hình học Oxyz".
+
+**Thay cho** bốn ký hiệu ∫ π ∑ √ trôi lơ lửng ở hero (`.float-slow*` đã xoá khỏi
+`globals.css` vì không còn chỗ dùng). Primitive mới là
+`components/motion/MathConstellation.tsx`; CSS nằm ở khối `.mc-*` của
+`globals.css`.
+
+Sáu mô hình, mỗi cái một cặp lý thuyết ↔ thực tế, và **chuyển động nói đúng toán**:
+
+| Mô hình | Thực tế | Chuyển động |
+|---|---|---|
+| Parabol (L10) | quỹ đạo ném bóng | bóng chạy trên cung Bézier bậc hai, chậm ở đỉnh |
+| Vectơ (L10) | hợp lực | vẽ đường chéo hình bình hành |
+| Hàm sin (L11) | dao động, đu quay | điểm quay trên đường tròn **đồng pha** với sóng |
+| Phân phối chuẩn (L11–12) | phổ điểm thi | cột dâng lần lượt dưới đường chuông |
+| Oxyz (L12) | toạ độ trong không gian | đường chiếu của M sáng lần lượt, vòng định vị toả ra |
+| Tích phân (L12) | quãng đường từ vận tốc | cột Riemann (trung điểm) hiện dần |
+
+Đồng pha sin–đường tròn đã đo lúc chạy: tung độ điểm quay và giá trị sóng ở mép
+cửa sổ cùng bằng 3,59 tại cùng một thời điểm.
+
+**Quyết định và lý do:**
+
+- **SVG + CSS, không three.js, không canvas, không SMIL.** SMIL bị cấm vì lưới
+  `prefers-reduced-motion` không với tới nó.
+- **Trạng thái tĩnh là hình trọn vẹn.** Style gốc = trạng thái "đã xong"; animation
+  lặp không dùng `fill-mode`. Đã giả lập lưới giảm chuyển động: 0 animation chạy,
+  bóng ở đỉnh, vectơ tổng đã vẽ, đủ cột Riemann, vòng định vị ẩn.
+- **Chỉ hero biến thể `plain`.** Biến thể `slide` có ảnh nền; production đang
+  `landing.hero_slides = []` nên `plain` là cái học sinh thấy.
+- **Bố cục theo khoảng trống đo được**, không theo cảm giác: từ `xl` sáu hình
+  dạt hai mép + hai hình dưới hàng nút + đường nối (ở 1280px, nét gần chữ nhất
+  cách 26px); dưới `xl` chỉ bốn hình nhỏ ở bốn góc, không chữ, không đường nối.
+- **`TodayHero`: hai hình, không chữ, không đường nối, opacity 0,65.** Trang vào
+  mỗi ngày (mục 8). Điện thoại chỉ một hình ở góc phải trên — chỗ duy nhất không
+  đè số liệu (cách dòng tên 7px); từ `lg` nằm giữa cột chữ và vòng tiến độ.
+- **Đường nối thở bằng opacity của cả lớp SVG**, không bằng `stroke-dashoffset`:
+  lớp đó phủ cả hero, animate thuộc tính vẽ là bắt vẽ lại khổ lớn mỗi khung hình.
+- **Ra khỏi khung nhìn thì dừng** (IntersectionObserver → `data-paused`).
+- **Tuyệt đối không đặt vào màn làm bài** (AGENTS.md §6).

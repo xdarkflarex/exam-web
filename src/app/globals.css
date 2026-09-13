@@ -683,23 +683,323 @@ html.dark .hero-gradient {
   background: radial-gradient(circle at top right, rgba(13, 148, 136, 0.12) 0%, var(--background) 62%);
 }
 
-/* KÃ½ hiá»‡u toÃ¡n trang trÃ­ trÃ´i cháº­m á»Ÿ hero. Cháº­m hÆ¡n `.animate-float`
-   (3s) Ä‘á»ƒ khÃ´ng gÃ¢y nhiá»…u khi Ä‘á»c ná»™i dung. */
-@keyframes float-slow {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(5deg); }
+/* =============================================
+   CHÒM KIẾN THỨC — nền động của hero trang chủ và trang "Hôm nay"
+   =============================================
+
+   Component: `components/motion/MathConstellation.tsx` (đọc docstring ở đó
+   trước khi sửa). Thay cho bốn ký hiệu ∫ π ∑ √ trôi lơ lửng trước đây: mỗi hình
+   giờ là một mô hình toán THẬT kèm tình huống thực tế, và chuyển động của nó
+   đúng toán.
+
+   Ba ràng buộc giữ ở đây:
+   - Chỉ `transform`, `opacity`, `stroke-dashoffset` (NT8).
+   - Lưới `prefers-reduced-motion` cuối file tắt hết (NT6). Style gốc của mọi
+     phần tử là trạng thái "đã xong", nên tắt animation vẫn còn nguyên hình —
+     đừng thêm `animation-fill-mode` vào các animation lặp dưới đây.
+   - Chỉ nét vẽ và mảng màu phẳng rất nhạt, không gradient (NT3).
+
+   Token màu mang tiền tố `--mc-`: tránh namespace theme của Tailwind v4
+   (`--color-*`, `--ease-*`…), xem VISUAL_MOTION_PLAN.md mục 3. */
+
+.mc-root {
+  --mc-ink: rgb(71 85 105 / 0.42);
+  --mc-soft: rgb(71 85 105 / 0.2);
+  --mc-cell: rgb(13 148 136 / 0.08);
+  --mc-cell-edge: rgb(13 148 136 / 0.3);
+  --mc-accent: rgb(13 148 136 / 0.58);
+  --mc-warm: rgb(217 119 6 / 0.62);
 }
 
-.float-slow {
-  animation: float-slow 6s ease-in-out infinite;
+html.dark .mc-root {
+  --mc-ink: rgb(148 163 184 / 0.36);
+  --mc-soft: rgb(148 163 184 / 0.17);
+  --mc-cell: rgb(45 212 191 / 0.06);
+  --mc-cell-edge: rgb(45 212 191 / 0.24);
+  --mc-accent: rgb(45 212 191 / 0.5);
+  --mc-warm: rgb(251 191 36 / 0.55);
 }
 
-.float-slow-delay-1 {
-  animation: float-slow 7s ease-in-out 1s infinite;
+/* Trang vào mỗi ngày thì phải lùi hẳn ra sau số liệu. */
+.mc-root[data-variant='dashboard'] {
+  opacity: 0.65;
 }
 
-.float-slow-delay-2 {
-  animation: float-slow 8s ease-in-out 2s infinite;
+.mc-node {
+  position: absolute;
+  translate: -50% -50%;
+}
+
+.mc-node > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  animation: mc-drift var(--mc-drift-dur, 24s) ease-in-out var(--mc-drift-delay, 0s) infinite;
+}
+
+@keyframes mc-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(6px, -8px, 0) rotate(1.2deg);
+  }
+  66% {
+    transform: translate3d(-5px, 5px, 0) rotate(-1deg);
+  }
+}
+
+/* ── Nét và chữ ── */
+
+.mc-line {
+  fill: none;
+  stroke: var(--mc-ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mc-soft {
+  stroke: var(--mc-soft);
+}
+
+.mc-accent {
+  stroke: var(--mc-accent);
+  stroke-width: 1.8;
+}
+
+.mc-warm {
+  stroke: var(--mc-warm);
+  stroke-width: 1.8;
+}
+
+.mc-dash {
+  stroke-dasharray: 3 4;
+}
+
+.mc-dot {
+  fill: var(--mc-warm);
+}
+
+.mc-cell {
+  fill: var(--mc-cell);
+  stroke: var(--mc-cell-edge);
+  stroke-width: 0.8;
+}
+
+.mc-formula,
+.mc-label,
+.mc-caption {
+  fill: var(--mc-ink);
+}
+
+.mc-formula {
+  font: italic 13px/1 ui-serif, Georgia, 'Times New Roman', serif;
+  text-anchor: middle;
+}
+
+.mc-label {
+  font: italic 10px/1 ui-serif, Georgia, 'Times New Roman', serif;
+}
+
+.mc-caption {
+  font-size: 10.5px;
+  text-anchor: middle;
+}
+
+/* Hình nhỏ ở góc (dưới `xl`, và cả trang "Hôm nay") thì chữ còn chưa tới 7px —
+   không đọc được, chỉ thành vệt bẩn. Bỏ hẳn. */
+.mc-root[data-variant='dashboard'] text {
+  display: none;
+}
+
+@media (max-width: 79.99rem) {
+  .mc-root[data-variant='hero'] text {
+    display: none;
+  }
+}
+
+/* ── Chuyển động ── */
+
+/* Parabol: bóng bay. Nét dài ~0 với đầu tròn trượt dọc cung. Tốc độ đều theo
+   ĐỘ DÀI CUNG sẽ nhanh nhất ở đỉnh — ngược vật lí — nên đường cong thời gian
+   bị bẻ: nhanh lúc ném, chậm ở đỉnh, nhanh lúc rơi. Tĩnh: bóng ở đỉnh. */
+.mc-ball {
+  fill: none;
+  stroke: var(--mc-warm);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-dasharray: 0.001 200;
+  stroke-dashoffset: -50;
+  animation: mc-travel 4.8s cubic-bezier(0.2, 0.6, 0.8, 0.4) infinite;
+}
+
+@keyframes mc-travel {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* Sin: điểm quay ngược chiều kim đồng hồ và sóng trượt trái MỘT chu kì — hai
+   thời lượng phải bằng nhau thì mới đồng pha (xem WAVE_PATH). */
+.mc-spin {
+  animation: mc-spin 6s linear infinite;
+}
+
+@keyframes mc-spin {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.mc-wave {
+  animation: mc-wave 6s linear infinite;
+}
+
+@keyframes mc-wave {
+  to {
+    transform: translateX(-50px);
+  }
+}
+
+/* Phân phối chuẩn: cột phổ điểm dâng lên lần lượt từ trái sang.
+   Độ trễ âm để vừa tải trang đã ở giữa nhịp, không đồng loạt bật từ 0. */
+.mc-bar {
+  animation: mc-bar 5.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.18s - 5.2s);
+}
+
+@keyframes mc-bar {
+  0%,
+  100% {
+    transform: scaleY(0.62);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Tích phân: tổng Riemann hiện dần từ trái sang rồi tan. Tĩnh: đủ bảy cột. */
+.mc-riemann {
+  animation: mc-riemann 7s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.3s - 7s);
+}
+
+@keyframes mc-riemann {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  85%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Vectơ: đường chéo hình bình hành được vẽ ra, mũi tên hiện khi nét tới nơi. */
+.mc-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: mc-draw 6s ease-in-out infinite;
+}
+
+@keyframes mc-draw {
+  0%,
+  10% {
+    stroke-dashoffset: 100;
+    opacity: 1;
+  }
+  45%,
+  80% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  95%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.mc-draw-head {
+  animation: mc-draw-head 6s ease-in-out infinite;
+}
+
+@keyframes mc-draw-head {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  48%,
+  80% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Oxyz: bốn đường chiếu sáng lần lượt; vòng định vị toả ra quanh M.
+   Tĩnh: vòng toả KHÔNG hiện (opacity 0), chỉ còn điểm M. */
+.mc-pulse {
+  animation: mc-pulse 4.5s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.5s - 4.5s);
+}
+
+@keyframes mc-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.mc-ping {
+  opacity: 0;
+  animation: mc-ping 3s ease-out infinite;
+}
+
+@keyframes mc-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+/* Đường nối cả chòm: thở chậm bằng opacity của CẢ lớp — một thuộc tính hợp
+   thành trên phần tử HTML, không bắt vẽ lại SVG khổ lớn mỗi khung hình. */
+.mc-links {
+  animation: mc-breathe 9s ease-in-out infinite;
+}
+
+@keyframes mc-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Ra khỏi khung nhìn thì đứng yên (`MathConstellation` gắn thuộc tính này). */
+.mc-root[data-paused],
+.mc-root[data-paused] * {
+  animation-play-state: paused !important;
 }
 
 /* Card nÃ¢ng lÃªn khi hover, dÃ¹ng cho lÆ°á»›i bento/quick-access. */

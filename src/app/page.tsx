@@ -20,6 +20,7 @@ import EnrollmentFormSection from '@/components/EnrollmentFormSection'
 import EnrollmentFloatingButton from '@/components/EnrollmentFloatingButton'
 import HeroActions from '@/components/landing/HeroActions'
 import HeroParallax from '@/components/landing/HeroParallax'
+import MathConstellation from '@/components/motion/MathConstellation'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 export const dynamic = 'force-dynamic'
@@ -575,14 +576,13 @@ export default async function LandingPage({
               </section>
             ) : (
               <section key="hero" className="relative overflow-hidden hero-gradient py-20 sm:py-28">
-                {/* Trang trí: ký hiệu toán trôi chậm + quầng sáng mờ.
-                    aria-hidden + pointer-events-none để không lọt vào a11y tree
-                    hay chắn click. Chuyển động bị tắt bởi prefers-reduced-motion. */}
+                {/* Trang trí: chòm mô hình toán nối với tình huống thực tế +
+                    quầng sáng mờ. `MathConstellation` tự aria-hidden và
+                    pointer-events-none; chuyển động bị tắt bởi
+                    prefers-reduced-motion. Chỉ ở biến thể `plain` — biến thể
+                    `slide` đã có ảnh nền, vẽ thêm dưới ảnh chỉ tốn pin. */}
                 <HeroParallax className="absolute inset-0 pointer-events-none overflow-hidden">
-                  <span className="absolute top-[18%] left-[8%] text-6xl sm:text-8xl font-serif text-teal-600/15 dark:text-teal-400/15 float-slow">∫</span>
-                  <span className="absolute top-[30%] right-[12%] text-5xl sm:text-7xl font-serif text-teal-600/10 dark:text-teal-400/10 float-slow-delay-1">π</span>
-                  <span className="absolute bottom-[18%] left-[20%] text-5xl sm:text-7xl font-serif text-amber-500/10 float-slow-delay-2">∑</span>
-                  <span className="absolute top-[50%] right-[26%] text-6xl sm:text-8xl font-serif text-teal-600/10 dark:text-teal-400/10 float-slow">√</span>
+                  <MathConstellation className="absolute inset-0" />
                   <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-teal-400/15 dark:bg-teal-500/10 blur-3xl" />
                   <div className="absolute -bottom-32 -left-24 w-96 h-96 rounded-full bg-amber-400/10 blur-3xl" />
                 </HeroParallax>
