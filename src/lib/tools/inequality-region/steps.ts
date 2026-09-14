@@ -10,7 +10,7 @@
  * thức sẽ bị Markdown hiểu thành chữ nghiêng.
  */
 
-import { Frac } from './fraction.ts'
+import { Frac } from '../fraction.ts'
 import {
   boundaryTex,
   inequalityTex,
@@ -31,6 +31,19 @@ export interface PlotStage {
   final: boolean
 }
 
+/**
+ * Câu hỏi "đoán trước" cho chế độ Tự làm: học sinh trả lời xong mới thấy lời
+ * giải của bước và hình vẽ của bước đó (nguyên tắc N1 trong
+ * docs/STUDENT_TOOLS_ROADMAP.md).
+ */
+export interface Prediction {
+  question: string
+  options: { id: string; label: string }[]
+  correct: string
+  /** Giải thích ngắn hiện ngay sau khi trả lời, trước khi đọc lời giải đầy đủ. */
+  explain: string
+}
+
 export interface Step {
   key: string
   /** Bất phương trình thứ mấy (0-based), `null` cho bước kết luận. */
@@ -38,6 +51,9 @@ export interface Step {
   title: string
   lines: string[]
   stage: PlotStage
+  predict?: Prediction
+  /** Hình vẽ lúc CHƯA trả lời — không được để lộ đáp án. */
+  preStage?: PlotStage
 }
 
 export interface SystemItem {
@@ -137,6 +153,19 @@ export function buildSteps(items: SystemItem[], region: Region): Step[] {
       title: `Bất phương trình ${tag} · Vẽ bờ $${d}$`,
       lines: drawLines,
       stage: { drawn: i + 1, hatched: i, focus: i, showPoints: i, showTest: null, final: false },
+      predict: {
+        question: `Bất phương trình $${inequalityTex(q)}$ — bờ $${d}$ vẽ bằng nét gì?`,
+        options: [
+          { id: 'solid', label: 'Nét liền' },
+          { id: 'dashed', label: 'Nét đứt' },
+        ],
+        correct: s.strict ? 'dashed' : 'solid',
+        explain: s.strict
+          ? `Dấu $${opTex(q.op)}$ chặt nên điểm trên bờ không thuộc miền nghiệm → nét đứt.`
+          : `Dấu $${opTex(q.op)}$ không chặt nên điểm trên bờ thuộc miền nghiệm → nét liền.`,
+      },
+      // Chưa trả lời: hiện hai điểm để vẽ nhưng CHƯA vẽ đường — kiểu nét là đáp án.
+      preStage: { drawn: i, hatched: i, focus: i, showPoints: i, showTest: null, final: false },
     })
 
     // 2. Điểm thử
@@ -157,6 +186,17 @@ export function buildSteps(items: SystemItem[], region: Region): Step[] {
       title: `Bất phương trình ${tag} · Chọn điểm thử`,
       lines: testLines,
       stage: { drawn: i + 1, hatched: i, focus: i, showPoints: null, showTest: i, final: false },
+      predict: {
+        question: `Thay điểm thử $${name}${ptTex(s.testPoint)}$ vào $${inequalityTex(q)}$. Bất đẳng thức nhận được đúng hay sai?`,
+        options: [
+          { id: 'true', label: 'Đúng' },
+          { id: 'false', label: 'Sai' },
+        ],
+        correct: s.testHolds ? 'true' : 'false',
+        explain: `$${substituteTex(q.a, q.b, s.testPoint)}$ và $${s.testValue.toTex()} ${opTex(q.op)} ${q.c.toTex()}$ là ${s.testHolds ? 'đúng' : 'sai'}.`,
+      },
+      // Chưa trả lời: chưa hiện điểm thử — màu xanh/đỏ của nó là đáp án.
+      preStage: { drawn: i + 1, hatched: i, focus: i, showPoints: null, showTest: null, final: false },
     })
 
     // 3. Gạch bỏ
@@ -173,6 +213,19 @@ export function buildSteps(items: SystemItem[], region: Region): Step[] {
       title: `Bất phương trình ${tag} · Gạch bỏ phần không là nghiệm`,
       lines: hatchLines,
       stage: { drawn: i + 1, hatched: i + 1, focus: i, showPoints: null, showTest: null, final: false },
+      predict: {
+        question: `Điểm $${name}$ ${s.testHolds ? 'thoả' : 'không thoả'} bất phương trình. Phải **gạch bỏ** nửa mặt phẳng nào?`,
+        options: [
+          { id: 'contains', label: `Nửa chứa ${name}` },
+          { id: 'excludes', label: `Nửa không chứa ${name}` },
+        ],
+        correct: s.testHolds ? 'excludes' : 'contains',
+        explain: s.testHolds
+          ? `$${name}$ thoả nên nửa chứa $${name}$ là miền nghiệm; gạch nửa còn lại.`
+          : `$${name}$ không thoả nên nửa chứa $${name}$ không là miền nghiệm; gạch chính nửa đó.`,
+      },
+      // Chưa trả lời: giữ điểm thử trên hình để học sinh nhìn mà quyết định.
+      preStage: { drawn: i + 1, hatched: i, focus: i, showPoints: null, showTest: i, final: false },
     })
   })
 

@@ -126,6 +126,46 @@ export class Frac {
     const body = `\\frac{${abs(this.n)}}{${this.d}}`
     return this.n < B0 ? `-${body}` : body
   }
+
+  /**
+   * Số thập phân kiểu Việt Nam — dấu PHẨY, bỏ số 0 thừa ở cuối — làm tròn
+   * `digits` chữ số (nửa lên, xa số 0). `exact` cho biết có cần viết "≈" không:
+   * SGK viết "Me = 26" nhưng "Q₃ ≈ 34,29".
+   */
+  toDecimal(digits = 2): { text: string; exact: boolean } {
+    const scale = B10 ** BigInt(digits)
+    const scaled = abs(this.n) * scale
+    const exact = scaled % this.d === B0
+    const q = scaled / this.d
+    const r = scaled % this.d
+    const rounded = r * BigInt(2) >= this.d ? q + B1 : q
+    const intPart = rounded / scale
+    let frac = digits > 0 ? (rounded % scale).toString().padStart(digits, '0') : ''
+    frac = frac.replace(/0+$/, '')
+    const body = frac ? `${intPart},${frac}` : `${intPart}`
+    const negative = this.n < B0 && rounded !== B0
+    return { text: negative ? `−${body}` : body, exact }
+  }
+
+  /** `= 26` hoặc `\approx 34{,}{29}`. */
+  approxTex(digits = 2): string {
+    const { text, exact } = this.toDecimal(digits)
+    return exact ? `= ${decimalTex(text)}` : `\\approx ${decimalTex(text)}`
+  }
+}
+
+/**
+ * "34,29" → `34{,}{29}` cho MathJax.
+ *
+ * Hai lớp ngoặc đều cần. `{,}` để dấu phẩy là ký hiệu thường, không bị giãn như
+ * dấu phẩy ngăn cách. `{29}` vì MathJax coi `{,}` THEO SAU BA CHỮ SỐ là dấu
+ * phân cách hàng nghìn: `0{,}0099` bị đọc thành số "0,009" rồi số "9" đứng riêng
+ * (đo được trên công cụ Bayes ngày 2026-09-13).
+ */
+export function decimalTex(text: string): string {
+  const t = text.replace('−', '-')
+  const i = t.indexOf(',')
+  return i < 0 ? t : `${t.slice(0, i)}{,}{${t.slice(i + 1)}}`
 }
 
 function abs(v: bigint): bigint {

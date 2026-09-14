@@ -1,7 +1,7 @@
 'use client'
 
 import { useId } from 'react'
-import type { Frac } from '@/lib/tools/inequality-region/fraction'
+import type { Frac } from '@/lib/tools/fraction'
 import type { Inequality } from '@/lib/tools/inequality-region/parse'
 import type { PlotStage } from '@/lib/tools/inequality-region/steps'
 import { holds, type LineStep, type NamedPt, type Pt, type Region } from '@/lib/tools/inequality-region/solve'

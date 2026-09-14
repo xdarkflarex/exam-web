@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { Frac } from './fraction.ts'
+import { Frac } from '../fraction.ts'
 import {
   inequalityText,
   parseInequalityLine,
@@ -281,4 +281,28 @@ test('lời GTLN – GTNN nêu giá trị và nơi đạt', () => {
   const text = optimizationLines(f, region, optimize(qs, region, f)!).join(' ')
   assert.match(text, /\*\*GTLN\*\* của \$F\$ là \$14\$, đạt tại \$B\$/)
   assert.match(text, /\*\*GTNN\*\* của \$F\$ là \$0\$, đạt tại \$O\$/)
+})
+
+// ─── Chế độ Tự làm ──────────────────────────────────────────────────────────
+
+test('mỗi bước quyết định có câu đoán trước với đáp án đúng', () => {
+  const its = items('2x - y > 3')
+  const [line, probe, hatch, final] = buildSteps(its, analyzeRegion([its[0].parsed.inequality]))
+  assert.equal(line.predict!.correct, 'dashed')
+  assert.equal(probe.predict!.correct, 'false') // 0 > 3 sai
+  assert.equal(hatch.predict!.correct, 'contains') // O không thoả → gạch nửa chứa O
+  assert.equal(final.predict, undefined)
+})
+
+test('hình lúc chưa trả lời không để lộ đáp án', () => {
+  const its = items('x + y <= 4')
+  const [line, probe, hatch] = buildSteps(its, analyzeRegion([its[0].parsed.inequality]))
+  // Kiểu nét là đáp án → chưa vẽ đường, chỉ có hai điểm.
+  assert.equal(line.preStage!.drawn, 0)
+  assert.equal(line.preStage!.showPoints, 0)
+  // Màu điểm thử là đáp án → chưa hiện điểm thử.
+  assert.equal(probe.preStage!.showTest, null)
+  // Lớp gạch là đáp án → chưa gạch, nhưng vẫn giữ điểm thử để nhìn.
+  assert.equal(hatch.preStage!.hatched, 0)
+  assert.equal(hatch.preStage!.showTest, 0)
 })

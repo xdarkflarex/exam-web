@@ -1,11 +1,9 @@
 'use client'
 
 import { useMemo, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react'
-import Link from 'next/link'
 import { MathJax } from 'better-react-mathjax'
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -18,10 +16,11 @@ import {
   TrendingUp,
   XCircle,
 } from 'lucide-react'
-import { MathProvider } from '@/components/MathContent'
 import InequalityPlot, { computeView, LINE_COLORS } from './InequalityPlot'
+import ModeToggle, { type ToolMode } from './ModeToggle'
+import PredictChoice from './PredictChoice'
 import RichText from './RichText'
-import { Frac } from '@/lib/tools/inequality-region/fraction'
+import { Frac } from '@/lib/tools/fraction'
 import {
   inequalityTex,
   linearTex,
@@ -109,6 +108,10 @@ export default function InequalityRegionTool() {
   const [objective, setObjective] = useState('')
   const [objectiveValue, setObjectiveValue] = useState<Linear | null>(null)
   const [objectiveError, setObjectiveError] = useState('')
+  // Chế độ Tự làm: mỗi bước quyết định hỏi trước, trả lời xong mới hiện lời giải
+  // và hình của bước đó. Chỉ lưu lần chọn đầu tiên (xem PredictChoice).
+  const [mode, setMode] = useState<ToolMode>('guided')
+  const [answers, setAnswers] = useState<Record<string, string>>({})
 
   const parsedRows = rows.map((row) => (row.text.trim() ? parseInequalityLine(row.text) : null))
   const validItems = itemsOf(rows)
@@ -149,6 +152,22 @@ export default function InequalityRegionTool() {
   const step = system ? system.steps[Math.min(stepIndex, system.steps.length - 1)] : null
   const lastIndex = system ? system.steps.length - 1 : 0
 
+  const selfMode = mode === 'self'
+  const pending = Boolean(selfMode && step?.predict && !(step.key in answers))
+  // Chưa trả lời thì hình dừng ở trạng thái KHÔNG lộ đáp án của bước này.
+  const shownStage = step ? (pending ? (step.preStage ?? step.stage) : step.stage) : null
+  // Tự làm thì không nhảy cóc qua câu chưa trả lời.
+  const firstPending = system && selfMode ? system.steps.findIndex((s) => s.predict && !(s.key in answers)) : -1
+  const reachable = (i: number) => firstPending === -1 || i <= firstPending
+  const predictTotal = system ? system.steps.filter((s) => s.predict).length : 0
+  const predictRight = system ? system.steps.filter((s) => s.predict && answers[s.key] === s.predict.correct).length : 0
+
+  function switchMode(next: ToolMode) {
+    setMode(next)
+    setStepIndex(0)
+    setAnswers({})
+  }
+
   function draw(texts?: string[], nextObjective?: string) {
     let items = validItems
     let key = rowsKey
@@ -161,6 +180,7 @@ export default function InequalityRegionTool() {
     if (items.length === 0 || items.length > MAX_INEQUALITIES) return
     setCommitted((prev) => ({ items, key, version: (prev?.version ?? 0) + 1 }))
     setStepIndex(0)
+    setAnswers({})
     setProbe(null)
     setProbeError('')
     if (nextObjective !== undefined) {
@@ -189,7 +209,9 @@ export default function InequalityRegionTool() {
 
   function go(index: number) {
     if (!system) return
-    setStepIndex(Math.max(0, Math.min(system.steps.length - 1, index)))
+    const target = Math.max(0, Math.min(system.steps.length - 1, index))
+    if (!reachable(target)) return
+    setStepIndex(target)
   }
 
   function onStepsKey(e: KeyboardEvent<HTMLElement>) {
@@ -234,35 +256,23 @@ export default function InequalityRegionTool() {
       : []
 
   return (
-    <MathProvider>
-      <main className="min-h-screen p-4 lg:p-6">
-        <div className="mx-auto max-w-6xl">
-          <Link
-            href="/student/tools"
-            className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Công cụ
-          </Link>
-
-          <header className="animate-dash-in bento-tile-lead mb-6 overflow-hidden">
-            <div className="paper-grid p-5 sm:p-6">
-              <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
-                <PencilRuler className="h-7 w-7 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
-                Vẽ miền nghiệm hệ bất phương trình
-              </h1>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Toán 10 · Chương 2 · Bất phương trình và hệ bất phương trình bậc nhất hai ẩn
-              </p>
-              <ul className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
-                <LegendChip>
-                  <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="currentColor" strokeWidth="2.4" /></svg>
-                  Nét liền: dấu ≤, ≥ — bờ thuộc miền nghiệm
-                </LegendChip>
-                <LegendChip>
-                  <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="currentColor" strokeWidth="2.4" strokeDasharray="6 4" /></svg>
-                  Nét đứt: dấu &lt;, &gt; — bờ không thuộc miền nghiệm
-                </LegendChip>
+    <>
+          {/* Đầu trang và thanh tab do ToolsShell dựng; ở đây chỉ còn phần riêng của công cụ. */}
+          <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <ul className="flex flex-wrap gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                {/* Tự làm thì giấu quy tắc nét liền/nét đứt: đó chính là câu hỏi đầu tiên. */}
+                {!selfMode && (
+                  <>
+                    <LegendChip>
+                      <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="currentColor" strokeWidth="2.4" /></svg>
+                      Nét liền: dấu ≤, ≥ — bờ thuộc miền nghiệm
+                    </LegendChip>
+                    <LegendChip>
+                      <svg width="26" height="8" aria-hidden="true"><line x1="1" y1="4" x2="25" y2="4" stroke="currentColor" strokeWidth="2.4" strokeDasharray="6 4" /></svg>
+                      Nét đứt: dấu &lt;, &gt; — bờ không thuộc miền nghiệm
+                    </LegendChip>
+                  </>
+                )}
                 <LegendChip>
                   <svg width="18" height="14" aria-hidden="true">
                     <path d="M0 14 L14 0 M4 14 L18 0 M-4 14 L10 0" stroke="currentColor" strokeWidth="1.5" />
@@ -270,10 +280,11 @@ export default function InequalityRegionTool() {
                   Phần bị gạch: KHÔNG phải nghiệm
                 </LegendChip>
               </ul>
-            </div>
-          </header>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
+              <ModeToggle mode={mode} onChange={switchMode} />
+          </div>
+
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start [&>*]:min-w-0">
             {/* ── Nhập hệ ── */}
             <section aria-labelledby="ir-input" className="bento-tile p-4 sm:p-5 lg:col-start-2 lg:row-start-1">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -394,7 +405,7 @@ export default function InequalityRegionTool() {
                   lines={system.lines}
                   region={system.region}
                   view={view}
-                  stage={step.stage}
+                  stage={shownStage ?? step.stage}
                   probe={probe && probeResult ? { pt: probe.pt, inside: probeResult.inside } : null}
                   highlight={highlight}
                   title={`Hệ trục Oxy, bước ${stepIndex + 1} trên ${system.steps.length}: ${step.title.replace(/\$/g, '')}`}
@@ -413,15 +424,21 @@ export default function InequalityRegionTool() {
                     {system.inequalities.map((q, i) => (
                       <li key={i} className="inline-flex items-center gap-1.5">
                         <svg width="22" height="8" aria-hidden="true">
-                          <line
-                            x1="1"
-                            y1="4"
-                            x2="21"
-                            y2="4"
-                            stroke={LINE_COLORS[i]}
-                            strokeWidth="2.6"
-                            strokeDasharray={system.lines[i].strict ? '5 3' : undefined}
-                          />
+                          {/* Bờ chưa vẽ thì chỉ hiện chấm màu: mẫu nét liền/đứt ở đây
+                              sẽ lộ đáp án câu hỏi nét vẽ của chế độ Tự làm. */}
+                          {shownStage && i < shownStage.drawn ? (
+                            <line
+                              x1="1"
+                              y1="4"
+                              x2="21"
+                              y2="4"
+                              stroke={LINE_COLORS[i]}
+                              strokeWidth="2.6"
+                              strokeDasharray={system.lines[i].strict ? '5 3' : undefined}
+                            />
+                          ) : (
+                            <circle cx="11" cy="4" r="3.5" fill={LINE_COLORS[i]} />
+                          )}
                         </svg>
                         <span>
                           {`$d_{${i + 1}}$`}: {`$${inequalityTex(q)}$`}
@@ -459,6 +476,7 @@ export default function InequalityRegionTool() {
                         key={s.key}
                         type="button"
                         onClick={() => go(i)}
+                        disabled={!reachable(i)}
                         aria-label={`Bước ${i + 1}: ${s.title.replace(/\$/g, '')}`}
                         aria-current={i === stepIndex ? 'step' : undefined}
                         className={`h-2 flex-1 rounded-full transition-opacity ${s.group === null ? 'bg-teal-600 dark:bg-teal-400' : ''} ${
@@ -473,7 +491,9 @@ export default function InequalityRegionTool() {
                 {/* `aria-live` nằm NGOÀI khối có key: khối bên trong bị dựng lại mỗi bước, vùng
                     thông báo phải là phần tử sống lâu thì trình đọc màn hình mới đọc thay đổi. */}
                 <div aria-live="polite">
-                <MathJax dynamic key={`step-${committed?.version}-${step.key}`}>
+                {/* Key gồm cả trạng thái đã trả lời: trả lời xong là khối đổi nội dung
+                    lớn (hiện lời giải), dựng lại cho MathJax typeset sạch. */}
+                <MathJax dynamic key={`step-${committed?.version}-${mode}-${step.key}-${answers[step.key] ?? ''}`}>
                   <div
                     className="border-l-4 pl-3"
                     style={{ borderColor: step.group === null ? '#0d9488' : LINE_COLORS[step.group] }}
@@ -481,13 +501,36 @@ export default function InequalityRegionTool() {
                     <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
                       <RichText text={step.title} />
                     </h3>
-                    <div className="mt-2 space-y-1.5 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
-                      {step.lines.map((line, i) => (
-                        <p key={`${step.key}-${i}`}>
-                          <RichText text={line} />
-                        </p>
-                      ))}
-                    </div>
+                    {selfMode && step.predict && (
+                      <div className="mt-3">
+                        <PredictChoice
+                          question={step.predict.question}
+                          options={step.predict.options}
+                          correct={step.predict.correct}
+                          chosen={answers[step.key] ?? null}
+                          explain={step.predict.explain}
+                          kicker="Em tự làm"
+                          onChoose={(id) => setAnswers((a) => (step.key in a ? a : { ...a, [step.key]: id }))}
+                        />
+                      </div>
+                    )}
+                    {!pending && (
+                      <div className="mt-2 space-y-1.5 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300">
+                        {step.lines.map((line, i) => (
+                          <p key={`${step.key}-${i}`}>
+                            <RichText text={line} />
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {selfMode && step.stage.final && predictTotal > 0 && (
+                      <p className="mt-3 rounded-xl bg-teal-50 px-3 py-2 text-sm font-medium text-teal-800 dark:bg-teal-950/40 dark:text-teal-200">
+                        Em trả lời đúng <strong className="tabular-nums">{predictRight}/{predictTotal}</strong> câu ngay lần đầu.{' '}
+                        {predictRight === predictTotal
+                          ? 'Nắm chắc quy trình rồi — thử một hệ khác nhé.'
+                          : 'Xem lại các bước sai bằng thanh tiến độ phía trên.'}
+                      </p>
+                    )}
                   </div>
                 </MathJax>
                 </div>
@@ -507,19 +550,26 @@ export default function InequalityRegionTool() {
                       <button
                         type="button"
                         onClick={() => go(stepIndex + 1)}
-                        className="btn-action inline-flex items-center gap-1 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400"
+                        disabled={pending}
+                        className="btn-action inline-flex items-center gap-1 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-teal-500 dark:hover:bg-teal-400"
                       >
                         Bước tiếp
                         <ChevronRight className="h-4 w-4" aria-hidden="true" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => go(lastIndex)}
-                        className="ml-auto inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <SkipForward className="h-4 w-4" aria-hidden="true" />
-                        Xem kết quả
-                      </button>
+                      {pending ? (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">Chọn một đáp án để đi tiếp.</span>
+                      ) : (
+                        !selfMode && (
+                          <button
+                            type="button"
+                            onClick={() => go(lastIndex)}
+                            className="ml-auto inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            <SkipForward className="h-4 w-4" aria-hidden="true" />
+                            Xem kết quả
+                          </button>
+                        )
+                      )}
                     </>
                   ) : (
                     <button
@@ -672,9 +722,7 @@ export default function InequalityRegionTool() {
               </div>
             )}
           </div>
-        </div>
-      </main>
-    </MathProvider>
+    </>
   )
 }
 

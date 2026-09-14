@@ -102,8 +102,11 @@ Route group `(auth)` và `(student)` không xuất hiện trong URL.
 /student/history
 /student/analytics
 /student/settings
-/student/tools                     công cụ học tập (registry: src/lib/tools/registry.ts)
-/student/tools/inequality-region   vẽ miền nghiệm hệ BPT bậc nhất hai ẩn; chạy hoàn toàn ở client, không đọc/ghi DB
+/student/tools                     khu công cụ: redirect vào công cụ đầu; layout chung có thanh tab (registry: src/lib/tools/registry.ts)
+/student/tools/inequality-region   vẽ miền nghiệm hệ BPT bậc nhất hai ẩn (L10)
+/student/tools/grouped-data        mẫu số liệu ghép nhóm: trung bình, trung vị, tứ phân vị, mốt, phương sai (L11–12)
+/student/tools/conditional-probability  cây xác suất, toàn phần, Bayes, luyện đúng/sai (L12)
+                                   mọi công cụ chạy hoàn toàn ở client (ssr:false), không đọc/ghi DB
 ```
 
 ### Learning và runner

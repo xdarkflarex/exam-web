@@ -20,7 +20,7 @@
  * (Sutherland–Hodgman); đỉnh nằm trên khung nghĩa là miền không bị chặn.
  */
 
-import { Frac } from './fraction.ts'
+import { Frac } from '../fraction.ts'
 import { isStrict, type Inequality, type Linear } from './parse.ts'
 
 export interface Pt {

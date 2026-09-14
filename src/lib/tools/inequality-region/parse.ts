@@ -17,7 +17,7 @@
  * đúng chỗ sai.
  */
 
-import { Frac, lcm } from './fraction.ts'
+import { Frac, lcm } from '../fraction.ts'
 
 export type Op = '<' | '<=' | '>' | '>='
 
