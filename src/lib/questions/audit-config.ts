@@ -32,12 +32,14 @@ export interface QuestionAuditFlags {
 /**
  * Tầng 1 của định tuyến hai tầng (kế hoạch mục 4). Phần lớn câu trong ngân hàng
  * là đúng, và với câu đúng thì việc duy nhất cần làm là xác nhận "khớp" — không
- * đáng tiền suy luận dài của `deepseek-reasoner`.
+ * đáng tiền suy luận dài của `deepseek-v4-pro`.
  *
- * Tầng 2 (`deepseek-reasoner`) chưa được nối vào; `combineTiers` trong
+ * Tầng 2 (`deepseek-v4-pro`) chưa được nối vào; `combineTiers` trong
  * `audit-contracts.ts` đã sẵn sàng cho nó.
  */
-const DEFAULT_MODEL = 'deepseek-chat'
+/* `deepseek-chat` quá hạn khai tử 2026-07-24; nó đang route sang v4-flash.
+   Gọi thẳng tên mới để không phụ thuộc một alias có thể tắt bất cứ lúc nào. */
+const DEFAULT_MODEL = 'deepseek-v4-flash'
 
 function readEnv(name: string): string | null {
   const value = process.env[name]

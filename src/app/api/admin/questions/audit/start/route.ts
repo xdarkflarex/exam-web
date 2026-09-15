@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       scope_label: scopeLabel,
       // Model chụp lại vào dòng run: đổi `QUESTION_AUDIT_MODEL` sau này không
       // được làm lịch sử quét nói sai model đã dùng.
-      model: process.env.QUESTION_AUDIT_MODEL?.trim() || 'deepseek-chat',
+      model: process.env.QUESTION_AUDIT_MODEL?.trim() || 'deepseek-v4-flash',
       question_ids: selection.ids,
       total_questions: selection.ids.length,
     })

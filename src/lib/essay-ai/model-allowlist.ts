@@ -37,8 +37,42 @@ const OCR_MODEL_ALLOWLIST: Readonly<Record<OcrProviderName, readonly string[]>> 
   ],
 }
 
+/**
+ * ==========================================================================
+ * CẬP NHẬT 2026-09-10 — `deepseek-chat` đã QUÁ HẠN KHAI TỬ
+ *
+ * DeepSeek thông báo: "deepseek-chat & deepseek-reasoner will be fully retired
+ * and inaccessible after Jul 24th, 2026, 15:59 (UTC). (Currently routing to
+ * deepseek-v4-flash non-thinking/thinking.)"
+ *
+ * Đo ngày 2026-09-10 (quá hạn 48 ngày): gọi `deepseek-chat` vẫn trả 200, nhưng
+ * trường `model` trong phản hồi ghi `deepseek-flash`. Alias còn sống ngoài cam
+ * kết, và có thể tắt bất cứ lúc nào không báo trước.
+ *
+ * ĐIỀU QUAN TRỌNG PHẢI HIỂU ĐÚNG: **model chấm bài đã đổi rồi**, từ phía
+ * DeepSeek, im lặng. Đổi tên ở đây KHÔNG đổi thứ đang chạy — nó chỉ làm cái
+ * đang chạy trở nên nhìn thấy được, và gỡ quả bom hẹn giờ khi alias tắt.
+ *
+ * VÌ SAO GIỮ HAI TÊN CŨ: `.env` đang đặt `DEEPSEEK_MODEL=deepseek-chat` và
+ * `ESSAY_AI_AUTO_FINALIZE=true`. Gỡ ngay là pipeline chấm bài fail-closed
+ * (`ProviderError`) cho tới khi ai đó sửa `.env` — đúng lúc học sinh đang nộp
+ * bài. Hai tên cũ ở lại đến khi `.env` chuyển sang `deepseek-v4-flash`, rồi mới
+ * xoá.
+ *
+ * `deepseek-v4-pro` được thêm nhưng CHƯA benchmark cho việc chấm bài. Đúng
+ * tinh thần khối chú thích ở trên: allowlist là danh sách "được phép", không
+ * phải "được khuyến nghị".
+ * ==========================================================================
+ */
 const GRADING_MODEL_ALLOWLIST: Readonly<Record<GradingProviderName, readonly string[]>> = {
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  deepseek: [
+    'deepseek-v4-flash',
+    'deepseek-v4-pro',
+    // Đã quá hạn khai tử — giữ để không làm đứt cấu hình đang chạy. Xoá sau khi
+    // `.env` đổi sang tên v4.
+    'deepseek-chat',
+    'deepseek-reasoner',
+  ],
 }
 
 function assertServerOnly(): void {

@@ -45,8 +45,16 @@ const REQUEST_TIMEOUT_MS = 60_000
  * phục vụ cost cap, không phải hoá đơn. Đối chiếu bảng giá chính thức trước
  * khi dựa vào con số này để ra quyết định tài chính.
  */
-const COST_PER_1K_PROMPT_TOKENS_USD = 0.00014
-const COST_PER_1K_COMPLETION_TOKENS_USD = 0.00028
+/*
+  Giá `deepseek-v4-flash`, cập nhật 2026-09-10. Bản trước là giá `deepseek-chat`
+  — model đã quá hạn khai tử 2026-07-24 và đang route sang v4-flash.
+
+  Lấy mức ĐẮT NHẤT (peak, cache miss): $0,44/1M vào · $1,32/1M ra. Ước tính
+  thấp thì trần chi phí không chặn ở mức người ta tưởng — con số cũ thấp hơn
+  thực tế 3–4,7 lần, tức trần 10 USD thực chất cho tiêu tới ~40 USD.
+*/
+const COST_PER_1K_PROMPT_TOKENS_USD = 0.00044
+const COST_PER_1K_COMPLETION_TOKENS_USD = 0.00132
 
 export function createDeepSeekGradingProvider(
   config: GradingConfig = readGradingConfig()
