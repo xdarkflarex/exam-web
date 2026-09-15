@@ -4,7 +4,6 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, Loader2, Sparkles, X } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
-import { suggestTopic, type TopicLike } from '@/lib/questions/classify'
 import type { ClassifySuggestion } from '@/lib/questions/classify-ai'
 
 /**
@@ -14,27 +13,37 @@ import type { ClassifySuggestion } from '@/lib/questions/classify-ai'
  *
  *  - GÁN THỦ CÔNG — người soạn đã biết chính xác nhánh đúng. Tất định tuyệt
  *    đối, nhanh nhất, và là đường nên đi khi đã biết mình muốn gì.
- *  - GỢI Ý TỰ ĐỘNG — máy đọc nội dung, đề xuất chủ đề theo bảng luật trong
- *    `src/lib/questions/classify.ts`. Dùng khi cần rà một mớ câu mà chưa biết
- *    câu nào sai.
+ *  - GỢI Ý THEO LUẬT — máy đọc nội dung và đối chiếu bảng luật. Miễn phí, tất
+ *    định. Dùng khi cần rà một mớ câu mà chưa biết câu nào sai.
  *  - GỢI Ý AI — thêm 2026-08-31. Luật vẫn chạy TRƯỚC; DeepSeek chỉ được hỏi
  *    những câu luật bó tay. Xem ghi chú dưới.
+ *
+ * HAI CHẾ ĐỘ GỢI Ý ĐI CHUNG MỘT ĐƯỜNG (sửa 2026-09-08). Trước đó chế độ luật
+ * tự gọi `suggestTopic` ngay tại client — và quên truyền `categories`, nên phần
+ * lớn luật không khớp được với cây thật: tên môn học ("Cấp số cộng", "Lượng
+ * giác (Lớp 11)") nằm ở tầng CHƯƠNG, không phải tầng chủ đề. Cùng một câu cho
+ * hai kết quả khác nhau tuỳ người soạn bấm tab nào.
+ *
+ * Giờ cả hai gọi `POST /api/admin/questions/classify`, khác đúng một cờ
+ * `rulesOnly`. Ở đó luật đọc được cả các Ý của câu Đúng/Sai và cây đã lọc bỏ
+ * nhánh `sgk-*` — hai thứ client không tự làm được.
+ * `docs/CLASSIFICATION_RULES.md` mục 9 gọi đây là luật "một hàm cho mọi bề mặt".
  *
  * VỀ CHẾ ĐỘ AI. Bản đầu của file này ghi "KHÔNG DÙNG AI", vì công cụ này ra đời
  * để đi SỬA những câu mà AI đã phân loại sai, và hỏi lại cùng một mô hình phần
  * lớn sẽ ra lại cùng kết quả sai. Điều đó VẪN ĐÚNG và là lý do thứ tự không
  * được đảo: luật chạy trước, AI chỉ nhận phần luật trả `null`.
  *
- * Cái đã đổi là phạm vi. `suggestTopic` chỉ ra tới tầng **Chủ đề**; AI gợi ý
- * được cả đường đi tới Mục con. Với 297/1436 câu chưa phân loại thì gán tay
- * từng câu là việc không làm nổi, còn một gợi ý sâu có người duyệt thì làm nổi.
+ * Cái đã đổi là phạm vi. Lớp luật ra tới tầng **Chuyên đề**; AI gợi ý được cả
+ * đường đi tới Mục con. Với hàng trăm câu chưa phân loại thì gán tay từng câu
+ * là việc không làm nổi, còn một gợi ý sâu có người duyệt thì làm nổi.
  *
  * MỌI THAY ĐỔI ĐỀU QUA MÀN XEM TRƯỚC. Ghi đè taxonomy hàng loạt không có
  * đường lùi tự động, nên số câu bị ảnh hưởng phải hiện ra trước khi bấm — và
  * gợi ý AI cũng đi qua đúng màn tick đó, không có đường tắt nào ghi thẳng.
  */
 
-interface Topic extends TopicLike {
+interface Topic {
   id: string
   name: string
 }
@@ -158,28 +167,37 @@ export default function BulkTaxonomyDialog({
     [subsections, sectionId]
   )
 
-  /** Gợi ý cho từng câu; `null` nghĩa là máy không đủ chắc và sẽ bỏ qua câu đó. */
-  const proposals = useMemo(() => {
-    if (mode !== 'auto') return []
-    return questions.map((question) => ({
-      question,
-      suggestion: suggestTopic(question.content, topics),
-    }))
-  }, [mode, questions, topics])
-
-  const applicable = proposals.filter(
-    (item) => item.suggestion !== null && !skipped.has(item.question.id)
+  /** Gợi ý máy tìm được nhánh — đúng danh sách đang hiện, kể cả dòng bị bỏ tick. */
+  const proposed = useMemo(
+    () => (ai?.suggestions ?? []).filter((item) => item.topic_id !== null),
+    [ai]
   )
-  const unknown = proposals.filter((item) => item.suggestion === null)
 
-  /** Gợi ý AI còn được tick. Chỉ những câu model tìm được nhánh. */
-  const aiApplicable = useMemo(
-    () =>
-      (ai?.suggestions ?? []).filter(
-        (item) => item.topic_id !== null && !skipped.has(item.question_id)
-      ),
-    [ai, skipped]
+  /** Gợi ý còn được tick — đúng những dòng nút Áp dụng sẽ ghi. */
+  const applicable = useMemo(
+    () => proposed.filter((item) => !skipped.has(item.question_id)),
+    [proposed, skipped]
   )
+
+  /*
+    CHỌN TẤT CẢ / BỎ CHỌN TẤT CẢ.
+
+    Chỉ đụng tới những dòng ĐANG HIỆN. `skipped` sống xuyên qua nhiều trang kết
+    quả (chế độ phạm vi gọi route nhiều lần), nên `setSkipped(new Set())` sẽ bật
+    lại cả những dòng người soạn đã cố ý bỏ ở trang trước — một nút "chọn tất
+    cả" mà lặng lẽ hoàn tác quyết định cũ thì tệ hơn không có nút.
+  */
+  const selectAll = useCallback(() => {
+    setSkipped((prev) => {
+      const next = new Set(prev)
+      for (const item of proposed) next.delete(item.question_id)
+      return next
+    })
+  }, [proposed])
+
+  const clearAll = useCallback(() => {
+    setSkipped((prev) => new Set([...prev, ...proposed.map((item) => item.question_id)]))
+  }, [proposed])
 
   /**
    * Nội dung câu theo id.
@@ -213,12 +231,7 @@ export default function BulkTaxonomyDialog({
   )
 
   const manualReady = topicId !== ''
-  const targetCount =
-    mode === 'manual'
-      ? questions.length
-      : mode === 'ai'
-        ? aiApplicable.length
-        : applicable.length
+  const targetCount = mode === 'manual' ? questions.length : applicable.length
 
   /**
    * Lấy gợi ý, gọi TỪNG TRANG một.
@@ -230,7 +243,7 @@ export default function BulkTaxonomyDialog({
    * Kết quả dồn dần vào `ai.suggestions` để người duyệt đọc được ngay trong lúc
    * chạy, và bấm "Dừng" là giữ lại phần đã có.
    */
-  async function runAi() {
+  async function runSuggest(rulesOnly: boolean) {
     stopAiRef.current = false
     setAiLoading(true)
     setError(null)
@@ -255,8 +268,8 @@ export default function BulkTaxonomyDialog({
 
         const payload =
           aiScope === 'selection'
-            ? { questionIds: questions.map((question) => question.id), deepSuggest }
-            : { scopeMode: aiScope, offset, deepSuggest }
+            ? { questionIds: questions.map((question) => question.id), deepSuggest, rulesOnly }
+            : { scopeMode: aiScope, offset, deepSuggest, rulesOnly }
 
         const response = await fetch('/api/admin/questions/classify', {
           method: 'POST',
@@ -334,25 +347,23 @@ export default function BulkTaxonomyDialog({
         section_id: sectionId || null,
         subsection_id: subsectionId || null,
       }))
-    } else if (mode === 'ai') {
-      // Đường đi đã được validator phía server kiểm là có thật VÀ đúng quan hệ
-      // cha–con trước khi tới đây (`assertPathInTree`). Ghi thẳng bốn tầng là an
-      // toàn, và cũng là điểm khác biệt so với chế độ luật — luật chỉ ra tới
-      // tầng Chủ đề nên ba tầng dưới bắt buộc phải null.
-      rows = aiApplicable.map((item) => ({
+    } else {
+      /*
+        Đường đi đã được validator phía server kiểm là có thật VÀ đúng quan hệ
+        cha–con trước khi tới đây (`assertPathInTree`), nên ghi thẳng bốn tầng
+        là an toàn.
+
+        Dùng CHUNG cho cả chế độ luật lẫn chế độ AI: sau khi hai chế độ đi chung
+        route, gợi ý của luật cũng mang `category_id` khi tên chương đủ rõ, và
+        `null` ở ba tầng dưới. Nhánh riêng cho chế độ luật chỉ còn là một cách
+        để hai đường ghi lệch nhau.
+      */
+      rows = applicable.map((item) => ({
         question_id: item.question_id,
         topic_id: item.topic_id,
         category_id: item.category_id,
         section_id: item.section_id,
         subsection_id: item.subsection_id,
-      }))
-    } else {
-      rows = applicable.map((item) => ({
-        question_id: item.question.id,
-        topic_id: item.suggestion!.topicId,
-        category_id: null,
-        section_id: null,
-        subsection_id: null,
       }))
     }
 
@@ -430,7 +441,17 @@ export default function BulkTaxonomyDialog({
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setMode(value)}
+                  onClick={() => {
+                    // Đổi tab là đổi cách máy đọc câu, nên kết quả cũ không còn
+                    // nói về việc đang làm. Giữ lại là để người soạn bấm Áp dụng
+                    // lên một danh sách sinh ra bởi chế độ khác.
+                    if (value !== mode) {
+                      setAi(null)
+                      setSkipped(new Set())
+                      setError(null)
+                    }
+                    setMode(value)
+                  }}
                   className={`rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
                     mode === value
                       ? 'border-teal-600 text-teal-700 dark:border-teal-400 dark:text-teal-300'
@@ -443,33 +464,46 @@ export default function BulkTaxonomyDialog({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              {mode === 'ai' ? (
+              {mode !== 'manual' ? (
                 <div className="space-y-3">
-                  <p className="flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                    <span>
-                      Bảng luật chạy <strong>trước</strong>; DeepSeek chỉ được hỏi những câu luật
-                      bó tay. AI gợi ý được cả đường đi tới <strong>Mục con</strong>, và chỉ được
-                      chọn trong cây có thật — không khớp thì nó trả về &quot;không xếp được&quot;
-                      chứ không bịa nhánh mới.
-                    </span>
-                  </p>
-
-                  <label className="flex items-start gap-2 rounded-lg border border-slate-300 p-3 text-sm dark:border-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={deepSuggest}
-                      onChange={(event) => setDeepSuggest(event.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-teal-600"
-                    />
-                    <span className="text-slate-700 dark:text-slate-300">
-                      Hỏi AI cả những câu luật đã đoán được
-                      <span className="block text-xs text-slate-500 dark:text-slate-400">
-                        Luật chỉ ra tới tầng Chủ đề. Bật cái này để lấy cả Chuyên đề / Mục / Mục
-                        con — đổi lại tốn API cho cả những câu vốn xử lý được miễn phí.
+                  {mode === 'ai' ? (
+                    <p className="flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+                      <span>
+                        Bảng luật chạy <strong>trước</strong>; DeepSeek chỉ được hỏi những câu
+                        luật bó tay. AI gợi ý được cả đường đi tới <strong>Mục con</strong>, và
+                        chỉ được chọn trong cây có thật — không khớp thì nó trả về &quot;không
+                        xếp được&quot; chứ không bịa nhánh mới.
                       </span>
-                    </span>
-                  </label>
+                    </p>
+                  ) : (
+                    <p className="flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+                      <span>
+                        Máy đối chiếu bảng luật, <strong>không gọi AI</strong> — miễn phí, và
+                        chạy lại luôn ra cùng kết quả. Luật ra tới tầng <strong>Chuyên đề</strong>{' '}
+                        khi tên chương đủ rõ, còn Mục / Mục con thì để trống chứ không đoán.
+                      </span>
+                    </p>
+                  )}
+
+                  {mode === 'ai' && (
+                    <label className="flex items-start gap-2 rounded-lg border border-slate-300 p-3 text-sm dark:border-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={deepSuggest}
+                        onChange={(event) => setDeepSuggest(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-teal-600"
+                      />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Hỏi AI cả những câu luật đã đoán được
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
+                          Luật dừng ở tầng Chuyên đề. Bật cái này để lấy cả Mục / Mục con — đổi
+                          lại tốn API cho cả những câu vốn xử lý được miễn phí.
+                        </span>
+                      </span>
+                    </label>
+                  )}
 
                   <div className="flex flex-wrap gap-2">
                     {AI_SCOPES.map(([value, label]) => (
@@ -508,7 +542,7 @@ export default function BulkTaxonomyDialog({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => void runAi()}
+                      onClick={() => void runSuggest(mode === 'auto')}
                       disabled={aiLoading}
                       className="btn-action inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
                     >
@@ -542,8 +576,9 @@ export default function BulkTaxonomyDialog({
                         />
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {ai.done}/{ai.total} câu · luật xử được {ai.byRule} (miễn phí) · hỏi AI{' '}
-                        {ai.askedAi} · ước tính {ai.estimatedCostUsd.toFixed(4)} USD
+                        {ai.done}/{ai.total} câu · luật xử được {ai.byRule}
+                        {mode === 'ai' &&
+                          ` · hỏi AI ${ai.askedAi} · ước tính ${ai.estimatedCostUsd.toFixed(4)} USD`}
                       </p>
                     </div>
                   )}
@@ -561,23 +596,45 @@ export default function BulkTaxonomyDialog({
                   {ai && ai.unresolved.length > 0 && (
                     <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      {/* Cùng con số, hai nghĩa khác hẳn. Ở chế độ luật nó là
+                          "luật chịu, CHƯA hỏi AI" — còn đường đi tiếp. Ở chế độ
+                          AI thì cả hai tầng đều chịu, hết đường máy. */}
                       <span>
-                        {ai.unresolved.length} câu không xếp được vào nhánh nào. Máy không đoán
-                        bừa — những câu này cần gán tay, hoặc cây chuyên đề còn thiếu nhánh.
+                        {mode === 'ai' ? (
+                          <>
+                            {ai.unresolved.length} câu không xếp được vào nhánh nào, kể cả sau khi
+                            hỏi AI. Máy không đoán bừa — những câu này cần gán tay, hoặc cây
+                            chuyên đề còn thiếu nhánh.
+                          </>
+                        ) : (
+                          <>
+                            {ai.unresolved.length} câu luật không đủ dấu hiệu để kết luận. Máy
+                            không đoán bừa — thử tab <strong>Gợi ý AI</strong>, hoặc gán tay.
+                          </>
+                        )}
                       </span>
                     </p>
                   )}
 
-                  {ai && aiApplicable.length === 0 && ai.suggestions.length === 0 && (
+                  {ai && proposed.length === 0 && (
                     <p className="py-8 text-center text-slate-500 dark:text-slate-400">
                       Chưa có gợi ý nào.
                     </p>
                   )}
 
+                  {proposed.length > 0 && (
+                    <SelectAllBar
+                      selected={applicable.length}
+                      total={proposed.length}
+                      onSelectAll={selectAll}
+                      onClearAll={clearAll}
+                      warnOverwrite={aiScope === 'tat_ca'}
+                    />
+                  )}
+
                   {ai && (
                     <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                      {ai.suggestions
-                        .filter((item) => item.topic_id !== null)
+                      {proposed
                         .map((item) => {
                           const isSkipped = skipped.has(item.question_id)
                           return (
@@ -617,7 +674,7 @@ export default function BulkTaxonomyDialog({
                     </ul>
                   )}
                 </div>
-              ) : mode === 'manual' ? (
+              ) : (
                 <div className="space-y-4">
                   <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                     Chọn tới tầng nào thì các tầng dưới bị xoá. Ví dụ chỉ chọn Chủ đề thì
@@ -700,73 +757,6 @@ export default function BulkTaxonomyDialog({
                     </select>
                   </Field>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                    <span>
-                      Máy đọc nội dung và đối chiếu bảng luật — không gọi AI, nên chạy lại
-                      luôn ra cùng kết quả. Chế độ này chỉ đặt <strong>Chủ đề</strong>; các
-                      tầng dưới để trống.
-                    </span>
-                  </p>
-
-                  {unknown.length > 0 && (
-                    <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                      <span>
-                        {unknown.length} câu không đủ dấu hiệu để kết luận, sẽ được bỏ qua.
-                        Máy không đoán bừa — những câu này cần gán tay.
-                      </span>
-                    </p>
-                  )}
-
-                  {applicable.length === 0 ? (
-                    <p className="py-8 text-center text-slate-500 dark:text-slate-400">
-                      Không có câu nào máy đủ chắc để đề xuất.
-                    </p>
-                  ) : (
-                    <ul className="divide-y divide-slate-200 dark:divide-slate-700">
-                      {proposals
-                        .filter((item) => item.suggestion !== null)
-                        .map(({ question, suggestion }) => {
-                          const isSkipped = skipped.has(question.id)
-                          return (
-                            <li key={question.id} className="flex items-start gap-3 py-3">
-                              <input
-                                type="checkbox"
-                                checked={!isSkipped}
-                                onChange={() =>
-                                  setSkipped((prev) => {
-                                    const next = new Set(prev)
-                                    if (next.has(question.id)) next.delete(question.id)
-                                    else next.add(question.id)
-                                    return next
-                                  })
-                                }
-                                className="mt-1 h-4 w-4 accent-teal-600"
-                                aria-label={`Áp dụng gợi ý cho câu ${question.id}`}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="line-clamp-2 text-sm text-slate-700 dark:text-slate-300">
-                                  {question.content.replace(/\s+/g, ' ').slice(0, 160)}
-                                </p>
-                                <p className="mt-1 text-xs">
-                                  <span className="font-semibold text-teal-700 dark:text-teal-300">
-                                    {suggestion!.topicName}
-                                  </span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    {' '}
-                                    · {suggestion!.signals.join(', ')}
-                                  </span>
-                                </p>
-                              </div>
-                            </li>
-                          )
-                        })}
-                    </ul>
-                  )}
-                </div>
               )}
 
               {error && (
@@ -803,6 +793,74 @@ export default function BulkTaxonomyDialog({
 
 const selectClass =
   'w-full rounded-xl border border-slate-300 bg-[var(--background-raised)] px-3 py-2.5 text-sm text-slate-800 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100'
+
+/**
+ * Thanh "chọn tất cả" đứng ngay trên danh sách gợi ý.
+ *
+ * VÌ SAO CÓ. Một lượt "Toàn bộ câu chưa phân loại" trả về hàng trăm dòng, và
+ * người soạn đọc lướt rồi muốn áp dụng cả loạt — bấm từng ô là công việc thuần
+ * cơ học, đúng loại việc mà máy phải gánh.
+ *
+ * Ô tick ở đây là BA TRẠNG THÁI: tick khi chọn hết, gạch ngang khi chọn một
+ * phần, trống khi không chọn gì. Trạng thái giữa quan trọng — nếu không có nó
+ * thì người soạn bỏ tick vài dòng xong nhìn lên thấy ô header trống, tưởng vừa
+ * mất hết lựa chọn.
+ */
+function SelectAllBar({
+  selected,
+  total,
+  onSelectAll,
+  onClearAll,
+  warnOverwrite,
+}: {
+  selected: number
+  total: number
+  onSelectAll: () => void
+  onClearAll: () => void
+  /** Phạm vi "Toàn bộ ngân hàng": áp dụng là ghi đè lên phân loại tay đã có. */
+  warnOverwrite: boolean
+}) {
+  const allSelected = selected === total && total > 0
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-300 bg-[var(--background-raised)] px-3 py-2 dark:border-slate-600">
+      <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <input
+          type="checkbox"
+          checked={allSelected}
+          ref={(node) => {
+            // `indeterminate` không có thuộc tính JSX tương ứng — chỉ đặt được
+            // bằng tay trên phần tử DOM.
+            if (node) node.indeterminate = selected > 0 && !allSelected
+          }}
+          onChange={() => (allSelected ? onClearAll() : onSelectAll())}
+          className="h-4 w-4 accent-teal-600"
+        />
+        Chọn tất cả
+      </label>
+
+      <span className="text-sm text-slate-500 dark:text-slate-400">
+        đang chọn {selected}/{total}
+      </span>
+
+      {selected > 0 && (
+        <button
+          type="button"
+          onClick={onClearAll}
+          className="ml-auto rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
+        >
+          Bỏ chọn tất cả
+        </button>
+      )}
+
+      {warnOverwrite && selected > 0 && (
+        <p className="w-full text-xs text-red-700 dark:text-red-300">
+          Phạm vi này chạm cả câu đã phân loại tay — {selected} dòng đang chọn sẽ bị{' '}
+          <strong>ghi đè</strong>, không có nút hoàn tác.
+        </p>
+      )}
+    </div>
+  )
+}
 
 function Field({
   label,

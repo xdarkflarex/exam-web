@@ -14,14 +14,27 @@
 import { ProviderError } from '@/lib/essay-ai/contracts'
 import { readQuestionAuditConfig, type QuestionAuditConfig } from './audit-config.ts'
 import { parseClassifyResult, type ClassifySuggestion, type TaxonomyTree } from './classify-ai.ts'
-import { buildClassifyPrompt } from './classify-ai-prompt.ts'
+import { buildClassifyPrompt, type ClassifyPromptQuestion } from './classify-ai-prompt.ts'
 
 const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions'
 const REQUEST_TIMEOUT_MS = 90_000
 
-/** Giá tham khảo, chỉ để ước tính. Xem ghi chú trong `audit-provider.ts`. */
-const COST_PER_1K_PROMPT_TOKENS_USD = 0.00014
-const COST_PER_1K_COMPLETION_TOKENS_USD = 0.00028
+/**
+ * Giá tham khảo, chỉ để ước tính. Xem ghi chú trong `audit-provider.ts`.
+ *
+ * CẬP NHẬT 2026-09-10 theo bảng giá `deepseek-v4-flash`. Bản trước ghi
+ * 0,00014 / 0,00028 — giá của `deepseek-chat`, một model đã quá hạn khai tử.
+ * Con số cũ nói THẤP HƠN thực tế 1,6–4,7 lần, và nó là con số hiện ra cho
+ * người soạn trong hộp thoại phân loại.
+ *
+ * DeepSeek tính giá theo GIỜ (off-peak rẻ hơn) và theo cache hit/miss. Lấy mức
+ * ĐẮT NHẤT (peak, cache miss) làm ước tính: thà báo cao rồi thực tế rẻ hơn, chứ
+ * báo thấp thì người dùng phát hiện ra lúc nhận hoá đơn.
+ *
+ * peak cache-miss: $0,44/1M vào · $1,32/1M ra
+ */
+const COST_PER_1K_PROMPT_TOKENS_USD = 0.00044
+const COST_PER_1K_COMPLETION_TOKENS_USD = 0.00132
 
 export interface ClassifyBatchResult {
   suggestions: ClassifySuggestion[]
@@ -32,7 +45,7 @@ export interface ClassifyBatchResult {
 
 export interface ClassifyProvider {
   classify(
-    questions: Array<{ id: string; content: string }>,
+    questions: ClassifyPromptQuestion[],
     tree: TaxonomyTree
   ): Promise<ClassifyBatchResult>
 }

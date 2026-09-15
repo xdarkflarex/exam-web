@@ -53,3 +53,10 @@ next-env.d.ts
 .taxonomy-backup-*.json
 .taxonomy-added-*.json
 .theories-published-*.json
+
+# Báo cáo thang lớp do scripts/grade-ladder-report.mjs sinh ra.
+# Dựng lại được bất cứ lúc nào bằng --csv; không phải mã nguồn.
+.thang-lop-*.csv
+
+# Báo cáo đối chiếu ba nguồn do scripts/classify-scan-ai.mjs sinh ra.
+.quet-ai-*.csv

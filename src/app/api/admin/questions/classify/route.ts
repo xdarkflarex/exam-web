@@ -1,9 +1,10 @@
 import { type NextRequest } from 'next/server'
 import { ProviderError } from '@/lib/essay-ai/contracts'
 import { json, requireAuditAdmin } from '@/lib/questions/audit-server'
-import { findRuleConflict, suggestTopic } from '@/lib/questions/classify'
+import { classificationText, findRuleConflict, suggestTopic } from '@/lib/questions/classify'
 import { createDeepSeekClassifyProvider } from '@/lib/questions/classify-ai-provider'
 import type { ClassifySuggestion, TaxonomyTree } from '@/lib/questions/classify-ai'
+import type { ClassifyPromptQuestion } from '@/lib/questions/classify-ai-prompt'
 import { selectScopeIds } from '@/lib/questions/audit-scope'
 
 /**
@@ -23,9 +24,18 @@ import { selectScopeIds } from '@/lib/questions/audit-scope'
  * mô hình chạy lại trên cùng một câu phần lớn cho lại cùng kết quả sai, còn
  * luật thì sửa một lần là hết sai.
  *
- * `deepSummary` là lối thoát cho tình huống ngược lại: luật CÓ đoán được topic
+ * `deepSuggest` là lối thoát cho tình huống ngược lại: luật CÓ đoán được topic
  * nhưng chỉ tới tầng topic, mà người soạn muốn cả đường đi. Bật cờ đó thì AI
  * được hỏi cả những câu luật đã đoán — tốn hơn, nên phải chọn có chủ đích.
+ *
+ * `rulesOnly` là chiều ngược lại nữa: chạy đúng bước 1 rồi dừng, không gọi AI
+ * lần nào. Đây là đường đi của chế độ "Gợi ý tự động" trong `BulkTaxonomyDialog`
+ * — trước bản này hộp thoại tự chạy luật ở client và quên truyền `categories`.
+ *
+ * Hợp đồng của cả lớp phân loại: `docs/CLASSIFICATION_RULES.md`. Ba điều route
+ * này phải giữ, đều ghi ở đó: đọc cả các Ý cho `true_false`/`short_answer`
+ * (mục B2), loại nhánh `sgk-*` khỏi cây trước khi đưa cho model (mục C6), và
+ * hàng rào chỉ TỪ CHỐI chứ không sửa hộ (mục A4).
  */
 
 export const dynamic = 'force-dynamic'
@@ -62,6 +72,17 @@ interface ClassifyBody {
   offset?: unknown
   /** Hỏi AI cả những câu luật đã đoán được topic, để lấy thêm tầng sâu. */
   deepSuggest?: unknown
+  /**
+   * CHỈ chạy lớp luật, không gọi AI một lần nào.
+   *
+   * Đây là cái làm chế độ "Gợi ý tự động" của `BulkTaxonomyDialog` đi chung một
+   * đường với chế độ AI. Trước đó hộp thoại tự gọi `suggestTopic` phía client
+   * và quên truyền `categories`, nên phần lớn luật không khớp được với cây —
+   * cùng một câu cho hai kết quả khác nhau tuỳ người soạn bấm nút nào.
+   * `docs/CLASSIFICATION_RULES.md` mục 9 gọi đó là lỗi "bốn bề mặt, bốn cách
+   * bảo vệ"; cờ này xoá bề mặt thứ hai đi thay vì vá nó.
+   */
+  rulesOnly?: unknown
 }
 
 export async function POST(request: NextRequest) {
@@ -76,7 +97,10 @@ export async function POST(request: NextRequest) {
     return json({ error: 'Body không phải JSON.', code: 'BAD_REQUEST' }, 400)
   }
 
-  const deepSuggest = body.deepSuggest === true
+  const rulesOnly = body.rulesOnly === true
+  // `rulesOnly` thắng: không có AI thì "hỏi sâu hơn" không có nghĩa gì, và để
+  // hai cờ cùng bật là mở đường cho một lần gọi tính tiền ngoài ý muốn.
+  const deepSuggest = body.deepSuggest === true && !rulesOnly
   const offset = Number.isInteger(body.offset) ? Math.max(0, body.offset as number) : 0
 
   let questionIds: string[]
@@ -123,29 +147,83 @@ export async function POST(request: NextRequest) {
     return json({ error: 'Không có câu nào trong phạm vi này.', code: 'NO_QUESTIONS' }, 400)
   }
 
-  const [questionsRes, topicsRes, categoriesRes, sectionsRes, subsectionsRes] = await Promise.all([
-    admin.from('questions').select('id, content').in('id', questionIds),
-    admin.from('topics').select('id, name').order('order_index'),
-    admin.from('categories').select('id, name, topic_id').order('order_index'),
-    admin.from('sections').select('id, name, category_id, topic_id').order('order_index'),
-    admin.from('subsections').select('id, name, section_id').order('order_index'),
-  ])
+  const [questionsRes, answersRes, topicsRes, categoriesRes, sectionsRes, subsectionsRes] =
+    await Promise.all([
+      admin.from('questions').select('id, content, question_type, solution').in('id', questionIds),
+      /* Các Ý của câu Đúng/Sai và trả lời ngắn — `docs/CLASSIFICATION_RULES.md`
+         mục B2. Đề của chúng nhiều khi chỉ là "Cho hàm số $y=f(x)$ có đồ thị
+         như hình vẽ."; mọi từ khoá quyết định nằm ở các ý. Không đọc chúng thì
+         route này thấy ít chữ hơn hẳn `scripts/classify-by-rules.mjs`, và cùng
+         một câu ra hai kết quả tuỳ chạy ở đâu. */
+      admin.from('answers').select('question_id, content').in('question_id', questionIds),
+      admin.from('topics').select('id, name').order('order_index'),
+      admin.from('categories').select('id, name, topic_id').order('order_index'),
+      admin.from('sections').select('id, name, category_id, topic_id').order('order_index'),
+      admin.from('subsections').select('id, name, section_id').order('order_index'),
+    ])
+
+  /*
+    LỌC BỎ NHÁNH `sgk-*` — `docs/CLASSIFICATION_RULES.md` mục C6.
+
+    Ngân hàng câu hỏi phân loại theo cây CŨ; cây `sgk-*` là của lý thuyết và
+    `/learn`, và đang có 0 câu hỏi (quyết định của chủ dự án 2026-09-04, giữ cả
+    hai cây). Trước bản này, cả cây `sgk-*` được nhét vào prompt, nên model
+    hoàn toàn có thể xếp một câu vào `sgk-l12-c01-bai03` — một nhánh hợp lệ,
+    qua được validator, và không màn nào bốc tới. Sai kiểu đó im lặng tuyệt đối.
+  */
+  const isOldTree = (id: unknown) => !String(id ?? '').startsWith('sgk-')
 
   const tree: TaxonomyTree = {
-    topics: topicsRes.data ?? [],
-    categories: categoriesRes.data ?? [],
-    sections: sectionsRes.data ?? [],
-    subsections: subsectionsRes.data ?? [],
+    topics: (topicsRes.data ?? []).filter((row) => isOldTree(row.id)),
+    categories: (categoriesRes.data ?? []).filter((row) => isOldTree(row.id)),
+    sections: (sectionsRes.data ?? []).filter((row) => isOldTree(row.id)),
+    subsections: (subsectionsRes.data ?? []).filter((row) => isOldTree(row.id)),
   }
   if (tree.topics.length === 0) {
     return json({ error: 'Cây chuyên đề đang trống.', code: 'EMPTY_TREE' }, 400)
   }
 
-  const questions = (questionsRes.data ?? []) as Array<{ id: string; content: string }>
+  const questions = (questionsRes.data ?? []) as Array<{
+    id: string
+    content: string
+    question_type: string | null
+    solution: string | null
+  }>
+
+  const answersByQuestion = new Map<string, string[]>()
+  for (const row of (answersRes.data ?? []) as Array<{
+    question_id: string
+    content: string | null
+  }>) {
+    const list = answersByQuestion.get(row.question_id)
+    if (list) list.push(row.content ?? '')
+    else answersByQuestion.set(row.question_id, [row.content ?? ''])
+  }
+
+  /**
+   * Chuỗi đem đi phân loại, theo id.
+   *
+   * Tính MỘT lần và dùng cho cả lớp luật lẫn hàng rào chặn AI. Hai chỗ đó phải
+   * đọc cùng một văn bản — hàng rào phản đối dựa trên chữ mà lớp luật không
+   * được thấy là một hàng rào không giải thích nổi cho người duyệt.
+   */
+  const textFor = new Map<string, string>(
+    questions.map((question) => [
+      question.id,
+      classificationText(
+        question.content ?? '',
+        question.question_type,
+        answersByQuestion.get(question.id) ?? [],
+        /* Lời giải là lập luận ĐÚNG của người soạn — nó trả lời thẳng câu hỏi
+           "việc phải làm ở đây là gì". Xem `classificationText`. */
+        question.solution
+      ),
+    ])
+  )
 
   // --- Bước 1: lớp luật, chạy trên mọi câu -----------------------------------
   const suggestions: ClassifySuggestion[] = []
-  const needAi: Array<{ id: string; content: string }> = []
+  const needAi: ClassifyPromptQuestion[] = []
   let byRule = 0
   /** Số gợi ý AI bị hàng rào luật từ chối. Hiện cho người duyệt biết, không giấu. */
   let rejectedByRule = 0
@@ -154,7 +232,7 @@ export async function POST(request: NextRequest) {
     /* Truyền CẢ `categories`. Thiếu nó thì lớp luật gần như chết: tên môn học
        thật ("Cấp số cộng", "Lượng giác (Lớp 11)"...) nằm ở tầng chương, không
        phải tầng chủ đề — xem khối chú thích đầu `classify.ts`. */
-    const ruleHit = suggestTopic(question.content ?? '', tree.topics, tree.categories)
+    const ruleHit = suggestTopic(textFor.get(question.id) ?? '', tree.topics, tree.categories)
 
     if (ruleHit && !deepSuggest) {
       suggestions.push({
@@ -174,7 +252,18 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    needAi.push({ id: question.id, content: question.content ?? '' })
+    /* Gửi ĐỦ ba phần cho model, đúng thứ mà lớp luật vừa đọc. Trước bản này
+       model chỉ thấy `content`, nên nó mù đúng chỗ luật mù — và cả hai cùng xếp
+       sai một câu cấp số cộng vào chương Thống kê. */
+    needAi.push({
+      id: question.id,
+      content: question.content ?? '',
+      answers:
+        question.question_type === 'true_false' || question.question_type === 'short_answer'
+          ? (answersByQuestion.get(question.id) ?? [])
+          : undefined,
+      solution: question.solution,
+    })
   }
 
   // --- Bước 2: AI, chỉ cho phần còn lại --------------------------------------
@@ -183,7 +272,7 @@ export async function POST(request: NextRequest) {
   let costUsd = 0
   const failedBatches: string[] = []
 
-  if (needAi.length > 0) {
+  if (needAi.length > 0 && !rulesOnly) {
     let provider
     try {
       provider = createDeepSeekClassifyProvider()
@@ -211,10 +300,9 @@ export async function POST(request: NextRequest) {
           chính là thứ đang hỏng. Bị từ chối thì câu về nhóm "máy chịu" và người
           soạn quyết — đúng như thiết kế của cả luồng này.
         */
-        const byId = new Map(batch.map((item) => [item.id, item.content]))
         for (const item of result.suggestions) {
           const conflict = findRuleConflict(
-            byId.get(item.question_id) ?? '',
+            textFor.get(item.question_id) ?? '',
             { topicId: item.topic_id, categoryId: item.category_id },
             tree.topics,
             tree.categories,
@@ -250,8 +338,16 @@ export async function POST(request: NextRequest) {
     offset,
     /** Số câu lớp luật tự xử được, không tốn một đồng API nào. */
     byRule,
-    /** Số câu đã phải hỏi model. */
-    askedAi: needAi.length,
+    /** Số câu đã phải hỏi model. 0 khi `rulesOnly` — không gọi lần nào. */
+    askedAi: rulesOnly ? 0 : needAi.length,
+    /**
+     * Lượt này có gọi AI không, và bao nhiêu câu luật đành chịu.
+     *
+     * Ở chế độ chỉ-luật thì `unresolved` mang nghĩa khác hẳn: không phải "cả
+     * máy lẫn AI đều chịu" mà là "luật chịu, chưa hỏi AI". Trang phải nói đúng
+     * nghĩa đó, nên nó cần biết mình đang ở chế độ nào.
+     */
+    rulesOnly,
     /**
      * Số gợi ý của model bị HÀNG RÀO LUẬT từ chối vì mâu thuẫn với bằng chứng
      * trong đề bài.

@@ -241,3 +241,25 @@ test('không có `categories` thì vẫn chạy như bản cũ, không nổ', ()
   assert.equal(s?.topicId, 't1')
   assert.equal(s?.categoryId, null)
 })
+
+/*
+  KHOÁ CHỐNG LỆCH GIỮA HAI KHO.
+
+  `question-bank` chạy cùng lớp luật này trên cùng một Supabase, nhưng nó là kho
+  riêng, không có test runner, và không có gì ép hai bên giống nhau ngoài một
+  dòng chú thích. Đo 2026-09-08: hai bản đã lệch ở 8 điểm.
+
+  Phép thử này so bản đã sinh với bản đang nằm bên đó. Nó TỰ BỎ QUA khi không có
+  kho anh em — máy chỉ clone một kho vẫn chạy test được — nhưng khi kho có mặt
+  mà lệch thì đỏ, chứ không im lặng.
+*/
+test('lớp luật bên question-bank khớp bản gốc', async () => {
+  const { checkSync } = await import('../../../scripts/classify-rules-sync.mjs')
+  const result = checkSync()
+  if (result.skipped) return
+  assert.deepEqual(
+    result.drifted,
+    [],
+    'Chạy `node scripts/classify-rules-sync.mjs --apply` để đồng bộ lại question-bank.',
+  )
+})

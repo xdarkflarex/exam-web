@@ -16,6 +16,7 @@ Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn
    - [`DATA_MODEL.md`](DATA_MODEL.md)
    - [`SCORING.md`](SCORING.md): thang điểm Bộ GD&ĐT, bậc thang Đúng/Sai, quy đổi thang 10. **Đọc trước khi chạm bất cứ đường tính điểm nào**
    - [`ESSAY_GRADING.md`](ESSAY_GRADING.md) cho pilot tự luận simulation, copy/paste AI và giáo viên duyệt
+   - [`CLASSIFICATION_RULES.md`](CLASSIFICATION_RULES.md): bộ luật phân loại câu hỏi dùng chung cho `exam-web` và `question-bank`, kèm thang lớp suy ra từ kiến thức. **Đọc trước khi chạm lớp luật hoặc chạy phân loại hàng loạt**
    - [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)
    - [`DESIGN_TODO.md`](DESIGN_TODO.md): việc design còn lại, có số đo tương phản và 4 bất biến theme không được phá
    - [`STUDENT_SKILL_TREE_REDESIGN.md`](STUDENT_SKILL_TREE_REDESIGN.md): kế hoạch thiết kế lại cây kỹ năng và trang học sinh (chưa thi công)
@@ -38,6 +39,7 @@ Bộ này thay thế các wiki/checklist/plan cũ. Mục tiêu là một nguồn
 | Bảng/view/RPC/RLS/migration | `DATA_MODEL.md`, `SECURITY_AND_AUDIT.md` |
 | Trọng số câu, hàm chấm, quy đổi điểm | `SCORING.md`, `DATA_MODEL.md`, `RUNBOOK.md` |
 | Câu tự luận/rubric/AI hỗ trợ | `ESSAY_GRADING.md`, `SCORING.md`, `DATA_MODEL.md`, `SECURITY_AND_AUDIT.md` |
+| Lớp luật phân loại, cây taxonomy, thang lớp | `CLASSIFICATION_RULES.md`, `DATA_MODEL.md` |
 | Env/build/deploy/MCP | `RUNBOOK.md`, `.env.example` |
 | UI token/component/UX | `DESIGN_SYSTEM.md` |
 | Sửa giao diện sáng/tối, tương phản | `DESIGN_TODO.md` (việc còn lại) + `DESIGN_SYSTEM.md` (quy tắc) |

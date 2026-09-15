@@ -235,3 +235,34 @@ test('chuỗi rỗng được coi như null, không phải id rỗng', () => {
   assert.equal(result[0].section_id, null)
   assert.equal(result[0].subsection_id, null)
 })
+
+/*
+  HƯỚNG DẪN ĐỌC ĐỀ PHẢI CÓ TRONG PROMPT.
+
+  Có BA prompt phân loại chạy trên cùng ngân hàng — một bên exam-web, hai bên
+  question-bank. Đo 2026-09-08: chỉ một trong ba có hướng dẫn này, dù nó mô tả
+  đúng lỗi đã đếm được (112 câu cấp số bị xếp sang tổ hợp/thống kê vì ký hiệu).
+
+  Đoạn hướng dẫn sống trong `classify.ts` để đi nhờ khoá đồng bộ giữa hai kho.
+  Phép thử này chặn nốt đường còn lại: ai đó dựng lại prompt và quên chèn nó vào
+  thì hỏng im lặng — prompt vẫn chạy, vẫn trả JSON hợp lệ, chỉ là kém đi.
+*/
+test('prompt có kèm hướng dẫn đọc đề', async () => {
+  const { buildClassifyPrompt } = await import('./classify-ai-prompt.ts')
+  const { HUONG_DAN_DOC_DE } = await import('./classify.ts')
+
+  const prompt = buildClassifyPrompt({
+    questions: [{ id: 'q1', content: 'Tính $\int_0^1 x\,dx$' }],
+    tree: {
+      topics: [{ id: 't1', name: 'Đại số' }],
+      categories: [{ id: 'c1', name: 'Nguyên hàm', topic_id: 't1' }],
+      sections: [],
+      subsections: [],
+    },
+  })
+
+  assert.ok(prompt.includes(HUONG_DAN_DOC_DE), 'Thiếu đoạn hướng dẫn đọc đề trong prompt.')
+  // Hai điều cụ thể, để đoạn hướng dẫn không bị rút gọn thành một câu vô thưởng.
+  assert.match(prompt, /CHỮ TRONG ĐỀ quyết định/)
+  assert.match(prompt, /BỐI CẢNH ĐỜI SỐNG/)
+})

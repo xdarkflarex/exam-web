@@ -59,7 +59,7 @@ async function all(path, page = 500) {
   }
 }
 
-const questions = await all('questions?select=id,content,question_type&order=id.asc')
+const questions = await all('questions?select=id,content,question_type,solution&order=id.asc')
 /* Đáp án của câu Đúng/Sai và trả lời ngắn mang phần lớn từ khoá — xem
    `classificationText`. Không đọc chúng thì 86 câu có đề dưới 120 ký tự gần như
    không có gì để luật bám vào. */
@@ -93,6 +93,8 @@ for (const question of questions) {
     question.content ?? '',
     question.question_type,
     answersByQuestion.get(question.id) ?? [],
+    /* Lời giải: 159 câu luật chịu trên đề thì quyết được khi đọc thêm nó. */
+    question.solution,
   )
   const current = taxById.get(question.id)
   const hit = suggestTopic(content, topics, categories)

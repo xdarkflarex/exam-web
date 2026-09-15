@@ -1,6 +1,11 @@
 /**
  * Gợi ý phân loại cho câu hỏi Toán THPT, dựa trên dấu hiệu trong nội dung.
  *
+ * HỢP ĐỒNG: `docs/CLASSIFICATION_RULES.md`. Đọc trước khi sửa bảng `RULES` hoặc
+ * bất kỳ biểu thức chính quy nào ở đây — tài liệu đó ghi vì sao từng luật tồn
+ * tại, đo được bao nhiêu, và những bẫy đã tốn thời gian (mẫu chết sau chuẩn
+ * hoá, khớp chuỗi con, chú thích hình quyết định nhầm mạch).
+ *
  * VÌ SAO LUẬT CHỨ KHÔNG PHẢI AI. Chỗ này đang đi SỬA những câu mà AI phân loại
  * sai. Chạy lại cùng một mô hình trên cùng một câu phần lớn sẽ ra lại cùng một
  * kết quả sai, chỉ tốn thêm tiền và thêm một lượt chờ. Luật thì đọc được, sửa
@@ -126,7 +131,38 @@ const RULES: readonly Rule[] = [
       /* LỚP 10 — hàm số bậc hai. Đề thường KHÔNG nói chữ "parabol" hay "bậc
          hai"; nó viết thẳng `y = ax^2 + bx + c`, `(P):`, hoặc nói "đỉnh I".
          Thiếu ba mẫu này thì 19 câu lớp 10 bị kéo sang giải tích lớp 12. */
-      /parabol/, /bậc hai/, /tam thức/, /\(p\) ?:/, /đỉnh ?i\(/, /x\^2 ?\+ ?bx/, /ax\^2/,
+      /parabol/, /bậc hai/, /tam thức/, /đỉnh ?i\(/, /x\^2 ?\+ ?bx/, /ax\^2/,
+      /* `(P):` — bộ chuẩn hoá XOÁ dấu hai chấm, nên mẫu `/\(p\) ?:/` của bản
+         trước khớp 0 câu trong khi có 7 câu viết `(P):` ở văn bản thô. Đây đúng
+         là cái bẫy mục B4 của hợp đồng nói tới: mẫu chết mà không ai biết.
+         Viết lại cho văn bản ĐÃ chuẩn hoá. */
+      /\(p\) ?y ?=/, /\(p\) có phương trình/,
+      /* Hệ số bằng SỐ, không phải chữ: `y = -4x^2 + 16x + 2025`. Mẫu `ax^2` chỉ
+         bắt được dạng tổng quát.
+         Phần `(?!.*x\^[3-9])` là BẮT BUỘC và là bài học phải trả giá: bản đầu
+         viết `/\d+x\^2 ?[-+]/` trần, và nó bắt luôn `y = -x^3 + 3x^2 + 2` —
+         một hàm bậc BA, tức mạch giải tích lớp 12. Phép thử "khớp được chủ đề
+         có chữ Đ hoa" đỏ ngay, đúng việc của nó.
+         Cố ý KHÔNG bắt `\frac...x^2` hay `\sqrt x^2`: hàm hữu tỉ và hàm căn
+         chứa `x^2` là mạch giải tích thật. */
+      /^(?!.*x\^[3-9])(?=.*\d+x\^2 ?[-+])/,
+      /* NGUYÊN HÀM – TÍCH PHÂN. Loại trừ phải ĐỐI XỨNG (hợp đồng mục C3): luật
+         Hình học không gian đã loại `tích phân`, nhưng luật này thì chưa, nên
+         "diện tích hình phẳng giới hạn bởi ĐỒ THỊ hàm số" bị kéo về đây. */
+      /* `hình phẳng` chứ không phải `diện tích hình phẳng`: đề thật viết "diện
+         tích $S$ của hình phẳng giới hạn bởi…", có ký hiệu chen vào giữa. */
+      /nguyên hàm/, /tích phân/, /\\int/, /hình phẳng/,
+      /* QUY HOẠCH TUYẾN TÍNH LỚP 10. "Tìm giá trị lớn nhất của $F = x-y+2024$
+         trên miền nghiệm của hệ bất phương trình" khớp `giá trị lớn nhất` rồi
+         bị đòi chuyển sang giải tích lớp 12 — đo được 7 câu. Xét giá trị tại
+         các đỉnh của miền đa giác, không có đạo hàm nào. */
+      /miền nghiệm/, /hệ bất phương trình/,
+      /* Không phải đề nào cũng gõ chữ "hệ bất phương trình" — có đề chỉ viết
+         "Tìm giá trị lớn nhất của biểu thức $F(x; y)$ với điều kiện $\begin{cases}…$".
+         Hàm HAI BIẾN là dấu hiệu riêng của quy hoạch tuyến tính; giải tích THPT
+         không có hàm hai biến. Chuẩn hoá xoá dấu chấm phẩy nên `F(x; y)` thành
+         `f(x y)`. */
+      /[a-z]\(x y\)/,
       /* LƯỢNG GIÁC — đề mô tả hình bằng CHỮ TIẾNG VIỆT ("đồ thị hàm tang",
          "đường hình sin"), không bằng lệnh LaTeX, nên chặn theo `\sin` là hụt. */
       /lượng giác/, /\\sin/, /\\cos/, /\\tan/, /\\cot/,
@@ -245,8 +281,33 @@ const RULES: readonly Rule[] = [
   {
     label: 'Giới hạn',
     match: [/\\lim/, /giới hạn của dãy/, /liên tục tại/],
-    categoryHints: ['giới hạn', 'liên tục'],
-    topicHints: ['giới hạn', 'liên tục'],
+    /*
+      HINT `'liên tục'` ĐÃ BỊ GỠ — nó là một luật TỰ TIN SAI, và nó đã ghi vào
+      dữ liệu thật.
+
+      Cây câu hỏi KHÔNG có chương nào tên "Giới hạn". Chương DUY NHẤT chứa chữ
+      "liên tục" là "Thống kê **liên tục** (Bảng số liệu ghép nhóm - Lớp 11 +
+      12)" — một chương thống kê. Nên hint này khớp đúng một chương, tức
+      `catMatches.length === 1`, tức luật tưởng mình chắc chắn, và mọi câu có
+      `\lim` bị đẩy vào chương THỐNG KÊ.
+
+      Đo 2026-09-10: 6 câu giới hạn đang nằm trong chương Thống kê liên tục vì
+      lỗi này — và tệ hơn, `findRuleConflict` BẢO VỆ chỗ sai đó. Một gợi ý đúng
+      ("Một số yếu tố giải tích") gửi lên sẽ bị chính hàng rào từ chối.
+
+      Đây là ca xấu nhất mà mục A2/C4 nói tới: khớp nhầm một nhánh còn nguy hiểm
+      hơn không khớp nhánh nào, vì im lặng thì người soạn nhìn thấy, còn sai mà
+      tự tin thì không ai nhìn thấy.
+
+      Giữ `'giới hạn'` là vô hại: không nhánh nào trong cây cũ mang tên đó, nên
+      luật trả `null` và câu về hàng đợi người quyết — đúng như thiết kế. Cây
+      nào có chương "Giới hạn" thật thì hint vẫn khớp được.
+
+      NỢ TAXONOMY: cây cũ không có chỗ cho mạch giới hạn - hàm số liên tục
+      (Lớp 11). 6 câu đó hiện không có nhà đúng.
+    */
+    categoryHints: ['giới hạn'],
+    topicHints: ['giới hạn'],
   },
   {
     label: 'Lượng giác',
@@ -305,6 +366,51 @@ const RULES: readonly Rule[] = [
 ]
 
 /**
+ * Đoạn hướng dẫn ĐỌC ĐỀ, nhét vào mọi prompt gửi cho model.
+ *
+ * ==========================================================================
+ * VÌ SAO NÓ NẰM Ở ĐÂY, TRONG FILE LUẬT, CHỨ KHÔNG NẰM CẠNH TỪNG PROMPT
+ *
+ * Có BA prompt phân loại chạy trên cùng một ngân hàng: `classify-ai-prompt.ts`
+ * bên exam-web, và hai file bên question-bank (đường một câu, đường theo lô).
+ * Đo 2026-09-08: chỉ một trong ba có đoạn "chữ trong đề quyết định"; hai cái
+ * kia không có gì, dù đó chính là mô tả của lỗi đã đo được.
+ *
+ * File này được `scripts/classify-rules-sync.mjs` chép sang question-bank và có
+ * phép thử chặn lệch. Đặt đoạn hướng dẫn ở đây là cho nó đi nhờ đúng cái khoá
+ * đó — sửa một lần, ba prompt cùng đổi, và không có đường nào để chúng lệch
+ * nhau trong im lặng.
+ * ==========================================================================
+ *
+ * HAI ĐIỀU, KHÔNG PHẢI MƯỜI. Prompt dài thì model đọc loãng, và mỗi dòng thêm
+ * vào là tiền trả cho MỌI lô. Chỉ giữ hai điều đã ĐO ĐƯỢC là nguồn sai lớn:
+ * nhầm ký hiệu với chủ đề (112 câu), và không nhận ra nhánh "thực tiễn".
+ *
+ * Những luật còn lại KHÔNG đưa vào đây: chúng được ép bằng code
+ * (`findRuleConflict` từ chối ở đầu ra) — chắc chắn hơn nhiều so với dặn model
+ * rồi hy vọng nó nghe. Thang lớp càng không: model chọn NHÁNH, không chọn lớp.
+ */
+export const HUONG_DAN_DOC_DE = `CÁCH ĐỌC ĐỀ — hai nguồn sai đã đo được trên ngân hàng thật
+
+A. CHỮ TRONG ĐỀ quyết định, KHÔNG phải ký hiệu xuất hiện trong công thức.
+   - Hàm \\sin trong một câu tìm giá trị lớn nhất KHÔNG biến nó thành câu lượng
+     giác; việc phải làm là đạo hàm, nên nó thuộc mạch giải tích.
+   - u_n trong một câu cấp số nhân KHÔNG biến nó thành câu tổ hợp.
+   - \\log trong f'(x) = (x-4)^2 \\log x KHÔNG biến nó thành câu mũ - lôgarit;
+     đó là câu cực trị.
+   Ký hiệu cho biết đề NHẮC TỚI cái gì. Việc cho biết đề BẮT LÀM cái gì. Phân
+   loại theo cái thứ hai.
+
+B. ĐỀ CÓ BỐI CẢNH ĐỜI SỐNG thì ưu tiên nhánh "ứng dụng ... thực tiễn" / "bài
+   toán kinh tế" nếu cây có nhánh đó, thay vì nhánh lý thuyết cùng chủ đề.
+   - Dấu hiệu chủ thể: một doanh nghiệp, một nhà máy, một trang trại, ông A dự
+     định, vận động viên, người ta muốn, theo thống kê.
+   - Dấu hiệu đại lượng: chi phí, doanh thu, lợi nhuận, giá bán, sản phẩm,
+     vận tốc, quãng đường, dân số, lãi suất.
+   - ĐƠN VỊ ĐO ĐƠN THUẦN KHÔNG TÍNH: "hình chóp S.ABC có SA = 3 cm" đầy đơn vị
+     mà vẫn là bài hình học thuần tuý.`
+
+/**
  * Chuỗi đem đi phân loại: đề bài, cộng thêm các Ý với hai dạng câu mà đề bài
  * gần như trống.
  *
@@ -323,10 +429,38 @@ export function classificationText(
   content: string,
   questionType: string | null | undefined,
   answers: readonly string[] = [],
+  solution?: string | null,
 ): string {
-  if (questionType !== 'true_false' && questionType !== 'short_answer') return content ?? ''
-  const extra = answers.filter(Boolean).join(' ')
-  return extra ? `${content ?? ''} ${extra}` : (content ?? '')
+  const parts: string[] = [content ?? '']
+
+  if (questionType === 'true_false' || questionType === 'short_answer') {
+    parts.push(...answers.filter(Boolean))
+  }
+
+  /*
+    LỜI GIẢI ĐỌC CHO MỌI DẠNG CÂU — thêm 2026-09-10.
+
+    Ca dẫn tới thay đổi này: một câu trồng cây theo hàng giảm dần bị xếp vào
+    chương THỐNG KÊ. Đề chỉ viết "hàng thứ nhất trồng 10 cây, hàng sau ít hơn
+    1 cây"; chữ "cấp số cộng" nằm nguyên trong `solution`. Luật mù, và model
+    cũng mù vì prompt chỉ gửi `content`. Đo trên ngân hàng thật: **159 câu**
+    luật đang chịu sẽ quyết được khi đọc thêm lời giải.
+
+    KHÁC các Ý ở chỗ nào. Ý của trắc nghiệm là BẪY do người ra đề cố tình đặt —
+    ba trên bốn phương án là công thức của mạch khác. Lời giải thì ngược lại:
+    nó là lập luận ĐÚNG của chính người soạn, nên đọc nó là đọc câu trả lời cho
+    câu hỏi "việc phải làm ở đây là gì" (mục C1).
+
+    RỦI RO ĐÃ BIẾT, và nó có thật: lời giải nói KỸ THUẬT, không phải chủ đề.
+    Câu `u_{n+1} = 4u_n - 1` có lời giải "đặt $v_n$ ta có cấp số nhân" — kỹ
+    thuật đặt ẩn phụ, còn câu thì thuộc mạch dãy số truy hồi. Đo được: chỉ 6
+    câu đổi kết luận, và bảng luật vẫn có `exclude` để chặn phần lớn kiểu này.
+    Đổi 159 lấy 6 là đáng; nhưng khi một luật bắt oan, hãy nhớ nhìn cả lời giải
+    chứ không chỉ đề.
+  */
+  if (solution) parts.push(solution)
+
+  return parts.filter(Boolean).join(' ')
 }
 
 /** Bỏ dấu tiếng Việt để so tên nhánh chịu được cách gõ khác nhau. */

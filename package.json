@@ -16,7 +16,9 @@
     "theories:import": "node --env-file=.env --experimental-strip-types scripts/import-theories-from-latex.mjs",
     "theories:publish": "node --env-file=.env --experimental-strip-types scripts/publish-theories.mjs",
     "theories:check-math": "node --env-file=.env scripts/check-theory-math.mjs",
-    "questions:classify-rules": "node --env-file=.env --experimental-strip-types scripts/classify-by-rules.mjs"
+    "questions:classify-rules": "node --env-file=.env --experimental-strip-types scripts/classify-by-rules.mjs",
+    "questions:classify-sync": "node scripts/classify-rules-sync.mjs",
+    "questions:classify-sync:apply": "node scripts/classify-rules-sync.mjs --apply"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

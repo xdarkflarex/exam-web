@@ -6,19 +6,48 @@
  * lần. Gửi từng câu một nghĩa là trả tiền cho cả cây 297 lần. Gộp 10 câu một
  * lô chia chi phí đó cho 10.
  *
- * Không có dữ liệu học sinh trong payload: chỉ nội dung câu hỏi và tên các
- * nhánh trong cây.
+ * Không có dữ liệu học sinh trong payload: chỉ ĐỀ BÀI, CÁC Ý, LỜI GIẢI của
+ * người soạn, và tên các nhánh trong cây. Cả ba đều là tài liệu do giáo viên
+ * viết ra, không phải bài làm hay hồ sơ của học sinh — `AGENTS.md` mục 5 cấm
+ * gửi profile, email, lớp hoặc định danh học sinh, và không có thứ nào ở đây.
+ *
+ * LỜI GIẢI được thêm 2026-09-10. Lý do đo được: 159 câu mà lớp luật chịu trên
+ * đề bài thì quyết được khi đọc thêm lời giải — chữ quyết định ("cấp số cộng")
+ * nhiều khi chỉ nằm ở đó, không nằm trong đề.
  */
 
 import { CLASSIFY_SCHEMA, type TaxonomyTree } from './classify-ai.ts'
+import { HUONG_DAN_DOC_DE } from './classify.ts'
+
+export interface ClassifyPromptQuestion {
+  id: string
+  content: string
+  /** Các Ý — chỉ có với `true_false`/`short_answer`, xem hợp đồng mục B2. */
+  answers?: readonly string[]
+  /** Lời giải của người soạn. Xem `classificationText` và hợp đồng mục B2. */
+  solution?: string | null
+}
 
 export interface ClassifyPromptInput {
-  questions: Array<{ id: string; content: string }>
+  questions: ClassifyPromptQuestion[]
   tree: TaxonomyTree
 }
 
 /** Cắt nội dung câu trong prompt: phân loại chỉ cần phần đầu để nhận dạng. */
 const MAX_CONTENT_LENGTH = 600
+
+/**
+ * Trần riêng cho LỜI GIẢI.
+ *
+ * Lời giải là trường dài nhất trong ngân hàng — trung bình 522 ký tự nhưng p99
+ * lên 3817 và dài nhất 8306. Không cắt thì một lô 10 câu nặng có thể nuốt hơn
+ * 60 000 ký tự, và phần đuôi lời giải gần như chỉ là số học, không còn dấu hiệu
+ * chủ đề nào. 800 ký tự phủ p90 (1444) tới quá nửa và giữ lô ở mức đoán được.
+ */
+const MAX_SOLUTION_LENGTH = 800
+
+/** Trần cho phần Ý gộp lại. Chúng ngắn (p90 = 248 ký tự) nên hiếm khi chạm. */
+const MAX_ANSWERS_LENGTH = 500
 
 /**
  * Cây dạng thụt đầu dòng, kèm id.
@@ -52,10 +81,21 @@ function renderTree(tree: TaxonomyTree): string {
 
 export function buildClassifyPrompt(input: ClassifyPromptInput): string {
   const questionBlock = input.questions
-    .map(
-      (question, index) =>
-        `[${index + 1}] question_id=${question.id}\n${question.content.slice(0, MAX_CONTENT_LENGTH).trim()}`
-    )
+    .map((question, index) => {
+      /* Nhãn rõ ràng cho từng phần. Model phải phân biệt được đâu là đề, đâu là
+         Ý, đâu là lời giải — ba thứ có trọng lượng khác nhau khi chọn mạch, và
+         gộp chúng thành một khối văn bản là vứt mất thông tin đó. */
+      const lines = [
+        `[${index + 1}] question_id=${question.id}`,
+        `ĐỀ: ${question.content.slice(0, MAX_CONTENT_LENGTH).trim()}`,
+      ]
+      const answers = (question.answers ?? []).filter(Boolean).join(' | ')
+      if (answers) lines.push(`CÁC Ý: ${answers.slice(0, MAX_ANSWERS_LENGTH).trim()}`)
+      if (question.solution) {
+        lines.push(`LỜI GIẢI: ${question.solution.slice(0, MAX_SOLUTION_LENGTH).trim()}`)
+      }
+      return lines.join('\n')
+    })
     .join('\n\n')
 
   return `Bạn là giáo viên Toán THPT Việt Nam đang xếp câu hỏi vào cây chuyên đề của một ngân hàng đề.
@@ -76,6 +116,8 @@ LUẬT BẮT BUỘC
 5. Không tìm được nhánh nào hợp thì để **topic_id = null** và cả ba tầng dưới
    cũng null. Đây là câu trả lời hợp lệ và hãy dùng nó thật — cây này không nhất
    thiết phủ hết mọi câu trong ngân hàng.
+
+${HUONG_DAN_DOC_DE}
 
 CÁC CÂU CẦN XẾP
 ${questionBlock}
