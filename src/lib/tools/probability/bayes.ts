@@ -134,7 +134,7 @@ export function probTex(f: Frac): string {
 }
 
 /** Chỉ con số, không kèm ≈ — dùng giữa biểu thức. */
-function valTex(f: Frac): string {
+export function valTex(f: Frac): string {
   const d = f.toDecimal(6)
   if (d.exact) return decimalTex(d.text)
   return f.d <= BigInt(1000) ? f.toTex() : decimalTex(f.toDecimal(4).text)
@@ -145,7 +145,9 @@ export function formatPercent(f: Frac, digits = 1): string {
 }
 
 export interface BayesSection {
-  key: 'complement' | 'multiply' | 'total' | 'bayes'
+  key: 'complement' | 'multiply' | 'total' | 'bayes' | 'derive'
+  /** Nhãn trên tab. */
+  short: string
   title: string
   lines: string[]
   /** Nhánh cần tô sáng trên cây. */
@@ -157,6 +159,7 @@ export function bayesSections(input: BayesInput, r: BayesResult): BayesSection[]
   const out: BayesSection[] = [
     {
       key: 'complement',
+      short: 'Biến cố đối',
       title: 'Xác suất của biến cố đối',
       lines: [
         `$P(\\overline{A}) = 1 - P(A) = 1 - ${valTex(pA)} = ${probTex(r.pNotA)}$.`,
@@ -166,6 +169,7 @@ export function bayesSections(input: BayesInput, r: BayesResult): BayesSection[]
     },
     {
       key: 'multiply',
+      short: 'Công thức nhân',
       title: 'Công thức nhân — đi dọc một nhánh cây',
       lines: [
         `$P(A \\cap B) = P(A) \\cdot P(B \\mid A) = ${valTex(pA)} \\cdot ${valTex(pBgivenA)} = ${probTex(r.pAB)}$.`,
@@ -176,6 +180,7 @@ export function bayesSections(input: BayesInput, r: BayesResult): BayesSection[]
     },
     {
       key: 'total',
+      short: 'Toàn phần',
       title: 'Công thức xác suất toàn phần',
       lines: [
         'Biến cố $B$ xảy ra theo **hai** nhánh: qua $A$ hoặc qua $\\overline{A}$. Cộng hai lá có $B$:',
@@ -187,6 +192,7 @@ export function bayesSections(input: BayesInput, r: BayesResult): BayesSection[]
   if (r.pAgivenB === null) {
     out.push({
       key: 'bayes',
+      short: 'Bayes',
       title: 'Công thức Bayes',
       lines: ['$P(B) = 0$ nên không tính được $P(A \\mid B)$ — biến cố $B$ không thể xảy ra.'],
       focus: 'B',
@@ -194,6 +200,7 @@ export function bayesSections(input: BayesInput, r: BayesResult): BayesSection[]
   } else {
     out.push({
       key: 'bayes',
+      short: 'Bayes',
       title: 'Công thức Bayes — biết B đã xảy ra, cập nhật khả năng của A',
       lines: [
         `$$P(A \\mid B) = \\dfrac{P(A) \\cdot P(B \\mid A)}{P(B)} = \\dfrac{${valTex(r.pAB)}}{${valTex(r.pB)}} = ${probTex(r.pAgivenB)}$$`,

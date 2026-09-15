@@ -8,15 +8,8 @@ import PredictChoice from './PredictChoice'
 import ProbabilityTree, { type TreeFocus } from './ProbabilityTree'
 import RichText from './RichText'
 import { Frac } from '@/lib/tools/fraction'
-import {
-  bayesSections,
-  formatPercent,
-  parseProbability,
-  solveBayes,
-  trueFalseItems,
-  type BayesInput,
-  type BayesSection,
-} from '@/lib/tools/probability/bayes'
+import { formatPercent, parseProbability, solveBayes, trueFalseItems, type BayesSection } from '@/lib/tools/probability/bayes'
+import { ALL_KEYS, KEY_GROUPS, LABEL_PLAIN, solveFromGivens, type Key } from '@/lib/tools/probability/givens'
 
 /**
  * Công cụ xác suất có điều kiện và công thức Bayes (Toán 12, chương 6).
@@ -35,9 +28,8 @@ interface Preset {
   label: string
   eventA: string
   eventB: string
-  pA: string
-  pBgivenA: string
-  pBgivenNotA: string
+  /** Chỉ các ô đề cho; ô khác để trống (chờ). */
+  given: Partial<Record<Key, string>>
   unit: string
 }
 
@@ -46,36 +38,47 @@ const PRESETS: Preset[] = [
     label: 'Xét nghiệm bệnh',
     eventA: 'Người được chọn mắc bệnh',
     eventB: 'Xét nghiệm cho kết quả dương tính',
-    pA: '1%',
-    pBgivenA: '99%',
-    pBgivenNotA: '1%',
+    given: { A: '1%', 'B|A': '99%', 'B|nA': '1%' },
     unit: 'người',
   },
   {
     label: 'Hai dây chuyền',
     eventA: 'Sản phẩm do dây chuyền I làm ra',
     eventB: 'Sản phẩm bị lỗi',
-    pA: '0,6',
-    pBgivenA: '0,02',
-    pBgivenNotA: '0,05',
+    given: { A: '0,6', 'B|A': '0,02', 'B|nA': '0,05' },
     unit: 'sản phẩm',
   },
   {
-    label: 'Lọc thư rác',
-    eventA: 'Thư là thư rác',
-    eventB: 'Thư có chữ “khuyến mãi”',
-    pA: '0,3',
-    pBgivenA: '0,6',
-    pBgivenNotA: '0,05',
-    unit: 'thư',
+    label: 'Cho P(A), P(B), P(A∩B)',
+    eventA: 'Học sinh được chọn là nữ',
+    eventB: 'Học sinh được chọn thích môn Toán',
+    given: { A: '0,4', B: '0,35', AB: '0,15' },
+    unit: 'học sinh',
+  },
+  {
+    label: 'Hỏi ngược P(A)',
+    eventA: 'Sản phẩm do dây chuyền I làm ra',
+    eventB: 'Sản phẩm bị lỗi',
+    given: { B: '0,032', 'B|A': '0,02', 'B|nA': '0,05' },
+    unit: 'sản phẩm',
   },
 ]
+
+const EMPTY_RAW = Object.fromEntries(ALL_KEYS.map((k) => [k, ''])) as Record<Key, string>
+const rawOf = (p: Preset): Record<Key, string> => ({ ...EMPTY_RAW, ...p.given })
 
 const FOCUS: Record<BayesSection['key'], TreeFocus> = {
   complement: 'level1',
   multiply: 'Bpaths',
   total: 'Bpaths',
   bayes: 'bayes',
+  derive: 'none',
+}
+
+/** Giá trị suy ra hiện mờ trong ô trống: `= 0,375`, `≈ 0,4286`. */
+function hint(f: Frac): string {
+  const d = f.toDecimal(4)
+  return `${d.exact ? '=' : '≈'} ${d.text}`
 }
 
 const fieldClass =
@@ -85,29 +88,35 @@ export default function ConditionalProbabilityTool() {
   const [preset, setPreset] = useState<Preset>(PRESETS[0])
   const [eventA, setEventA] = useState(PRESETS[0].eventA)
   const [eventB, setEventB] = useState(PRESETS[0].eventB)
-  const [raw, setRaw] = useState({ pA: PRESETS[0].pA, pBgivenA: PRESETS[0].pBgivenA, pBgivenNotA: PRESETS[0].pBgivenNotA })
+  // Mọi đại lượng là một ô CHỜ: đề cho ô nào thì điền ô đó (yêu cầu chủ dự án 2026-09-15).
+  const [raw, setRaw] = useState<Record<Key, string>>(() => rawOf(PRESETS[0]))
   const [mode, setMode] = useState<ToolMode>('guided')
   const [guess, setGuess] = useState(50)
   const [lockedGuess, setLockedGuess] = useState<number | null>(null)
   const [tf, setTf] = useState<Record<string, string>>({})
   const [sectionKey, setSectionKey] = useState<BayesSection['key']>('total')
 
-  const parsed = {
-    pA: parseProbability(raw.pA),
-    pBgivenA: parseProbability(raw.pBgivenA),
-    pBgivenNotA: parseProbability(raw.pBgivenNotA),
-  }
-  const input: BayesInput | null =
-    parsed.pA.ok && parsed.pBgivenA.ok && parsed.pBgivenNotA.ok
-      ? { pA: parsed.pA.value, pBgivenA: parsed.pBgivenA.value, pBgivenNotA: parsed.pBgivenNotA.value }
-      : null
+  const parsed = Object.fromEntries(
+    ALL_KEYS.filter((k) => raw[k].trim()).map((k) => [k, parseProbability(raw[k])]),
+  ) as Partial<Record<Key, ReturnType<typeof parseProbability>>>
+  const hasParseError = Object.values(parsed).some((r) => r && !r.ok)
+  const given = Object.fromEntries(
+    (Object.entries(parsed) as [Key, ReturnType<typeof parseProbability>][]).flatMap(([k, r]) => (r.ok ? [[k, r.value]] : [])),
+  ) as Partial<Record<Key, Frac>>
+  const outcome = hasParseError ? null : solveFromGivens(given)
+  const solved = outcome?.status === 'ok' ? outcome : null
+  const input = solved?.input ?? null
   const result = input ? solveBayes(input) : null
-  const sections = input && result ? bayesSections(input, result) : []
+  const sections = solved?.sections ?? []
   const section = sections.find((s) => s.key === sectionKey) ?? sections[0]
   const items = input && result ? trueFalseItems(input, result) : []
+  // Giá trị hiện mờ trong các ô trống.
+  const derived: Partial<Record<Key, Frac | null>> =
+    solved?.values ?? (outcome?.status === 'under' ? outcome.known : {})
+  const givenCount = Object.keys(parsed).length
 
   // Mọi câu trả lời gắn với bộ số hiện tại: đổi số là làm lại từ đầu.
-  const dataKey = `${raw.pA}|${raw.pBgivenA}|${raw.pBgivenNotA}`
+  const dataKey = ALL_KEYS.map((k) => raw[k].trim()).join('|')
   const tfKey = (k: string) => `${dataKey}#${k}`
   const selfMode = mode === 'self'
   const tfDone = items.length > 0 && items.every((it) => tfKey(it.key) in tf)
@@ -123,12 +132,20 @@ export default function ConditionalProbabilityTool() {
     setPreset(p)
     setEventA(p.eventA)
     setEventB(p.eventB)
-    setRaw({ pA: p.pA, pBgivenA: p.pBgivenA, pBgivenNotA: p.pBgivenNotA })
+    setRaw(rawOf(p))
     setSectionKey('total')
     reset()
   }
 
-  function setField(k: keyof typeof raw, v: string) {
+  function clearAll() {
+    setPreset({ label: '', eventA: '', eventB: '', given: {}, unit: 'trường hợp' })
+    setEventA('')
+    setEventB('')
+    setRaw(EMPTY_RAW)
+    reset()
+  }
+
+  function setField(k: Key, v: string) {
     setRaw((r) => ({ ...r, [k]: v }))
     reset()
   }
@@ -145,7 +162,7 @@ export default function ConditionalProbabilityTool() {
               key={p.label}
               type="button"
               onClick={() => applyPreset(p)}
-              aria-pressed={preset.label === p.label && raw.pA === p.pA}
+              aria-pressed={preset.label === p.label}
               className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-teal-500 hover:text-teal-700 dark:border-slate-600 dark:text-slate-300 dark:hover:text-teal-300"
             >
               {p.label}
@@ -178,52 +195,78 @@ export default function ConditionalProbabilityTool() {
             </label>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {(
-              [
-                ['pA', 'P(A)'],
-                ['pBgivenA', 'P(B | A)'],
-                ['pBgivenNotA', 'P(B | Ā)'],
-              ] as const
-            ).map(([k, label]) => {
-              const r = parsed[k]
-              return (
-                <label key={k} className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  <span className="font-serif italic">{label}</span>
-                  <input
-                    value={raw[k]}
-                    onChange={(e) => setField(k, e.target.value)}
-                    inputMode="decimal"
-                    aria-invalid={!r.ok}
-                    className={`${fieldClass} mt-1 font-mono`}
-                  />
-                  {!r.ok && (
-                    <span className="mt-1 flex items-start gap-1 text-xs font-normal text-rose-600 dark:text-rose-400">
-                      <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      {r.error}
-                    </span>
-                  )}
-                </label>
-              )
-            })}
+          <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Đề cho xác suất nào thì điền ô đó, <strong>còn lại để trống</strong>.
+            </p>
+            <button
+              type="button"
+              onClick={clearAll}
+              className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800"
+            >
+              Xoá hết, nhập đề mới
+            </button>
           </div>
 
-          {input && (
+          <div className="mt-2 space-y-3">
+            {KEY_GROUPS.map((group) => (
+              <fieldset key={group.title}>
+                <legend className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">{group.title}</legend>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {group.keys.map((k) => {
+                    const r = parsed[k]
+                    const filled = Boolean(raw[k].trim())
+                    const d = derived[k]
+                    const placeholder = selfMode || !d ? 'chờ' : hint(d)
+                    const errId = `cp-err-${k.replace('|', '-')}`
+                    return (
+                      <label key={k} className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-200">
+                        <span className="font-serif text-sm italic">{LABEL_PLAIN[k]}</span>
+                        <input
+                          value={raw[k]}
+                          onChange={(e) => setField(k, e.target.value)}
+                          placeholder={placeholder}
+                          inputMode="decimal"
+                          aria-invalid={r ? !r.ok : undefined}
+                          aria-describedby={r && !r.ok ? errId : undefined}
+                          className={`${fieldClass} mt-0.5 px-2 py-1.5 font-mono text-sm placeholder:italic placeholder:text-slate-400 ${
+                            filled ? 'border-teal-500 bg-teal-50/60 dark:border-teal-500 dark:bg-teal-950/30' : ''
+                          }`}
+                        />
+                        {r && !r.ok && (
+                          <span id={errId} className="mt-0.5 flex items-start gap-1 font-normal text-rose-600 dark:text-rose-400">
+                            <AlertCircle className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
+                            {r.error}
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </fieldset>
+            ))}
+          </div>
+
+          <GivenStatus outcome={outcome} count={givenCount} hasParseError={hasParseError} />
+
+          {solved && raw.A.trim() && parsed.A?.ok && (
             <label className="mt-4 block text-sm text-slate-600 dark:text-slate-300">
               Kéo để đổi <span className="font-serif italic">P(A)</span>:{' '}
-              <strong className="tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(input.pA)}</strong>
+              <strong className="tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(parsed.A.value)}</strong>
               <input
                 type="range"
                 min={0}
                 max={100}
                 step={0.5}
-                value={Math.min(100, input.pA.toNumber() * 100)}
-                onChange={(e) => setField('pA', `${e.target.value.replace('.', ',')}%`)}
+                value={Math.min(100, parsed.A.value.toNumber() * 100)}
+                onChange={(e) => setField('A', `${e.target.value.replace('.', ',')}%`)}
                 className="mt-2 w-full accent-teal-600"
               />
             </label>
           )}
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Nhập 0,02 hoặc 2% hoặc 1/50 đều được.</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Nhập 0,02 hoặc 2% hoặc 1/50 đều được.{!selfMode && ' Ô trống hiện mờ giá trị suy ra được.'}
+          </p>
         </section>
 
         {/* ── Sơ đồ hình cây + bảng tần số tự nhiên ── */}
@@ -292,7 +335,7 @@ export default function ConditionalProbabilityTool() {
               )}
             </>
           ) : (
-            <p className="p-6 text-center text-sm text-slate-500">Nhập đủ ba xác suất hợp lệ để dựng sơ đồ.</p>
+            <p className="p-6 text-center text-sm text-slate-500">Điền đủ dữ kiện của đề để dựng sơ đồ hình cây.</p>
           )}
         </section>
 
@@ -393,7 +436,7 @@ export default function ConditionalProbabilityTool() {
                           : 'bg-slate-100 text-slate-600 hover:text-teal-700 dark:bg-slate-800 dark:text-slate-300'
                       }`}
                     >
-                      {i + 1}. {['Biến cố đối', 'Công thức nhân', 'Toàn phần', 'Bayes'][i]}
+                      {i + 1}. {s.short}
                     </button>
                   ))}
                 </div>
@@ -417,6 +460,41 @@ export default function ConditionalProbabilityTool() {
         )}
       </div>
     </>
+  )
+}
+
+function GivenStatus({
+  outcome,
+  count,
+  hasParseError,
+}: {
+  outcome: ReturnType<typeof solveFromGivens> | null
+  count: number
+  hasParseError: boolean
+}) {
+  let tone = 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200'
+  let text: string
+  if (hasParseError || !outcome) {
+    tone = 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300'
+    text = 'Có ô nhập chưa đúng dạng số — sửa ô báo đỏ.'
+  } else if (outcome.status === 'empty') {
+    text = 'Chưa có dữ kiện. Đọc đề, điền từng xác suất đề cho vào đúng ô.'
+  } else if (outcome.status === 'under') {
+    tone = 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200'
+    text = `Đã điền ${count} ô — **cần thêm ${outcome.missing} dữ kiện** nữa (không suy ra được từ các ô đã có) mới dựng được cây.`
+  } else if (outcome.status === 'contradiction' || outcome.status === 'degenerate') {
+    tone = 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300'
+    text = outcome.reason
+  } else {
+    tone = 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
+    text = `✓ Đủ dữ kiện (${count} ô). Mọi xác suất còn lại đã xác định.`
+  }
+  return (
+    <div role="status" className={`mt-3 rounded-xl border px-3 py-2 text-sm ${tone}`}>
+      <MathJax dynamic key={text}>
+        <RichText text={text} />
+      </MathJax>
+    </div>
   )
 }
 

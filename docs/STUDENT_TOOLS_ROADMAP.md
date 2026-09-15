@@ -255,6 +255,16 @@ sách riêng. Thêm công cụ = registry + route con + một dòng trong `clien
 | Ghép nhóm | Nhóm nào chứa Me / Q₁ / Q₃ / mốt? — che số trong bảng tóm tắt và vạch trên biểu đồ tới khi trả lời | Nút +/− tần số, số liệu và vạch dịch ngay |
 | Bayes | Kéo thanh đoán P(A \| B) rồi chốt · 4 mệnh đề đúng/sai dựng từ lỗi thật · Tự làm khoá lời giải và số ở lá cây | Thanh trượt P(A) |
 
+**Bayes — đề cho gì cũng được (2026-09-15, yêu cầu chủ dự án).** Không còn ba ô cố
+định P(A), P(B | A), P(B | Ā): cả 17 đại lượng (biến cố, đối, giao, có điều kiện hai
+chiều, hợp) là ô "chờ", đề cho ô nào điền ô đó. `probability/givens.ts` có hai lớp:
+khử Gauss chính xác trên bốn lá cây (đủ dữ kiện ⇔ hạng 4; báo mâu thuẫn, xác suất âm,
+có điều kiện trên biến cố xác suất 0; thiếu thì đếm số dữ kiện còn thiếu) và chuỗi
+suy luận bằng công thức SGK tìm theo vòng để lấy đường ngắn nhất (biến cố đối, toàn
+phần, Bayes, công thức nhân, định nghĩa có điều kiện, công thức cộng, giải ngược toàn
+phần). Chuỗi không nối được thì lời giải nói thẳng là giải hệ. Đề đúng bộ ba SGK vẫn
+ra lời giải bốn phần cũ. Ô trống hiện mờ giá trị suy ra (chế độ Xem mẫu) hoặc "chờ".
+
 Dùng chung: `fraction.ts` (chuyển lên `lib/tools/`), `ModeToggle`, `PredictChoice`
 (chỉ tính lần chọn đầu), `RichText` (thêm `$$…$$` khối cuộn ngang được).
 
