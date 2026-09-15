@@ -12,7 +12,7 @@
  * Lộ trình và lý do chọn công cụ: docs/STUDENT_TOOLS_ROADMAP.md.
  */
 
-export type ToolIcon = 'region' | 'tree' | 'histogram'
+export type ToolIcon = 'region' | 'tree' | 'histogram' | 'curve'
 
 export interface StudentTool {
   slug: string
@@ -28,6 +28,17 @@ export interface StudentTool {
 }
 
 export const STUDENT_TOOLS: readonly StudentTool[] = [
+  {
+    // Đứng đầu vì là chỗ học sinh luyện nhiều nhất: 45% ngân hàng câu hỏi (roadmap mục 1.2).
+    slug: 'function-analysis',
+    title: 'Khảo sát hàm số',
+    short: 'Khảo sát',
+    icon: 'curve',
+    summary:
+      'Nhập hàm bậc ba, trùng phương hoặc phân thức; đi từng bước đạo hàm, xét dấu, cực trị, tiệm cận — bảng biến thiên và đồ thị lập dần theo lời giải.',
+    lesson: 'Chương 1 · Ứng dụng đạo hàm để khảo sát và vẽ đồ thị hàm số',
+    grade: 'Lớp 12',
+  },
   {
     slug: 'inequality-region',
     title: 'Vẽ miền nghiệm hệ bất phương trình',

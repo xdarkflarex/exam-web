@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, GitFork, PencilRuler, Wrench } from 'lucide-react'
+import { BarChart3, ChartSpline, GitFork, PencilRuler, Wrench } from 'lucide-react'
 import { MathProvider } from '@/components/MathContent'
 import { findTool, STUDENT_TOOLS, type ToolIcon } from '@/lib/tools/registry'
 
@@ -20,6 +20,7 @@ const ICONS: Record<ToolIcon, typeof Wrench> = {
   region: PencilRuler,
   tree: GitFork,
   histogram: BarChart3,
+  curve: ChartSpline,
 }
 
 export default function ToolsShell({ children }: { children: ReactNode }) {

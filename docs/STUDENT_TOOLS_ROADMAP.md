@@ -12,7 +12,7 @@ Tài liệu này trả lời ba câu: làm công cụ nào, theo thứ tự nào
 | Đợt | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Cây xác suất & Bayes · Ghép nhóm · "Tự làm" cho miền nghiệm | ✅ xong 2026-09-14 (mục 7) |
-| 2 | Khảo sát hàm số · Tích phân | chưa làm |
+| 2 | Khảo sát hàm số · Tích phân | khảo sát hàm số ✅ 2026-09-15 (mục 8) · tích phân chưa làm |
 | 3 | Oxyz xoay được · Đường tròn lượng giác | chưa làm |
 
 ---
@@ -272,3 +272,36 @@ tính tay s² = 164,75 cho bảng chiều cao cây).
    521px. Luôn `grid-cols-[minmax(0,1fr)]` + `[&>*]:min-w-0` — cùng bài học đã
    ghi ở `student/page.tsx`.
 3. **SSR + MathJax = "Hydration failed".** Công cụ nạp bằng `dynamic(…, { ssr: false })`.
+
+---
+
+## 8. Đợt 2 · Khảo sát hàm số — đã làm (2026-09-15)
+
+`lib/tools/function-analysis/`: `surd.ts` (số a + b√r chính xác), `poly.ts` (đa thức
+hệ số phân số, nghiệm chính xác), `parse.ts`, `analyze.ts`, `steps.ts`; giao diện
+`FunctionAnalysisTool` + `VariationTable` + `FunctionPlot`. Tab đứng đầu khu công cụ.
+
+**Phạm vi đúng mục 3.4:** bậc hai, bậc ba, bậc bốn (trùng phương; bậc bốn khác chỉ khi
+y′ có nghiệm hữu tỉ), `(ax + b)/(cx + d)`, `(ax² + bx + c)/(dx + e)`. Ngoài phạm vi thì
+báo lý do, không đoán: phân thức rút gọn được, mẫu bậc 2, bậc ≥ 5, y′ = 0 cần căn bậc ba.
+
+**Sơ đồ 8 bước theo SGK KNTT 12:** TXĐ → y′ (công thức thương viết đủ phép thế) →
+y′ = 0 (rút nhân tử x, Δ, x² = k) → dấu y′ bằng điểm thử HỮU TỈ (ưu tiên 0, rồi số
+nguyên nhỏ; thế chính xác) → cực trị (giá trị dạng căn kèm ≈) → giới hạn, tiệm cận
+đứng/ngang/xiên → bảng biến thiên → đồ thị (giao trục, tâm đối xứng, trục đối xứng).
+
+| Đoán trước / Tự làm | Thao tác trực tiếp |
+|---|---|
+| Số nghiệm y′ = 0 · dấu y′ TỪNG khoảng (bảng hiện "?" tới khi trả lời) · cực đại/cực tiểu tại đâu (hỏi loại có đúng một điểm) · x → +∞ thì y → ? · đường cong chỉ hiện ở bước cuối · điểm cuối bài | Nút +/− từng hệ số theo dạng: y = x³ − 3x² + cx + 2 bấm c từ 0 lên 4 thấy hai cực trị (3 ± √6)/3 → (3 ± √3)/3 → nghiệm kép x = 1 → hết cực trị |
+
+Đối chiếu tay (14 test): x³ − 3x² + 2; x³ − 3x² − 3x + 1 (cực trị tại 1 ± √2, y = −4 ± 4√2);
+−x³ + 3x² − 3x + 2 (nghiệm kép, nghịch biến trên ℝ); x⁴ − 2x² + 1; −x⁴ + 2x² + 3
+(giao Ox ±√3); (x + 1)/(x − 1); (x² − x + 1)/(x − 1) (tiệm cận xiên y = x).
+
+**Hai bẫy mới:**
+
+1. **Tên trợ năng của hình lộ đáp án.** `<title>` của bảng biến thiên liệt kê mốc x ngay
+   từ bước 1 — trình đọc màn hình đọc được nghiệm y′ = 0 trước câu hỏi. Tên trợ năng phải
+   lộ đúng bằng phần hình đang hiện.
+2. **Chữ trong SVG co theo hình.** Hình 560 đơn vị trên màn 310px thì chữ 13 còn ~7px.
+   `FunctionPlot` đo bề rộng thật (ResizeObserver) và phóng chữ tới 1,7 lần; nét giữ nguyên.
