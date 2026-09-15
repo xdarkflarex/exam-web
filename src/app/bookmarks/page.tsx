@@ -183,7 +183,7 @@ export default function BookmarksPage() {
             <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : filteredBookmarks.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 text-center">
             <Bookmark className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
               {bookmarks.length === 0 ? 'Chưa có câu hỏi đã lưu' : 'Không tìm thấy kết quả'}

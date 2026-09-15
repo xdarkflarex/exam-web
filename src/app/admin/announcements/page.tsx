@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { logger } from '@/lib/logger'
-import AdminSidebar from '@/components/admin/AdminSidebar'
 import { 
   Megaphone, Plus, Edit2, Trash2, X, Save,
   AlertCircle, Info, Bell, Sparkles, Pin, PinOff,
@@ -223,10 +222,8 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <AdminSidebar />
-
-      <main className="lg:ml-64 min-h-screen">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
+      <main>
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
@@ -253,7 +250,7 @@ export default function AnnouncementsPage() {
               <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : announcements.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 text-center">
               <Megaphone className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
               <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Chưa có thông báo</h3>
               <p className="text-slate-500 dark:text-slate-400 mb-4">Tạo thông báo đầu tiên để hiển thị trên trang chủ</p>

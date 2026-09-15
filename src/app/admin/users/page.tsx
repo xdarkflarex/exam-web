@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
         subtitle={`${users.length} tài khoản trong hệ thống`} 
       />
       
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Error Message */}
         {errorMessage && (
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3">
@@ -245,7 +245,7 @@ export default function AdminUsersPage() {
             </div>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 text-center">
             <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users className="w-8 h-8 text-slate-400" />
             </div>
@@ -258,7 +258,13 @@ export default function AdminUsersPage() {
           </div>
         ) : (
           <div className="bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <table className="w-full">
+            {/*
+              `overflow-hidden` ở thẻ ngoài là để bo góc. Nếu không có lớp cuộn
+              này thì trên điện thoại nó CẮT MẤT cột "Thao tác" và không có cách
+              nào kéo tới — bảng 5 cột với `px-6` không bao giờ vừa 375px.
+            */}
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px]">
               <thead className="bg-slate-100 dark:bg-slate-700/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Người dùng</th>
@@ -318,6 +324,7 @@ export default function AdminUsersPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

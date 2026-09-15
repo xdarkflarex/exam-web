@@ -446,7 +446,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
 
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bento-tile p-12 text-center">
+            <div className="bento-tile p-8 sm:p-12 text-center">
               <FileText className="mx-auto mb-3 h-12 w-12 text-slate-300 dark:text-slate-600" aria-hidden="true" />
               <p className="text-slate-600 dark:text-slate-300">
                 {searchQuery || filterStatus !== 'all' ? config.emptyFiltered : config.emptyAll}

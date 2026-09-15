@@ -60,7 +60,7 @@ export default function AdminHomeworkPage() {
             <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-800">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-12 text-center dark:border-slate-700 dark:bg-slate-800">
             <ClipboardList className="mx-auto mb-3 h-12 w-12 text-slate-300" />
             <p className="text-slate-500">Chưa có template bài tập.</p>
           </div>

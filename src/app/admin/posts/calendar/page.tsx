@@ -135,7 +135,7 @@ export default function EditorialCalendarPage() {
           {/* Day headers */}
           <div className="grid grid-cols-7 border-b border-slate-300 dark:border-slate-700">
             {DAYS_VI.map(day => (
-              <div key={day} className="p-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+              <div key={day} className="p-1 sm:p-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
                 {day}
               </div>
             ))}
@@ -145,7 +145,7 @@ export default function EditorialCalendarPage() {
           <div className="grid grid-cols-7">
             {/* Empty cells for days before first of month */}
             {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-              <div key={`empty-${i}`} className="min-h-[80px] sm:min-h-[100px] p-2 border-b border-r border-slate-300/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-900/30" />
+              <div key={`empty-${i}`} className="min-w-0 min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border-b border-r border-slate-300/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-900/30" />
             ))}
 
             {/* Day cells */}
@@ -157,7 +157,7 @@ export default function EditorialCalendarPage() {
               return (
                 <div
                   key={day}
-                  className={`min-h-[80px] sm:min-h-[100px] p-2 border-b border-r border-slate-300/50 dark:border-slate-700/50 ${
+                  className={`min-w-0 min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border-b border-r border-slate-300/50 dark:border-slate-700/50 ${
                     isToday ? 'bg-teal-50 dark:bg-teal-900/20' : ''
                   }`}
                 >
@@ -175,7 +175,7 @@ export default function EditorialCalendarPage() {
                         href={`/admin/posts/${post.id}/edit`}
                         className="block"
                       >
-                        <div className="flex items-center gap-1 group">
+                        <div className="flex min-w-0 items-center gap-1 group">
                           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[post.status]}`} />
                           <span className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                             {post.title}

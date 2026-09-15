@@ -409,7 +409,15 @@ export default function StudentSidebar() {
       {/* Bottom Navigation for Mobile */}
       <nav
         aria-label="Điều hướng nhanh"
-        className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch border-t border-slate-200 bg-white px-1 dark:border-slate-700 dark:bg-slate-800 lg:hidden"
+        /*
+          `min-h-16` chứ không phải `h-16`, và có `env(safe-area-inset-bottom)`:
+          trên iPhone có thanh Home ảo, 34px dưới cùng thuộc về hệ điều hành.
+          Thanh cao đúng 64px sẽ để nhãn "Trang chủ"/"Thêm" nằm dưới vạch đó —
+          bấm vào là iOS nhận cử chỉ vuốt chứ không phải cú chạm của học sinh.
+          Chiều cao tổng thay đổi theo máy, nên padding dưới của layout cũng
+          phải cộng cùng biến này (xem `src/app/(student)/layout.tsx`).
+        */
+        className="fixed bottom-0 left-0 right-0 z-40 flex min-h-16 items-stretch border-t border-slate-200 bg-white px-1 pb-[env(safe-area-inset-bottom,0px)] dark:border-slate-700 dark:bg-slate-800 lg:hidden"
       >
         {bottomItems.map((item) => {
           const Icon = item.icon

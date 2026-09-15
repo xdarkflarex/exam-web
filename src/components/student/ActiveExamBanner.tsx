@@ -133,7 +133,7 @@ export default function ActiveExamBanner() {
   const isUrgent = remainingTime < 300 // Less than 5 minutes
 
   return (
-    <div className={`fixed bottom-20 lg:bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:w-80 z-50 animate-slide-up`}>
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:w-80 z-50 animate-slide-up">
       <div className={`rounded-xl shadow-lg border p-4 ${
         isUrgent 
           ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' 

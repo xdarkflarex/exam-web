@@ -658,7 +658,7 @@ export default function StudentPage() {
 
             {/* `.animate-list-stagger` đã có sẵn trong globals.css (tới 20 phần
                 tử) và đã nằm trong lưới `prefers-reduced-motion`. */}
-            <div className="animate-list-stagger grid gap-3 md:grid-cols-2">
+            <div className="animate-list-stagger grid gap-3 md:grid-cols-2 [&>*]:min-w-0">
               {activeInProgressAttempts.map((attempt) => {
                 const isSimulation = attempt.examMode === 'simulation'
                 return (
@@ -731,7 +731,18 @@ export default function StudentPage() {
           </section>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr] animate-dash-in-2">
+        {/*
+          `[&>*]:min-w-0` không phải trang trí. Cột phải chứa danh sách "Cập
+          nhật", trong đó tiêu đề bài dùng `truncate` (`white-space: nowrap`).
+          `min-w-0 flex-1` ở thẻ bọc chỉ chặn được flex item co lại — nó KHÔNG
+          chặn phần đóng góp min-content dội ngược lên rãnh grid. Đo ở 375px:
+          min-content của cột phải là 361px trong khung 343px, nên rãnh nở ra
+          361, trang rộng 377, và Chrome mobile nới luôn layout viewport lên
+          386 — hai thanh điều hướng `fixed left-0 right-0` cũng thành 386 và
+          thò ra ngoài màn hình. Đặt `min-width: 0` cho chính grid item mới bỏ
+          được sàn min-content của rãnh, và lúc đó `truncate` mới thật sự cắt.
+        */}
+        <div className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr] animate-dash-in-2 [&>*]:min-w-0">
           <section aria-labelledby="todo-heading">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>

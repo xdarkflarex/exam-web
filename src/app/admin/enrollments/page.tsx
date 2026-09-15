@@ -336,7 +336,7 @@ export default function EnrollmentsPage() {
   const statuses: Status[] = ['new', 'contacted', 'enrolled', 'rejected']
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -348,7 +348,7 @@ export default function EnrollmentsPage() {
             Quản lý đơn đăng ký từ landing page
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={load}
             className="p-2 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"

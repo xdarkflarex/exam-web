@@ -77,7 +77,7 @@ export default function KnowledgeLinksPage() {
           </p>
 
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-1 gap-3 mb-5 sm:grid-cols-3">
             <div className="bg-white dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
               <p className="text-xs text-slate-500 dark:text-slate-400">Tổng số bài</p>
               <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{totals.totalTheories}</p>

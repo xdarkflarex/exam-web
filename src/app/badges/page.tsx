@@ -182,16 +182,16 @@ export default function BadgesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white/10 rounded-xl p-4 text-center">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="bg-white/10 rounded-xl p-3 sm:p-4 text-center">
               <p className="text-3xl font-bold">{earnedCount}</p>
               <p className="text-sm text-white/70">Huy hiệu</p>
             </div>
-            <div className="bg-white/10 rounded-xl p-4 text-center">
+            <div className="bg-white/10 rounded-xl p-3 sm:p-4 text-center">
               <p className="text-3xl font-bold">{totalPoints}</p>
               <p className="text-sm text-white/70">Điểm thưởng</p>
             </div>
-            <div className="bg-white/10 rounded-xl p-4 text-center">
+            <div className="bg-white/10 rounded-xl p-3 sm:p-4 text-center">
               <p className="text-3xl font-bold">{badges.length - earnedCount}</p>
               <p className="text-sm text-white/70">Còn lại</p>
             </div>
@@ -203,7 +203,7 @@ export default function BadgesPage() {
             <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : badges.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 text-center">
             <Award className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Chưa có huy hiệu</h3>
             <p className="text-slate-500 dark:text-slate-400">Hệ thống huy hiệu đang được cập nhật</p>

@@ -175,7 +175,7 @@ export default function StudentHomeworkPage() {
           ))}
 
           {!items.length && (
-            <div className="bento-tile p-12 text-center">
+            <div className="bento-tile p-8 sm:p-12 text-center">
               <ClipboardList className="mx-auto mb-3 h-12 w-12 text-slate-300 dark:text-slate-600" aria-hidden="true" />
               <p className="font-medium text-slate-700 dark:text-slate-200">Chưa có bài tập nào được giao</p>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

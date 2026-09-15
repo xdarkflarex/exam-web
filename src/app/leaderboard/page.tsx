@@ -240,7 +240,7 @@ export default function LeaderboardPage() {
             <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : leaderboard.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 text-center">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Chưa có dữ liệu</h3>
             <p className="text-slate-500 dark:text-slate-400">Hãy là người đầu tiên làm bài thi!</p>
@@ -249,7 +249,7 @@ export default function LeaderboardPage() {
           <div className="space-y-3">
             {/* Top 3 Podium */}
             {leaderboard.length >= 3 && (
-              <div className="flex items-end justify-center gap-4 mb-8 pt-8">
+              <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8 pt-8">
                 {/* 2nd Place */}
                 <div className="flex flex-col items-center">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mb-2">

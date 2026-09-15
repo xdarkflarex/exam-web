@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { logger } from '@/lib/logger'
-import AdminSidebar from '@/components/admin/AdminSidebar'
 import { 
   FileSpreadsheet, FileText, Download, Filter,
   Calendar, Users, BookOpen, ChevronDown, Loader2,
@@ -299,10 +298,8 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <AdminSidebar />
-
-      <main className="lg:ml-64 min-h-screen">
-        <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
+      <main>
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">

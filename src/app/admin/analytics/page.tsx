@@ -919,7 +919,7 @@ export default function TeacherAnalyticsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_1fr]">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_1fr] [&>*]:min-w-0">
               <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
                 <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
                   <h2 className="font-semibold text-slate-800 dark:text-white">

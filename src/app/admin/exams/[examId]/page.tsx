@@ -645,7 +645,7 @@ export default function AdminExamDetailPage() {
 
         {/* Questions Tab - Responsive Layout */}
         {activeTab === 'questions' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 [&>*]:min-w-0">
             {/* Left: Question List */}
             <div className="lg:col-span-4">
               <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
@@ -805,7 +805,7 @@ export default function AdminExamDetailPage() {
             </div>
 
             {attempts.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="p-8 sm:p-12 text-center">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Users className="w-8 h-8 text-slate-400" />
                 </div>

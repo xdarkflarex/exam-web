@@ -19,12 +19,27 @@ export default function QuestionImage({ src, alt = "Question diagram", className
     <>
       {/* Thumbnail Image */}
       <div className={`flex justify-center ${className}`}>
-        <div className="relative group cursor-pointer" onClick={openModal}>
-          <img 
-            src={src} 
+        {/*
+          Trần 520px nằm ở THẺ BỌC, không nằm ở `<img>`.
+
+          Bản trước đặt `style={{ maxWidth: '520px' }}` ngay trên ảnh cạnh class
+          `max-w-full`. Inline style luôn thắng class, nên `max-w-full` không bao
+          giờ có tác dụng và mọi ảnh đề đều rộng đúng 520px bất kể màn hình. Đo
+          trên đề "Bãi Cháy lần 1" ở 375px: sáu ảnh rộng 520px trong ô 282px,
+          tràn đối xứng hai bên (left = -54), trang thành 466px.
+
+          `min-w-0` là phần bắt buộc thứ hai: thẻ bọc là flex item, mà flex item
+          mặc định `min-width: auto` nên nó không co xuống dưới min-content của
+          ảnh — chỉ đặt `max-width` thôi thì vẫn tràn.
+
+          Kết quả: ảnh to bị co về đúng bề ngang cột, ảnh nhỏ giữ nguyên kích
+          thước thật và vẫn căn giữa.
+        */}
+        <div className="relative group cursor-pointer min-w-0 max-w-[520px]" onClick={openModal}>
+          <img
+            src={src}
             alt={alt}
             className="max-w-full h-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow duration-200 bg-white"
-            style={{ maxWidth: '520px' }}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors duration-200 flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 dark:bg-slate-800/90 rounded-full p-2">

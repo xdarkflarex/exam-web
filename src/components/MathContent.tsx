@@ -139,9 +139,14 @@ export default function MathContent({ content, className = '', format = 'auto' }
           </ReactMarkdown>
         </div>
       ) : hasHtml ? (
-        <div dangerouslySetInnerHTML={{ __html: normalizedContent }} />
+        /*
+          `math-html` không phải class trang trí. HTML ở nhánh này dán từ Word
+          nên mang theo `<table>`, `<img>` và `width` tính bằng pixel khổ A4;
+          globals.css dùng class này để ép chúng nằm trong bề ngang điện thoại.
+        */
+        <div className="math-html" dangerouslySetInnerHTML={{ __html: normalizedContent }} />
       ) : (
-        <span>{normalizedContent}</span>
+        <span className="break-anywhere">{normalizedContent}</span>
       )}
     </MathJax>
   )

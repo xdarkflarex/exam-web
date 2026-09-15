@@ -351,7 +351,7 @@ export default function PracticeRunner({ attemptId, examData, initialAnswers }: 
 
   return (
     <MathProvider>
-      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 pb-20 lg:pb-0">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         {/* Header */}
         <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-4 sm:px-6 py-3 sm:py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">

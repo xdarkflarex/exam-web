@@ -559,7 +559,7 @@ export default function HistoryPage() {
         {activeTab === 'taxonomy' && (
           <div className="space-y-3">
             {taxonomyStats.length === 0 ? (
-              <div className="bento-tile p-12 text-center">
+              <div className="bento-tile p-8 sm:p-12 text-center">
                 <BarChart3 className="mx-auto mb-3 h-12 w-12 text-slate-300 dark:text-slate-600" aria-hidden="true" />
                 <p className="font-medium text-slate-700 dark:text-slate-200">Chưa có dữ liệu thống kê</p>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -671,7 +671,7 @@ export default function HistoryPage() {
         {activeTab === 'history' && (
           <div className="space-y-3">
             {history.length === 0 ? (
-              <div className="bento-tile p-12 text-center">
+              <div className="bento-tile p-8 sm:p-12 text-center">
                 <Calendar className="mx-auto mb-3 h-12 w-12 text-slate-300 dark:text-slate-600" aria-hidden="true" />
                 <p className="font-medium text-slate-700 dark:text-slate-200">Chưa có lịch sử làm bài</p>
                 <Link

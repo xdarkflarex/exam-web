@@ -192,7 +192,7 @@ export default function AdminEssayAiPage() {
         )}
 
         {loading && !stats && (
-          <div className="flex items-center justify-center rounded-xl border border-slate-300 bg-slate-200 p-12 dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex items-center justify-center rounded-xl border border-slate-300 bg-slate-200 p-8 sm:p-12 dark:border-slate-700 dark:bg-slate-800">
             <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
           </div>
         )}

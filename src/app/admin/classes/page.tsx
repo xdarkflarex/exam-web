@@ -318,7 +318,7 @@ export default function ClassesManagementPage() {
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-3">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-teal-50 dark:bg-teal-900/30 rounded-lg flex items-center justify-center">
@@ -392,7 +392,7 @@ export default function ClassesManagementPage() {
             <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : filteredClasses.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 sm:p-12 text-center">
             <School className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Chưa có lớp học</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-4">Tạo lớp học đầu tiên để bắt đầu quản lý</p>
@@ -645,7 +645,7 @@ export default function ClassesManagementPage() {
             </div>
             
             <div className="flex-1 overflow-auto p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 [&>*]:min-w-0">
                 {/* Students in class */}
                 <div>
                   <h4 className="font-medium text-slate-800 dark:text-white mb-3 flex items-center gap-2">

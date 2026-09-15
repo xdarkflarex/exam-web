@@ -30,10 +30,15 @@ export default function Toast({ message, type, isVisible, onClose, duration = 40
   if (!isVisible) return null
 
   return (
-    <div className={`fixed top-4 right-4 z-50 transform transition-all duration-300 ${
+    /*
+      `left-4` trên mobile: chỉ neo `right-4` thì hộp rộng tới `max-w-sm`
+      (384px) sẽ tràn qua mép trái của màn hình 375px và chữ bị cắt mất đầu
+      dòng. Từ `sm` trở lên trả lại neo phải như thiết kế cũ.
+    */
+    <div className={`fixed top-4 right-4 left-4 sm:left-auto z-50 transform transition-all duration-300 ${
       isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
     }`}>
-      <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border max-w-sm ${
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border sm:max-w-sm ${
         type === 'success' 
           ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
           : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'

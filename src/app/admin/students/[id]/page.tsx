@@ -596,7 +596,7 @@ export default function StudentDetailPage() {
           </DomainCard>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr] [&>*]:min-w-0">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="flex items-start justify-between gap-3">
               <div>

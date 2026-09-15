@@ -160,7 +160,7 @@ export default function AdminAccessPage() {
     <div className="min-h-screen">
       <AdminHeader title="Phân quyền tính năng" subtitle="Bật/tắt tính năng cho HS thường & cấp full-access" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {message && (
           <div className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
             message.type === 'success'

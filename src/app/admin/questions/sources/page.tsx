@@ -179,7 +179,7 @@ export default function AdminQuestionSourcesPage() {
         subtitle={`${sources.length} nguồn · ${totalQuestions.toLocaleString('vi-VN')} câu có ghi nguồn`}
       />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {message && (
           <div className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
             message.type === 'success'
@@ -254,7 +254,7 @@ export default function AdminQuestionSourcesPage() {
               className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 dark:text-slate-100"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={fetchSources}
               className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -295,7 +295,7 @@ export default function AdminQuestionSourcesPage() {
             <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
           </div>
         ) : filteredSources.length === 0 ? (
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-8 sm:p-12 text-center">
             <Layers className="w-12 h-12 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
             <p className="text-slate-500 dark:text-slate-400">
               {searchTerm ? 'Không tìm thấy nguồn phù hợp' : 'Chưa có nguồn câu hỏi nào'}

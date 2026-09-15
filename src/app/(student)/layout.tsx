@@ -22,7 +22,7 @@ export default function StudentLayout({
           Desktop chừa 64px TRÊN ĐẦU cho thanh ngang, không còn chừa 256px bên
           trái. Mobile giữ nguyên: 56px thanh trên, 80px thanh dưới.
         */}
-        <div className="pt-14 pb-20 lg:pt-16 lg:pb-0">
+        <div className="pt-14 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pt-16 lg:pb-0">
           {children}
         </div>
         <ActiveExamBanner />

@@ -657,7 +657,7 @@ export default function ExamResultsPage() {
             </div>
           ) : (
             <>
-              <div className="grid gap-3 p-4 lg:hidden">
+              <div className="grid gap-3 p-4 lg:hidden [&>*]:min-w-0">
                 {filteredAttempts.map((attempt) => (
                   <article
                     key={attempt.id}

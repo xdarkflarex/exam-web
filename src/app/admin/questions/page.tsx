@@ -641,7 +641,7 @@ export default function AdminQuestionsPage() {
         </div>
       )}
       
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="mb-5 flex justify-end">
           <Link
             href="/admin/questions/essay/new"
@@ -850,7 +850,7 @@ export default function AdminQuestionsPage() {
               <span className="ml-2 text-teal-600 dark:text-teal-400">• Đã chọn {selectedIds.size}</span>
             )}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Phân loại lại: chỉ bật khi đã chọn câu — hành động ghi đè hàng
                 loạt không nên bấm được lúc chưa rõ nó tác động lên cái gì. */}
             <button
@@ -891,7 +891,7 @@ export default function AdminQuestionsPage() {
             </div>
           </div>
         ) : filteredQuestions.length === 0 ? (
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-8 sm:p-12 text-center">
             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <HelpCircle className="w-8 h-8 text-slate-400" />
             </div>

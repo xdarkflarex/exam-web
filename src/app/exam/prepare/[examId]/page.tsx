@@ -306,7 +306,7 @@ export default function ExamPreparePage() {
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* Description */}
             {exam.description && (
               <p className="text-slate-600 dark:text-slate-400 mb-6">

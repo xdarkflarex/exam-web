@@ -684,7 +684,7 @@ export default function CreateExamPage() {
           {/* Loại đề đặt TRƯỚC bảng điểm: nó quyết định mọi con số trong bảng đó. */}
           <div>
             <label className="mb-2 block text-sm font-medium">Loại đề</label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {examKindOrder.map((item) => (
                 <button
                   key={item}
@@ -732,7 +732,8 @@ export default function CreateExamPage() {
                   ? 'Điểm theo thang Bộ GD&ĐT'
                   : 'Điểm khởi tạo — giáo viên tự cấu hình'}
               </p>
-              <table className="w-full text-left">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-left">
                 <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
                   <tr>
                     <th className="pb-1 font-medium">Loại câu</th>
@@ -769,6 +770,7 @@ export default function CreateExamPage() {
                   </tr>
                 </tbody>
               </table>
+              </div>
 
               {scorePlan.essayWithoutRubric.length > 0 && (
                 <p className="flex gap-2 rounded-lg bg-red-50 p-2.5 text-red-700 dark:bg-red-900/20 dark:text-red-200">

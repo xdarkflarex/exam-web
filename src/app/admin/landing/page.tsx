@@ -473,7 +473,7 @@ export default function LandingCMSPage() {
                 </div>
 
                 {/* Section heading */}
-                <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tiêu đề section</label>
                     <input type="text" value={enrollmentSection.title} onChange={e => setEnrollmentSection({ ...enrollmentSection, title: e.target.value })} className={inputCls} />
@@ -638,14 +638,14 @@ export default function LandingCMSPage() {
                   {benefits.map((b, i) => (
                     <div key={i} className="p-4 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-start gap-4">
                       <div className="flex-1 space-y-2">
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                           <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Icon</label>
                             <select value={b.icon} onChange={e => updateBenefit(i, 'icon', e.target.value)} className={inputCls}>
                               {ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
                           </div>
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tiêu đề</label>
                             <input type="text" value={b.title} onChange={e => updateBenefit(i, 'title', e.target.value)} className={inputCls} />
                           </div>

@@ -629,7 +629,8 @@ export default function ExamQuestionsPage() {
               </p>
             )}
 
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[360px] text-left text-sm">
               <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="pb-2 font-medium">Loại câu</th>
@@ -656,6 +657,7 @@ export default function ExamQuestionsPage() {
                 </tr>
               </tbody>
             </table>
+            </div>
 
             {changedQuestions.length > 0 && (
               <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">

@@ -415,7 +415,7 @@ export default function TheoryKnowledgeLinksPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[340px_minmax(0,1fr)] [&>*]:min-w-0">
             <aside className="space-y-4">
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/60">
                 <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
@@ -706,7 +706,7 @@ export default function TheoryKnowledgeLinksPage() {
                   })}
 
                   {filteredQuestions.length === 0 && (
-                    <div className="p-12 text-center">
+                    <div className="p-8 sm:p-12 text-center">
                       <Search className="mx-auto mb-3 h-9 w-9 text-slate-300" />
                       <p className="text-sm text-slate-500">
                         Không có câu hỏi phù hợp bộ lọc.

@@ -171,24 +171,30 @@ export default function ExamSidebar({
           {/* Toggle Panel Button */}
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300"
+            aria-expanded={isMobileOpen}
+            className="touch-target flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300"
           >
-            <Menu className="w-4 h-4" />
-            <span className="hidden xs:inline">Câu hỏi</span>
+            <Menu className="w-4 h-4" aria-hidden="true" />
+            {/* `sr-only` chứ không `hidden`: xem ghi chú `.xs\:not-sr-only`
+                trong globals.css — `hidden` gỡ luôn tên trợ năng của nút. */}
+            <span className="sr-only xs:not-sr-only xs:inline">Câu hỏi</span>
           </button>
 
           {/* Submit Button - Compact */}
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white rounded-lg text-sm font-bold transition-all"
+            className="touch-target flex items-center justify-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white rounded-lg text-sm font-bold transition-all"
           >
             {submitting ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                <span className="sr-only">Đang nộp bài</span>
+              </>
             ) : (
               <>
-                <Send className="w-4 h-4" />
-                <span className="hidden xs:inline">Nộp bài</span>
+                <Send className="w-4 h-4" aria-hidden="true" />
+                <span className="sr-only xs:not-sr-only xs:inline">Nộp bài</span>
               </>
             )}
           </button>
