@@ -11,8 +11,8 @@
 import { decimalTex, Frac } from '../fraction.ts'
 import type { Analysis, Bound, Column, Limit, Sign } from './analyze.ts'
 import { evaluateFrac } from './analyze.ts'
-import { Poly, type Root } from './poly.ts'
-import { Surd } from './surd.ts'
+import { Poly, type Root } from '../poly.ts'
+import { Surd } from '../surd.ts'
 
 export interface ChoiceOption {
   id: string

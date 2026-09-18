@@ -10,8 +10,8 @@
 
 import { Frac } from '../fraction.ts'
 import type { ParsedFunction } from './parse.ts'
-import { exactRoots, Poly, type Root } from './poly.ts'
-import { Surd } from './surd.ts'
+import { exactRoots, pickTestPoint, Poly, type Root } from '../poly.ts'
+import { Surd } from '../surd.ts'
 
 export type Sign = 1 | -1
 
@@ -87,31 +87,6 @@ function limitAtInfinity(fn: ParsedFunction, dir: Sign): Limit {
   }
   if (num.degree === den.degree) return { kind: 'finite', value: ratio }
   return { kind: 'finite', value: Frac.ZERO }
-}
-
-/**
- * Một số hữu tỉ "đẹp" nằm TRONG khoảng (lo; hi): ưu tiên 0, rồi số nguyên có trị
- * tuyệt đối nhỏ nhất — đúng kiểu học sinh chọn khi xét dấu bằng tay. Mọi ứng viên
- * được kiểm tra chính xác trước khi dùng.
- */
-export function pickTestPoint(lo: Surd | null, hi: Surd | null): Frac {
-  const inside = (t: Frac) => {
-    const s = Surd.frac(t)
-    return (!lo || s.cmp(lo) > 0) && (!hi || s.cmp(hi) < 0)
-  }
-  if (inside(Frac.ZERO)) return Frac.ZERO
-  for (const den of [1, 2, 4, 10, 100, 1000, 10000, 1000000]) {
-    const candidates: number[] = []
-    if (hi && (!lo || hi.toNumber() <= 0)) candidates.push(Math.ceil(hi.toNumber() * den) - 1, Math.floor(hi.toNumber() * den) - 1)
-    if (lo && (!hi || lo.toNumber() >= 0)) candidates.push(Math.floor(lo.toNumber() * den) + 1, Math.ceil(lo.toNumber() * den) + 1)
-    for (const k of candidates) {
-      const t = Frac.of(k, den)
-      if (inside(t)) return t
-    }
-  }
-  // Khoảng hẹp tới mức trên: lấy trung điểm hai đầu (cả hai hữu hạn mới tới được đây).
-  const mid = ((lo?.toNumber() ?? 0) + (hi?.toNumber() ?? 0)) / 2
-  return Frac.of(Math.round(mid * 1e9), 1e9)
 }
 
 function levelBetween(left: Sign, right: Sign): Level {

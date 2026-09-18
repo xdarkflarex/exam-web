@@ -104,6 +104,7 @@ Route group `(auth)` và `(student)` không xuất hiện trong URL.
 /student/settings
 /student/tools                     khu công cụ: redirect vào công cụ đầu; layout chung có thanh tab (registry: src/lib/tools/registry.ts)
 /student/tools/function-analysis   khảo sát hàm số: y′, xét dấu, cực trị, tiệm cận, bảng biến thiên, đồ thị (L12)
+/student/tools/integral            tích phân: tổng Riemann, diện tích hình phẳng, quãng đường từ v(t) (L12)
 /student/tools/inequality-region   vẽ miền nghiệm hệ BPT bậc nhất hai ẩn (L10)
 /student/tools/grouped-data        mẫu số liệu ghép nhóm: trung bình, trung vị, tứ phân vị, mốt, phương sai (L11–12)
 /student/tools/conditional-probability  cây xác suất, toàn phần, Bayes, luyện đúng/sai (L12)

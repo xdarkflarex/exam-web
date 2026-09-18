@@ -6,11 +6,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Frac } from '../fraction.ts'
-import { analyze, pickTestPoint, type Column } from './analyze.ts'
+import { analyze, type Column } from './analyze.ts'
 import { classify, coefSlots, functionInput, parseFunction, withCoef, type ParsedFunction } from './parse.ts'
-import { exactRoots, Poly } from './poly.ts'
+import { exactRoots, pickTestPoint, Poly } from '../poly.ts'
 import { buildSteps, rootsListTex } from './steps.ts'
-import { Surd } from './surd.ts'
+import { Surd } from '../surd.ts'
 
 function fn(src: string): ParsedFunction {
   const r = parseFunction(src)

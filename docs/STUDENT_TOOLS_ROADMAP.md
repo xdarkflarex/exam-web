@@ -12,7 +12,7 @@ Tài liệu này trả lời ba câu: làm công cụ nào, theo thứ tự nào
 | Đợt | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Cây xác suất & Bayes · Ghép nhóm · "Tự làm" cho miền nghiệm | ✅ xong 2026-09-14 (mục 7) |
-| 2 | Khảo sát hàm số · Tích phân | khảo sát hàm số ✅ 2026-09-15 (mục 8) · tích phân chưa làm |
+| 2 | Khảo sát hàm số · Tích phân | ✅ xong — khảo sát hàm số 2026-09-15 (mục 8) · tích phân 2026-09-18 (mục 9) |
 | 3 | Oxyz xoay được · Đường tròn lượng giác | chưa làm |
 
 ---
@@ -315,3 +315,55 @@ nguyên nhỏ; thế chính xác) → cực trị (giá trị dạng căn kèm �
    lộ đúng bằng phần hình đang hiện.
 2. **Chữ trong SVG co theo hình.** Hình 560 đơn vị trên màn 310px thì chữ 13 còn ~7px.
    `FunctionPlot` đo bề rộng thật (ResizeObserver) và phóng chữ tới 1,7 lần; nét giữ nguyên.
+
+---
+
+## 9. Đợt 2 · Tích phân — đã làm (2026-09-18)
+
+Ba kiểu bài của chương 4 trong MỘT tab, chọn bằng ba nút ở đầu công cụ — thay vì ba
+tab rời, vì cả ba dùng chung đúng một lõi (nguyên hàm + tách khúc theo dấu) và học
+sinh gặp chúng trong cùng một bài học.
+
+| Kiểu bài | Học sinh nhập | Công cụ làm |
+|---|---|---|
+| **Tổng Riemann → tích phân** | f(x), hai cận, thanh trượt n ≤ 40, chọn mút trái / trung điểm / mút phải | Δx và các mốc chia, tổng S\_n bằng phân số chính xác, bảng S\_n với n = 4 → 64, rồi Newton – Leibniz và sai số |
+| **Diện tích hình phẳng** | f(x), g(x) (trống = trục hoành), cận (trống = lấy giao điểm) | phương trình hoành độ giao điểm, xét dấu f − g bằng điểm thử hữu tỉ, bỏ trị tuyệt đối từng khúc, cộng lại |
+| **Quãng đường từ v(t)** | v(t), khoảng thời gian | thời điểm đổi chiều, dấu v từng khúc, ∫\|v\| và ∫v cạnh nhau |
+
+**Nền dùng chung, tách ra trong đợt này:** `poly.ts` và `surd.ts` chuyển lên
+`lib/tools/` (đúng đường mà `fraction.ts` đã đi ở đợt 1), và phần đọc biểu thức tách
+khỏi `function-analysis/parse.ts` thành `lib/tools/expression.ts` — cùng một bộ đọc
+LaTeX/`x²`/nhân ngầm, thêm tham số biến để bài chuyển động gõ được `v(t) = t^2 - 4t + 3`.
+`function-analysis/parse.ts` giờ chỉ còn việc xếp hàm vào dạng SGK.
+
+Công cụ ở `lib/tools/integral/`: `integrate.ts` (nguyên hàm, tích phân, tổng Riemann,
+tách khúc), `analyze.ts` (dựng bài toán, chọn cận), `steps.ts` (lời giải + câu hỏi đoán
+trước); giao diện `IntegralTool` + `IntegralPlot`.
+
+**Phạm vi: chỉ đa thức bậc ≤ 6.** Nguyên hàm của hàm bất kỳ cần hệ đại số máy tính và
+sẽ sai ở đâu đó mà học sinh không biết (mục 5). Ngoài phạm vi thì báo lý do, không đoán:
+phân thức, bậc > 6, và phương trình giao điểm không giải được bằng căn bậc hai
+(x³ = 2 chẳng hạn).
+
+| Đoán trước / Tự làm | Thao tác trực tiếp |
+|---|---|
+| S\_n thiếu hay thừa so với tích phân (giải thích bằng chiều biến thiên, không bằng số) · n → +∞ thì tổng đi đâu · đồ thị nào nằm trên TỪNG khúc (chưa trả lời thì khúc đó chưa được tô) · quãng đường có bằng độ dịch chuyển không · **tính một tích phân duy nhất có ra diện tích không** | Thanh trượt số hình chữ nhật: n từ 1 tới 40, thấy tổng bò về giá trị tích phân và sai số co lại |
+
+Câu cuối là cái bẫy lớn nhất của chương: với y = x³ − 3x² + 2 trên [0; 2] thì tích phân
+bằng **0** trong khi diện tích bằng **5/2**. Công cụ hiện cả hai số cạnh nhau ở bước bỏ
+dấu trị tuyệt đối, thay vì chỉ đưa ra đáp án đúng.
+
+Đối chiếu tay (14 test): ∫₀¹x²dx = 1/3; ∫₀²(x³ − 3x² + 2)dx = 0 mà S = 5/2; hai parabol
+y = x² và y = 2 − x² cho 8/3; y = x³ và y = x cho 1/4 + 1/4; y = x² và y = x + 1 cắt nhau
+tại (1 ± √5)/2 cho 5√5/6 (giao điểm vô tỉ vẫn tính chính xác trong tập a + b√r);
+v(t) = t² − 4t + 3 trên [0; 4] cho quãng đường 4 nhưng độ dịch chuyển 4/3; tổng Riemann
+mút trái/phải/trung điểm của x² trên [0; 1] với n = 4 là 7/32, 15/32, 21/64.
+
+**Hai bẫy mới:**
+
+1. **Nhãn cận đè lên số trên trục.** Cận dạng căn viết dài cả chục ký tự —
+   `(1 − √5)/2` nằm đúng chỗ số `−0,5` của trục. `IntegralPlot` ước lượng bề rộng nhãn
+   cận rồi bỏ những số trục rơi vào đó: thiếu một mốc còn đọc được, chồng chữ thì không.
+2. **Dấu `$` lẻ trong chuỗi lời giải.** `rootsTex` nối nhiều nghiệm bằng `$ hoặc $`, nên
+   đặt nó vào khối `$$…$$` là làm hỏng cả khối. Có một test quét mọi dòng của mọi kiểu
+   bài, đếm dấu `$` và bắt khối `$$…$$` có `$` lẫn bên trong.

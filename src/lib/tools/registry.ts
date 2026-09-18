@@ -12,7 +12,7 @@
  * Lộ trình và lý do chọn công cụ: docs/STUDENT_TOOLS_ROADMAP.md.
  */
 
-export type ToolIcon = 'region' | 'tree' | 'histogram' | 'curve'
+export type ToolIcon = 'region' | 'tree' | 'histogram' | 'curve' | 'integral'
 
 export interface StudentTool {
   slug: string
@@ -37,6 +37,17 @@ export const STUDENT_TOOLS: readonly StudentTool[] = [
     summary:
       'Nhập hàm bậc ba, trùng phương hoặc phân thức; đi từng bước đạo hàm, xét dấu, cực trị, tiệm cận — bảng biến thiên và đồ thị lập dần theo lời giải.',
     lesson: 'Chương 1 · Ứng dụng đạo hàm để khảo sát và vẽ đồ thị hàm số',
+    grade: 'Lớp 12',
+  },
+  {
+    // Đề có 4 câu nguyên hàm – tích phân, nhiều ngang Oxyz (roadmap mục 1.1).
+    slug: 'integral',
+    title: 'Tích phân',
+    short: 'Tích phân',
+    icon: 'integral',
+    summary:
+      'Tổng Riemann tiến tới tích phân, diện tích hình phẳng giữa hai đồ thị, quãng đường đi được từ vận tốc — từng bước, phân số chính xác.',
+    lesson: 'Chương 4 · Nguyên hàm và tích phân',
     grade: 'Lớp 12',
   },
   {

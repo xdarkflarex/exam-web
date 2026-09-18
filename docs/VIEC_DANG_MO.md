@@ -4,18 +4,30 @@ Sổ ghi việc của dự án. **Phần A** là việc còn phải làm, **ph�
 chủ dự án quyết, **phần C** là hồ sơ việc đã xong — giữ lại vì phần lớn bài học
 nằm trong đó.
 
-## Trạng thái kho code — rà 2026-09-07
+## Trạng thái kho code — rà 2026-09-18
 
-- Nhánh `main`, **0 commit chưa đẩy**, working tree sạch. (Bản trước của file này
-  nói "đang ở nhánh `design/visual-overhaul`, 17 commit chưa đẩy, web thật chưa hề
-  đổi" — sai từ lâu; đợt làm đẹp đã gộp vào `main` ngày 2026-08-25.)
-- Typecheck pass · test 410/410 pass · lint 68 error, 124 warning trên 59 file.
+Đo lại trong phiên 2026-09-18, trước khi thêm công cụ tích phân:
+
+- Nhánh làm việc `claude/eloquent-ritchie-tmf8zr`, lúc bắt đầu trùng đúng
+  `origin/main`, working tree sạch, không có pull request nào đang mở.
+- Typecheck pass · test **515/515** pass (410/410 ở bản trước của file này là số
+  cũ; bộ test đã lớn thêm nhờ công cụ học tập) · lint **68 error, 124 warning** —
+  đúng bằng lần đo 2026-09-07, tức đợt việc này không thêm lỗi nào.
+- `npm run build` **cần biến môi trường Supabase**: không có `.env` thì bước
+  prerender hỏng ở `/admin/theories` và `/student/analytics` với lỗi "Your
+  project's URL and API key are required". Đó là thiếu cấu hình, không phải lỗi
+  code — đặt giá trị giả cho `NEXT_PUBLIC_SUPABASE_URL` và
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` là build xong.
 - Không có CI. Mọi con số trong tài liệu là do người đo tay, nên **kiểm lại trước
   khi dựa vào nó** — xem `AGENTS.md` mục 3.
 - Working tree thường có sẵn thay đổi chưa commit của chủ dự án; đừng gộp chúng
   vào commit của mình.
 
 ## Số đo hiện tại
+
+Bảng dưới đây đo trên **database ngày 2026-09-07** và **chưa được kiểm lại** kể từ
+đó — phiên 2026-09-18 không có `.env` nên không nối được vào Primary. Trước khi dựa
+vào một dòng nào, đếm lại theo `RUNBOOK.md` mục 0.
 
 | Thứ | Số đo 2026-09-07 |
 |---|---|
@@ -62,10 +74,13 @@ bằng từ khoá, dán TikZ, dựng thử, lưu và đẩy). Việc rà thì ch
 **không** ghép tự động — ghép sai thì học sinh đọc đề một đằng nhìn hình một nẻo
 và không ai phát hiện ra.
 
-## A3. 110 câu chưa phân loại
+## A3. Còn khoảng 73–110 câu chưa phân loại
 
-Còn lại sau lượt luật ngày 2026-09-05 (1324 → 1511). Dành cho tab "Gợi ý AI", nay
-đã có hàng rào `findRuleConflict` chặn sau.
+Còn 110 câu sau lượt luật ngày 2026-09-05 (1324 → 1511). Sau đó lớp luật được cho
+đọc thêm **lời giải** (`CLASSIFICATION_RULES.md`, 2026-09-15): chạy thử trên ngân
+hàng thì nhóm chưa phân loại xuống **73**. Đó là số của một lần chạy thử, chưa rõ
+đã ghi vào database chưa — đếm lại trước khi báo cáo. Phần còn lại dành cho tab
+"Gợi ý AI", nay đã có hàng rào `findRuleConflict` chặn sau.
 
 ## A4. `20260903_question_audit_fix_apply.sql` — không xác minh được
 
@@ -679,3 +694,25 @@ bản in. Mặt cầu ở phụ lục A nặng lên 645 KB vì `\shade[ball colo
 Phép kiểm "vẽ ra rồi đếm điểm ảnh" hiện làm bằng tay trong trình duyệt. Nên gói
 thành script chạy được trong CI, vì chặn cuối ở trên chỉ bắt được trường hợp
 **toàn bộ** trong suốt — hình mất một nửa nét thì vẫn lọt.
+
+## 20. XONG 2026-09-18 — công cụ tích phân, và dọn nền dùng chung cho các công cụ
+
+Đợt 2 của `STUDENT_TOOLS_ROADMAP.md` đã xong cả hai công cụ. Công cụ tích phân gộp
+ba kiểu bài của chương 4 vào một tab: tổng Riemann, diện tích hình phẳng, quãng
+đường từ v(t). Chi tiết ở mục 9 của roadmap; ở đây chỉ giữ hai bài học.
+
+**Nền dùng chung phải nằm ở `lib/tools/`, không nằm trong thư mục của công cụ đầu
+tiên cần nó.** `poly.ts` và `surd.ts` viết cho công cụ khảo sát hàm số, nhưng công
+cụ tích phân cần đúng chúng; phần đọc biểu thức cũng vậy. Lần này chuyển hẳn lên
+`lib/tools/` và tách `expression.ts` ra khỏi `function-analysis/parse.ts` — cùng
+đường mà `fraction.ts` đã đi ở đợt 1. Công cụ sau (Oxyz, đường tròn lượng giác) cứ
+theo lối đó.
+
+**Không nhìn được bằng mắt trong sandbox thì dựng đường nhìn tạm.** Route
+`/student/tools/*` nằm sau middleware đăng nhập, mà sandbox không có `.env` để tạo
+phiên thật. Cách đã dùng: một trang `/tool-preview` tạm + một dòng cho qua
+middleware, chụp màn hình bằng Chromium có sẵn, rồi **xoá cả hai trước khi commit**
+(`git checkout src/middleware.ts`). Nhờ chụp thật mới thấy nhãn cận dạng căn đè lên
+số trên trục — đọc code không thấy được. MathJax không tải được qua proxy của
+sandbox nên công thức hiện ra dạng `$…$` thô: hình và bố cục kiểm được, còn **phần
+công thức thì vẫn phải mở bằng mắt trên máy có mạng**.

@@ -23,6 +23,7 @@ function Loading() {
 }
 
 export const FunctionAnalysisClient = dynamic(() => import('./FunctionAnalysisTool'), { ssr: false, loading: Loading })
+export const IntegralClient = dynamic(() => import('./IntegralTool'), { ssr: false, loading: Loading })
 export const InequalityRegionClient = dynamic(() => import('./InequalityRegionTool'), { ssr: false, loading: Loading })
 export const GroupedDataClient = dynamic(() => import('./GroupedDataTool'), { ssr: false, loading: Loading })
 export const ConditionalProbabilityClient = dynamic(() => import('./ConditionalProbabilityTool'), {
