@@ -10,9 +10,9 @@ nằm trong đó.
 
 - Nhánh làm việc `claude/eloquent-ritchie-tmf8zr`, lúc bắt đầu trùng đúng
   `origin/main`, working tree sạch, không có pull request nào đang mở.
-- Typecheck pass · test **515/515** pass (410/410 ở bản trước của file này là số
+- Typecheck pass · test **530/530** pass (410/410 ở bản trước của file này là số
   cũ; bộ test đã lớn thêm nhờ công cụ học tập) · lint **68 error, 124 warning** —
-  đúng bằng lần đo 2026-09-07, tức đợt việc này không thêm lỗi nào.
+  đúng bằng lần đo 2026-09-07, tức hai đợt việc này không thêm lỗi nào.
 - `npm run build` **cần biến môi trường Supabase**: không có `.env` thì bước
   prerender hỏng ở `/admin/theories` và `/student/analytics` với lỗi "Your
   project's URL and API key are required". Đó là thiếu cấu hình, không phải lỗi
@@ -716,3 +716,21 @@ middleware, chụp màn hình bằng Chromium có sẵn, rồi **xoá cả hai t
 số trên trục — đọc code không thấy được. MathJax không tải được qua proxy của
 sandbox nên công thức hiện ra dạng `$…$` thô: hình và bố cục kiểm được, còn **phần
 công thức thì vẫn phải mở bằng mắt trên máy có mạng**.
+
+## 21. XONG 2026-09-19 — công cụ Oxyz kéo được để xoay
+
+Đợt 3 của `STUDENT_TOOLS_ROADMAP.md` xong công cụ nặng nhất: bốn kiểu bài của
+chương 5, hình không gian xoay được bằng SVG và phép chiếu song song tự viết
+(không three.js). Chi tiết ở mục 10 của roadmap; ở đây giữ hai bài học.
+
+**Chỗ nào so sánh được bằng số hữu tỉ thì đừng đụng tới căn.** Vị trí tương đối
+giữa mặt cầu và mặt phẳng là so d với R, nhưng d luôn có căn. So `d²` với `R²` —
+cả hai hữu tỉ — thì ca **tiếp xúc** (d đúng bằng R) không bao giờ bị trượt thành
+"cắt" hay "không cắt" vì sai số. Cùng lý do: tập số a + b√r chỉ cộng được khi
+cùng r, nên mọi phép cộng hai độ dài khác căn đều phải tránh từ lúc thiết kế.
+
+**Hình 3D phải nhìn mới biết đúng.** Ba lỗi của bản đầu — mảnh mặt phẳng phủ kín
+khung, tên vectơ đè lên tên điểm, phương trình tham số viết `x = 0 + 1t` — không
+lỗi nào lộ ra qua test hay typecheck. Cách xem trong sandbox vẫn như mục 20:
+trang `/tool-preview` tạm + một dòng cho qua middleware, chụp bằng Chromium,
+rồi xoá cả hai trước khi commit.

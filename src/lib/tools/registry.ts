@@ -12,7 +12,7 @@
  * Lộ trình và lý do chọn công cụ: docs/STUDENT_TOOLS_ROADMAP.md.
  */
 
-export type ToolIcon = 'region' | 'tree' | 'histogram' | 'curve' | 'integral'
+export type ToolIcon = 'region' | 'tree' | 'histogram' | 'curve' | 'integral' | 'space'
 
 export interface StudentTool {
   slug: string
@@ -48,6 +48,17 @@ export const STUDENT_TOOLS: readonly StudentTool[] = [
     summary:
       'Tổng Riemann tiến tới tích phân, diện tích hình phẳng giữa hai đồ thị, quãng đường đi được từ vận tốc — từng bước, phân số chính xác.',
     lesson: 'Chương 4 · Nguyên hàm và tích phân',
+    grade: 'Lớp 12',
+  },
+  {
+    // Đề có 4 câu Oxyz — nhiều nhất trong các chủ đề (roadmap mục 1.1).
+    slug: 'space',
+    title: 'Hình toạ độ Oxyz',
+    short: 'Oxyz',
+    icon: 'space',
+    summary:
+      'Mặt phẳng qua ba điểm, khoảng cách và hình chiếu, đường thẳng cắt mặt phẳng, mặt cầu — hình không gian kéo để xoay, lời giải đi từng bước.',
+    lesson: 'Chương 5 · Phương pháp toạ độ trong không gian',
     grade: 'Lớp 12',
   },
   {

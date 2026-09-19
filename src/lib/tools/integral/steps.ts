@@ -8,7 +8,8 @@
  * Chuỗi dùng cú pháp của `RichText`: `$…$`, `$$…$$`, `**…**`.
  */
 
-import { decimalTex, Frac } from '../fraction.ts'
+import { fracTex, valueTex } from '../format.ts'
+import { Frac } from '../fraction.ts'
 import { Poly, type Root } from '../poly.ts'
 import { Surd } from '../surd.ts'
 import type { IntegralAnalysis } from './analyze.ts'
@@ -67,26 +68,6 @@ export interface IntStep {
 const S = (marks: boolean, shade: boolean, rects = false, values = false): IntStage => ({ marks, shade, rects, values })
 
 // ── Định dạng ───────────────────────────────────────────────────────────────
-
-/** `-9{,}66` — số thực làm tròn 2 chữ số, kiểu Việt Nam. */
-export function approxTex(v: number): string {
-  return decimalTex(Frac.of(Math.round(v * 100), 100).toDecimal(2).text)
-}
-
-/** Giá trị chính xác, kèm số thập phân khi cần: `\frac{4}{3} \approx 1{,}33`. */
-export function valueTex(s: Surd): string {
-  if (s.isRational()) {
-    const f = s.toFrac()!
-    const d = f.toDecimal(2)
-    return d.exact ? f.toTex() : `${f.toTex()} \\approx ${decimalTex(d.text)}`
-  }
-  return `${s.toTex()} \\approx ${approxTex(s.toNumber())}`
-}
-
-function fracTex(f: Frac): string {
-  const d = f.toDecimal(2)
-  return d.exact ? f.toTex() : `${f.toTex()} \\approx ${decimalTex(d.text)}`
-}
 
 function intervalTex(p: Piece): string {
   return `(${p.from.toTex()}; ${p.to.toTex()})`

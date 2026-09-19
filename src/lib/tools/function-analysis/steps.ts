@@ -8,7 +8,8 @@
  * Chuỗi dùng cú pháp của `RichText`: `$…$`, `$$…$$`, `**…**`.
  */
 
-import { decimalTex, Frac } from '../fraction.ts'
+import { approxTex } from '../format.ts'
+import { Frac } from '../fraction.ts'
 import type { Analysis, Bound, Column, Limit, Sign } from './analyze.ts'
 import { evaluateFrac } from './analyze.ts'
 import { Poly, type Root } from '../poly.ts'
@@ -82,11 +83,6 @@ function m(f: Frac): string {
   return f.sign() < 0 ? `(${f.toTex()})` : f.toTex()
 }
 
-/** `-9{,}66` — số thực làm tròn 2 chữ số, kiểu Việt Nam. */
-export function approxTex(v: number): string {
-  return decimalTex(Frac.of(Math.round(v * 100), 100).toDecimal(2).text)
-}
-
 function surdWithApprox(s: Surd): string {
   return s.isRational() ? s.toTex() : `${s.toTex()} \\approx ${approxTex(s.toNumber())}`
 }
@@ -96,6 +92,8 @@ export function pointTex(x: Surd | Frac, y: Surd | Frac): string {
 }
 
 /** `x = 0$ hoặc $x = \pm 1` — phần giữa của một chuỗi `$…$`. Gộp cặp nghiệm đối nhau. */
+export { approxTex }
+
 export function rootsListTex(roots: Root[]): string {
   const used = new Set<number>()
   const parts: string[] = []
