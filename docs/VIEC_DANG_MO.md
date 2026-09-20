@@ -268,6 +268,65 @@ Form đăng ký chọn khối (server tra khoá), `/admin/users` ô chọn lớp
 `/admin/classes` vốn đã đúng, `/student/settings` bỏ hẳn ô. Không còn ô chữ tự do
 nào ghi vào `class_id` — nên con số 1 ở trên sẽ **không tăng thêm**.
 
+## A15. `/badges` và `/goals` đọc `exam_attempts` bằng cột không tồn tại
+
+Phát hiện ngày 2026-09-19 khi port hai trang này sang app điện thoại. **Hỏng
+lặng lẽ**: không có lỗi nào hiện ra, chỉ là mọi con số đứng im ở 0.
+
+Cả hai trang viết:
+
+```ts
+// src/app/badges/page.tsx:90   và   src/app/goals/page.tsx:105
+const { data: attemptsData } = await supabase
+  .from('exam_attempts')
+  .select('score, created_at')
+  .eq('user_id', user.id)          // ← bảng có `student_id`, không có `user_id`
+  .eq('status', 'completed')       // ← status chỉ nhận in_progress|submitted|graded|abandoned
+```
+
+Hai điều kiện đều sai với schema thật (`database/SUPABASE_SCHEMA.sql:183`, và
+mọi file khác trong `src` đều dùng `student_id` + `'submitted'`). PostgREST trả
+lỗi cột không tồn tại; **cả hai trang không kiểm `error`**, nên `attemptsData`
+về `null`, nhánh `if (attemptsData && attemptsData.length > 0)` không chạy, và
+`stats` giữ nguyên giá trị khởi tạo là 0.
+
+Hậu quả học sinh nhìn thấy:
+
+- `/badges`: mọi thanh tiến độ 0%, `totalExams` 0, `highestScore` 0, chuỗi ngày 0.
+  Huy hiệu đã đạt vẫn hiện đúng (bảng `user_badges` dùng `user_id` — đúng), nên
+  trang trông như "chưa làm bài nào" với người đã làm hàng chục bài.
+- `/goals`: `current_value` không bao giờ được cập nhật, nên mục tiêu không bao
+  giờ tự đánh dấu hoàn thành.
+
+Hai trang đều mở được từ `StudentHeader` (chuông huy hiệu và menu), nên đây là
+màn hình học sinh thật sự vào.
+
+**Sửa:** đổi thành `.eq('student_id', user.id).in('status', ['submitted', 'graded'])`
+và kiểm `error` thay vì nuốt. Bản app đã làm đúng, đối chiếu được ở
+`exam-web-app-phone/src/lib/student/achievements.ts` — cùng một phép tính,
+cùng thang chuỗi ngày `activity-streak.ts`.
+
+Cân nhắc kèm theo: `created_at` là lúc MỞ đề, `submit_time` là lúc nộp. App dùng
+`submit_time` vì "ngày học" nên là ngày làm xong bài. Khác biệt nhỏ nhưng nếu
+sửa thì nên thống nhất một mốc cho cả hai bên.
+
+## A16. Không có đường nào TẠO bookmark
+
+Phát hiện cùng đợt. `question_bookmarks` chỉ được **đọc** (qua RPC
+`get_my_safe_bookmarks`) và **xoá** ở `src/app/bookmarks/page.tsx:91`. Không file
+nào trong `src` insert vào bảng đó.
+
+Policy INSERT đã có sẵn (`database/ANNOUNCEMENTS_SCHEMA.sql:65`), tức hạ tầng
+sẵn sàng — chỉ thiếu nút bấm. Kết quả: `/bookmarks` mở được từ menu
+`StudentHeader` nhưng luôn rỗng, trừ khi dữ liệu đến từ nơi khác ngoài repo này.
+
+**Chỗ tự nhiên để thêm nút:** trang kết quả `/result/[attemptId]` — học sinh vừa
+thấy câu mình làm sai là lúc muốn đánh dấu để ôn lại. Cần quyết cho phép lưu
+`note` hay không, vì cột đó đang có mà không ai ghi.
+
+Vì chưa có đường tạo, **app điện thoại cố ý không port màn này**: dựng một màn
+hình đọc thứ không gì sinh ra là dựng một trang rỗng có thật.
+
 ---
 
 # Phần B — chờ chủ dự án quyết
