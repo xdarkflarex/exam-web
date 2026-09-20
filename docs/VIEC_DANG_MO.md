@@ -453,6 +453,36 @@ App gửi góp ý qua đúng đường đó và khi gặp 42501 thì nói thẳn
 mở tính năng góp ý", không báo "lỗi kết nối" — xem
 `exam-web-app-phone/src/lib/feedback/actions.ts`.
 
+## A20. `anti_cheat_logs` cho phép ghi đè lên lượt thi của người khác
+
+Phát hiện khi port `useExamAntiCheat` sang app.
+
+Policy INSERT của bảng này là:
+
+```sql
+-- database/EXAM_SYSTEM_SCHEMA.sql:496
+CREATE POLICY "System can insert anti-cheat logs" ON anti_cheat_logs
+  FOR INSERT WITH CHECK (true);
+```
+
+`WITH CHECK (true)` không ràng buộc `attempt_id` phải thuộc về người gọi. Ai
+đăng nhập cũng chèn được bản ghi "chuyển tab" vào lượt thi của BẤT KỲ học sinh
+nào — chỉ cần biết `attempt_id`. Sổ theo dõi gian lận mà ai cũng viết vào được
+thì không còn là bằng chứng.
+
+Không khẩn cấp (phải đoán được `attempt_id`, và nhật ký chỉ để giáo viên tham
+khảo chứ không tự trừ điểm), nhưng nên siết:
+
+```sql
+WITH CHECK (
+  attempt_id IN (SELECT id FROM public.exam_attempts WHERE student_id = auth.uid())
+)
+```
+
+Lưu ý kèm theo: policy SELECT chỉ mở cho giáo viên tạo đề
+(`database/EXAM_SYSTEM_SCHEMA.sql:487`), nên chính học sinh không đọc lại được
+nhật ký của mình — đúng ý đồ, giữ nguyên.
+
 ---
 
 # Phần B — chờ chủ dự án quyết
