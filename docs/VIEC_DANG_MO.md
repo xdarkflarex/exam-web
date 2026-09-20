@@ -268,65 +268,6 @@ Form đăng ký chọn khối (server tra khoá), `/admin/users` ô chọn lớp
 `/admin/classes` vốn đã đúng, `/student/settings` bỏ hẳn ô. Không còn ô chữ tự do
 nào ghi vào `class_id` — nên con số 1 ở trên sẽ **không tăng thêm**.
 
-## A15. `/badges` và `/goals` đọc `exam_attempts` bằng cột không tồn tại
-
-Phát hiện ngày 2026-09-19 khi port hai trang này sang app điện thoại. **Hỏng
-lặng lẽ**: không có lỗi nào hiện ra, chỉ là mọi con số đứng im ở 0.
-
-Cả hai trang viết:
-
-```ts
-// src/app/badges/page.tsx:90   và   src/app/goals/page.tsx:105
-const { data: attemptsData } = await supabase
-  .from('exam_attempts')
-  .select('score, created_at')
-  .eq('user_id', user.id)          // ← bảng có `student_id`, không có `user_id`
-  .eq('status', 'completed')       // ← status chỉ nhận in_progress|submitted|graded|abandoned
-```
-
-Hai điều kiện đều sai với schema thật (`database/SUPABASE_SCHEMA.sql:183`, và
-mọi file khác trong `src` đều dùng `student_id` + `'submitted'`). PostgREST trả
-lỗi cột không tồn tại; **cả hai trang không kiểm `error`**, nên `attemptsData`
-về `null`, nhánh `if (attemptsData && attemptsData.length > 0)` không chạy, và
-`stats` giữ nguyên giá trị khởi tạo là 0.
-
-Hậu quả học sinh nhìn thấy:
-
-- `/badges`: mọi thanh tiến độ 0%, `totalExams` 0, `highestScore` 0, chuỗi ngày 0.
-  Huy hiệu đã đạt vẫn hiện đúng (bảng `user_badges` dùng `user_id` — đúng), nên
-  trang trông như "chưa làm bài nào" với người đã làm hàng chục bài.
-- `/goals`: `current_value` không bao giờ được cập nhật, nên mục tiêu không bao
-  giờ tự đánh dấu hoàn thành.
-
-Hai trang đều mở được từ `StudentHeader` (chuông huy hiệu và menu), nên đây là
-màn hình học sinh thật sự vào.
-
-**Sửa:** đổi thành `.eq('student_id', user.id).in('status', ['submitted', 'graded'])`
-và kiểm `error` thay vì nuốt. Bản app đã làm đúng, đối chiếu được ở
-`exam-web-app-phone/src/lib/student/achievements.ts` — cùng một phép tính,
-cùng thang chuỗi ngày `activity-streak.ts`.
-
-Cân nhắc kèm theo: `created_at` là lúc MỞ đề, `submit_time` là lúc nộp. App dùng
-`submit_time` vì "ngày học" nên là ngày làm xong bài. Khác biệt nhỏ nhưng nếu
-sửa thì nên thống nhất một mốc cho cả hai bên.
-
-## A16. Không có đường nào TẠO bookmark
-
-Phát hiện cùng đợt. `question_bookmarks` chỉ được **đọc** (qua RPC
-`get_my_safe_bookmarks`) và **xoá** ở `src/app/bookmarks/page.tsx:91`. Không file
-nào trong `src` insert vào bảng đó.
-
-Policy INSERT đã có sẵn (`database/ANNOUNCEMENTS_SCHEMA.sql:65`), tức hạ tầng
-sẵn sàng — chỉ thiếu nút bấm. Kết quả: `/bookmarks` mở được từ menu
-`StudentHeader` nhưng luôn rỗng, trừ khi dữ liệu đến từ nơi khác ngoài repo này.
-
-**Chỗ tự nhiên để thêm nút:** trang kết quả `/result/[attemptId]` — học sinh vừa
-thấy câu mình làm sai là lúc muốn đánh dấu để ôn lại. Cần quyết cho phép lưu
-`note` hay không, vì cột đó đang có mà không ai ghi.
-
-Vì chưa có đường tạo, **app điện thoại cố ý không port màn này**: dựng một màn
-hình đọc thứ không gì sinh ra là dựng một trang rỗng có thật.
-
 ## A17. Client native không hoàn tất được việc đổi mật khẩu bắt buộc
 
 Phát hiện ngày 2026-09-20 khi dựng cổng đăng nhập cho app điện thoại.
@@ -400,6 +341,12 @@ tri thức" là việc app còn thiếu. Sai — web cũng không có. Đã sử
 
 ## A19. `question_feedbacks` không có policy nào cho học sinh
 
+> **TRẠNG THÁI 2026-09-20: bản sửa ĐÃ VIẾT, CHƯA ÁP lên database.**
+> `supabase/migrations/20260920_feedback_anticheat_rls.sql` (kèm preflight,
+> postflight, rollback và `scripts/feedback-anticheat-rls-check.mjs`). Mục này
+> ở lại phần A cho tới khi migration chạy thật và script JWT trả toàn bộ ĐẠT —
+> viết xong không phải là xong. Quy trình áp ở cuối mục.
+
 Phát hiện khi port nút "Góp ý câu này" sang app.
 
 Học sinh GHI vào bảng này từ `src/app/result/[attemptId]/page.tsx:201`. Nhưng
@@ -453,7 +400,42 @@ App gửi góp ý qua đúng đường đó và khi gặp 42501 thì nói thẳn
 mở tính năng góp ý", không báo "lỗi kết nối" — xem
 `exam-web-app-phone/src/lib/feedback/actions.ts`.
 
+### Quy trình áp `20260920` (cho cả A19 và A20)
+
+1. **Preflight** — `supabase/preflight/20260920_feedback_anticheat_rls_preflight.sql`.
+   Đọc ảnh chụp 1 trước tiên: nó trả lời câu duy nhất mà tài liệu không trả lời
+   được là `question_feedbacks` đang BẬT hay TẮT RLS, tức lỗ này đang là "rò rỉ"
+   hay "nút hỏng". Mọi dòng `chan_*` phải bằng 0.
+2. **Áp migration.** Bật RLS và tạo policy nằm trong CÙNG một transaction — tách
+   ra là chặn đứng đường ghi hiện có.
+3. **Postflight** — mọi dòng `must_be_zero` phải bằng 0.
+4. **Phép thử JWT thật**, bước không được bỏ:
+
+   ```
+   node --env-file=.env scripts/feedback-anticheat-rls-check.mjs \
+     --email <hoc-sinh-test> --password '...' --write
+   ```
+
+   Cần một tài khoản học sinh test ĐÃ LÀM ít nhất một đề, và một `attempt_id`
+   của người khác (`--other-attempt`, hoặc script tự tìm nếu có
+   `SUPABASE_SERVICE_KEY`). Thiếu chúng thì script **bỏ qua** đúng hai phép thử
+   quan trọng nhất và thoát mã 2 — bỏ qua không phải là đạt.
+
+5. **Cập nhật `RUNBOOK.md` mục 0** với trạng thái thật sau khi áp.
+
+**Hệ quả phải biết trước:** sau khi áp, `role = 'teacher'` sẽ thấy hộp góp ý
+`/admin/feedback` RỖNG. Hôm nay giáo viên đọc được là vì RLS đang tắt chứ không
+phải vì có quyền — policy của bảng vốn là exact `admin`. Migration cố ý không
+nới sang `teacher` vì `AGENTS.md` mục 4 xếp sai lệch teacher/admin là P1 đang mở
+và dặn không chữa triệu chứng bằng một policy lẻ. Nếu chủ dự án muốn giáo viên
+đọc được, đó là một quyết định riêng — và phải quyết luôn có scope theo
+`classes.teacher_id` hay không, vì hôm nay giáo viên đang thấy góp ý của mọi lớp.
+
 ## A20. `anti_cheat_logs` cho phép ghi đè lên lượt thi của người khác
+
+> **TRẠNG THÁI 2026-09-20: bản sửa ĐÃ VIẾT, CHƯA ÁP.** Cùng migration với A19 —
+> `20260920_feedback_anticheat_rls.sql`. Hai lỗ đi chung một file vì cùng cần
+> một helper (`public.owns_exam_attempt`).
 
 Phát hiện khi port `useExamAntiCheat` sang app.
 
@@ -894,3 +876,85 @@ bản in. Mặt cầu ở phụ lục A nặng lên 645 KB vì `\shade[ball colo
 Phép kiểm "vẽ ra rồi đếm điểm ảnh" hiện làm bằng tay trong trình duyệt. Nên gói
 thành script chạy được trong CI, vì chặn cuối ở trên chỉ bắt được trường hợp
 **toàn bộ** trong suốt — hình mất một nửa nét thì vẫn lọt.
+
+## 20. ĐÃ SỬA 2026-09-20 — `/badges` và `/goals` đọc `exam_attempts` bằng cột không tồn tại
+
+Phát hiện ngày 2026-09-19 khi port hai trang này sang app điện thoại. **Hỏng
+lặng lẽ**: không có lỗi nào hiện ra, chỉ là mọi con số đứng im ở 0.
+
+Cả hai trang viết:
+
+```ts
+// src/app/badges/page.tsx:90   và   src/app/goals/page.tsx:105
+const { data: attemptsData } = await supabase
+  .from('exam_attempts')
+  .select('score, created_at')
+  .eq('user_id', user.id)          // ← bảng có `student_id`, không có `user_id`
+  .eq('status', 'completed')       // ← status chỉ nhận in_progress|submitted|graded|abandoned
+```
+
+Hai điều kiện đều sai với schema thật (`database/SUPABASE_SCHEMA.sql:183`, và
+mọi file khác trong `src` đều dùng `student_id` + `'submitted'`). PostgREST trả
+lỗi cột không tồn tại; **cả hai trang không kiểm `error`**, nên `attemptsData`
+về `null`, nhánh `if (attemptsData && attemptsData.length > 0)` không chạy, và
+`stats` giữ nguyên giá trị khởi tạo là 0.
+
+Hậu quả học sinh nhìn thấy:
+
+- `/badges`: mọi thanh tiến độ 0%, `totalExams` 0, `highestScore` 0, chuỗi ngày 0.
+  Huy hiệu đã đạt vẫn hiện đúng (bảng `user_badges` dùng `user_id` — đúng), nên
+  trang trông như "chưa làm bài nào" với người đã làm hàng chục bài.
+- `/goals`: `current_value` không bao giờ được cập nhật, nên mục tiêu không bao
+  giờ tự đánh dấu hoàn thành.
+
+Hai trang đều mở được từ `StudentHeader` (chuông huy hiệu và menu), nên đây là
+màn hình học sinh thật sự vào.
+
+**Sửa:** đổi thành `.eq('student_id', user.id).in('status', ['submitted', 'graded'])`
+và kiểm `error` thay vì nuốt. Bản app đã làm đúng, đối chiếu được ở
+`exam-web-app-phone/src/lib/student/achievements.ts` — cùng một phép tính,
+cùng thang chuỗi ngày `activity-streak.ts`.
+
+Cân nhắc kèm theo: `created_at` là lúc MỞ đề, `submit_time` là lúc nộp. App dùng
+`submit_time` vì "ngày học" nên là ngày làm xong bài. Khác biệt nhỏ nhưng nếu
+sửa thì nên thống nhất một mốc cho cả hai bên.
+
+## 21. ĐÃ SỬA 2026-09-20 — không có đường nào TẠO bookmark
+
+Phát hiện cùng đợt. `question_bookmarks` chỉ được **đọc** (qua RPC
+`get_my_safe_bookmarks`) và **xoá** ở `src/app/bookmarks/page.tsx:91`. Không file
+nào trong `src` insert vào bảng đó.
+
+Policy INSERT đã có sẵn (`database/ANNOUNCEMENTS_SCHEMA.sql:65`), tức hạ tầng
+sẵn sàng — chỉ thiếu nút bấm. Kết quả: `/bookmarks` mở được từ menu
+`StudentHeader` nhưng luôn rỗng, trừ khi dữ liệu đến từ nơi khác ngoài repo này.
+
+**Chỗ tự nhiên để thêm nút:** trang kết quả `/result/[attemptId]` — học sinh vừa
+thấy câu mình làm sai là lúc muốn đánh dấu để ôn lại. Cần quyết cho phép lưu
+`note` hay không, vì cột đó đang có mà không ai ghi.
+
+Vì chưa có đường tạo, **app điện thoại cố ý không port màn này**: dựng một màn
+hình đọc thứ không gì sinh ra là dựng một trang rỗng có thật.
+
+**Bản sửa 2026-09-20** (mục 20):
+
+- `src/app/badges/page.tsx` và `src/app/goals/page.tsx`: `student_id` thay
+  `user_id`, `.in('status', ['submitted','graded'])` thay `'completed'`, và
+  `error` được kiểm rồi hiện thành dải đỏ có nút "Thử lại" thay vì nuốt.
+- Mốc thời gian chuyển sang `submit_time` ở cả hai trang. Chốt luôn cái mà mục
+  A15 để ngỏ: "ngày học" là ngày NỘP bài, không phải ngày mở đề — bản app điện
+  thoại đã tính như vậy từ đầu, giờ hai bên khớp nhau.
+- **Chưa mở trang bằng tài khoản học sinh thật.** Typecheck và lint sạch, nhưng
+  con số đúng hay không thì phải đăng nhập mới biết.
+
+**Bản sửa 2026-09-20** (mục 21):
+
+- `src/lib/bookmarks/actions.ts` — `addBookmark` / `removeBookmark` /
+  `getBookmarkIdsByQuestion`, dùng chung hình dạng với bản app điện thoại.
+- `src/app/result/[attemptId]/page.tsx` — nút "Lưu để ôn lại" ở mỗi câu, cạnh
+  nút góp ý. Bấm lại là bỏ lưu.
+- Quyết định về cột `note`: **KHÔNG ghi.** Cột vẫn còn và RPC vẫn trả về, nhưng
+  chưa có thiết kế cho việc nhập ghi chú và bản app cũng không ghi — thêm một ô
+  nhập ở một bên là tạo dữ liệu chỉ nửa hệ thống hiểu.
+- Từ nay `/bookmarks` có dữ liệu để hiện. Hai đường tạo: web (nút này) và app
+  điện thoại (cùng màn kết quả).

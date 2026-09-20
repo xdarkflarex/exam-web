@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare, Sparkles, ListFilter } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, BookOpen, Clock, MessageSquare, Sparkles, ListFilter, Bookmark, BookmarkCheck } from 'lucide-react'
 import MathContent, { MathProvider } from '@/components/MathContent'
 import QuestionImage from '@/components/QuestionImage'
 import FeedbackModal from '@/components/FeedbackModal'
@@ -18,6 +18,7 @@ import {
   RawStudentAnswer
 } from '@/lib/attempts/attemptView'
 import { getExamAttemptQuestionBundle } from '@/lib/exam/questions'
+import { addBookmark, getBookmarkIdsByQuestion, removeBookmark } from '@/lib/bookmarks/actions'
 import ProgressRing from '@/components/viz/ProgressRing'
 import ResultQuestionMap from '@/components/result/ResultQuestionMap'
 
@@ -56,6 +57,10 @@ export default function ResultPage() {
     questionNumber: number
   }>({ isOpen: false, questionId: '', questionNumber: 0 })
   const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Set<string>>(new Set())
+  /** `question_id` → `bookmark_id` cho những câu đã lưu. Không có khoá = chưa lưu. */
+  const [bookmarks, setBookmarks] = useState<Map<string, string>>(new Map())
+  /** Câu đang chờ server trả lời, để khoá nút và không bấm hai lần. */
+  const [bookmarkBusy, setBookmarkBusy] = useState<string | null>(null)
   const [onlyWrong, setOnlyWrong] = useState(false)
   /*
     Muc tieu nhay mang kem `seq` chu khong phai so cau tran.
@@ -115,6 +120,11 @@ export default function ResultPage() {
       
       const viewQuestions = buildAttemptView(rawData)
       setQuestions(viewQuestions)
+
+      // Trạng thái đã lưu. Hỏng ở đây KHÔNG được làm hỏng cả trang kết quả:
+      // không biết câu nào đã lưu thì nút hiện "Lưu để ôn lại", bấm vào vẫn
+      // đúng vì trùng khoá được coi là đã lưu.
+      setBookmarks(await getBookmarkIdsByQuestion(viewQuestions.map((q) => q.questionId)))
       setLoading(false)
     } catch (err) {
       console.error('Unexpected error:', err)
@@ -180,6 +190,35 @@ export default function ResultPage() {
 
   const hideToast = () => {
     setToast(prev => ({ ...prev, isVisible: false }))
+  }
+
+  const toggleBookmark = async (questionId: string) => {
+    const existing = bookmarks.get(questionId)
+    setBookmarkBusy(questionId)
+
+    const result = existing ? await removeBookmark(existing) : await addBookmark(questionId)
+    setBookmarkBusy(null)
+
+    if (!result.ok) {
+      showToast(result.message, 'error')
+      return
+    }
+
+    setBookmarks((current) => {
+      const next = new Map(current)
+      if (existing) next.delete(questionId)
+      else if (result.bookmarkId) next.set(questionId, result.bookmarkId)
+      return next
+    })
+
+    // Lưu được nhưng không đọc lại được id thì nút vẫn hiện "Lưu để ôn lại".
+    // Bấm lần nữa không hỏng — trùng khoá trả về id của dòng sẵn có.
+    showToast(
+      !existing && !result.bookmarkId
+        ? 'Đã lưu, nhưng chưa cập nhật được nút. Mở trang "Câu đã lưu" để kiểm tra.'
+        : result.message,
+      'success'
+    )
   }
 
   const openFeedbackModal = (questionId: string, questionNumber: number) => {
@@ -426,8 +465,27 @@ export default function ResultPage() {
             </div>
           )}
 
-          {/* Feedback Button */}
-          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+          {/* Luu de on lai + Gop y */}
+          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-2">
+            {(() => {
+              const saved = bookmarks.has(question.questionId)
+              return (
+                <button
+                  onClick={() => void toggleBookmark(question.questionId)}
+                  disabled={bookmarkBusy === question.questionId}
+                  aria-pressed={saved}
+                  className={`flex items-center gap-2 text-sm transition-colors disabled:opacity-50 ${
+                    saved
+                      ? 'text-teal-600 dark:text-teal-400'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400'
+                  }`}
+                >
+                  {saved ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                  {saved ? 'Đã lưu' : 'Lưu để ôn lại'}
+                </button>
+              )
+            })()}
+
             {submittedFeedbacks.has(question.questionId) ? (
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <CheckCircle2 className="w-4 h-4" />

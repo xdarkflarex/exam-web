@@ -7,7 +7,7 @@ import { countByDay, currentStreak } from '@/lib/analytics/activity-streak'
 import { StudentHeader } from '@/components/student'
 import { 
   Target, Plus, Trash2, CheckCircle, Clock,
-  TrendingUp, Award, Flame, BarChart3, X, Save
+  TrendingUp, Award, Flame, BarChart3, X, Save, AlertTriangle, RefreshCcw
 } from 'lucide-react'
 
 interface Goal {
@@ -61,6 +61,8 @@ export default function GoalsPage() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
+  /** Lỗi đọc kết quả bài làm. `null` = đọc được (kể cả khi chưa có bài nào). */
+  const [statsError, setStatsError] = useState<string | null>(null)
   const [goals, setGoals] = useState<Goal[]>([])
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -83,6 +85,7 @@ export default function GoalsPage() {
 
   const fetchData = async () => {
     setLoading(true)
+    setStatsError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -101,14 +104,27 @@ export default function GoalsPage() {
         setGoals(goalsData || [])
       }
 
-      // Fetch current stats
-      const { data: attemptsData } = await supabase
-        .from('exam_attempts')
-        .select('score, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
+      /*
+        Cùng một lỗi với `badges/page.tsx`, sửa cùng ngày 2026-09-20: cột đúng là
+        `student_id` chứ không phải `user_id`, `status` không có giá trị
+        `'completed'`, và `error` phải được kiểm — không thì PostgREST trả lỗi
+        mà trang chỉ hiện toàn số 0, nên mục tiêu KHÔNG BAO GIỜ tự đánh dấu hoàn
+        thành và không ai biết vì sao.
 
-      if (attemptsData && attemptsData.length > 0) {
+        `submit_time` thay `created_at`: "bài trong tuần này" phải đếm theo ngày
+        NỘP, không phải ngày mở đề. Mở đề thứ Bảy rồi nộp thứ Hai là bài của
+        tuần sau.
+      */
+      const { data: attemptsData, error: attemptsError } = await supabase
+        .from('exam_attempts')
+        .select('score, submit_time')
+        .eq('student_id', user.id)
+        .in('status', ['submitted', 'graded'])
+        .not('submit_time', 'is', null)
+
+      if (attemptsError) {
+        setStatsError(logger.supabaseError('fetch goal stats', attemptsError))
+      } else if (attemptsData && attemptsData.length > 0) {
         const scores = attemptsData.map(a => a.score || 0)
         const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length
 
@@ -116,12 +132,12 @@ export default function GoalsPage() {
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - 7)
         const examsThisWeek = attemptsData.filter(a => 
-          new Date(a.created_at) >= weekAgo
+          new Date(a.submit_time) >= weekAgo
         ).length
 
         // Cùng một module với `badges/page.tsx`: streak theo ngày chỉ được tính ở
         // `src/lib/analytics/activity-streak.ts`. Ngữ nghĩa hiển thị giữ nguyên.
-        const streak = currentStreak(countByDay(attemptsData.map(a => a.created_at)))
+        const streak = currentStreak(countByDay(attemptsData.map(a => a.submit_time)))
 
         setCurrentStats({
           avgScore: Math.round(avgScore * 10) / 10,
@@ -141,6 +157,7 @@ export default function GoalsPage() {
 
     } catch (err) {
       logger.error('Fetch goals error', err)
+      setStatsError('Đã xảy ra lỗi. Vui lòng thử lại sau.')
     } finally {
       setLoading(false)
     }
@@ -280,6 +297,27 @@ export default function GoalsPage() {
             Thêm mục tiêu
           </button>
         </div>
+
+        {statsError && (
+          <div
+            className="mb-6 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+          >
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Không đọc được kết quả bài làm, nên số liệu và tiến độ mục tiêu bên dưới chưa
+              đúng. {statsError}
+            </span>
+            <button
+              type="button"
+              onClick={() => void fetchData()}
+              className="inline-flex items-center gap-2 font-semibold hover:underline"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Thử lại
+            </button>
+          </div>
+        )}
 
         {/* Current Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

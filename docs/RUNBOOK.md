@@ -22,6 +22,7 @@ khi cả bốn đã live.
 | `20260908` `get_my_grade` | đã nạp | `to_regprocedure` khác NULL |
 | `20260909` sửa lớp của đề | đã nạp | `has_column_privilege(...)` = true |
 | `20260910` thêm chương Dãy số | đã nạp | 4 bản ghi `categories` khớp "dãy số"/"cấp số" |
+| `20260920` RLS góp ý + nhật ký chống gian lận | **chưa nạp** (viết 2026-09-20) | sau khi nạp: `to_regprocedure('public.owns_exam_attempt(text)')` khác NULL, và `pg_class.relrowsecurity` của `question_feedbacks` = true |
 
 ### Cách kiểm, và cái bẫy của từng cách
 

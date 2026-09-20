@@ -7,7 +7,7 @@ import { countByDay, currentStreak } from '@/lib/analytics/activity-streak'
 import { StudentHeader } from '@/components/student'
 import { 
   Award, Trophy, Target, Flame, Star, Lock,
-  CheckCircle, TrendingUp, Zap
+  CheckCircle, TrendingUp, Zap, AlertTriangle, RefreshCcw
 } from 'lucide-react'
 
 interface Badge {
@@ -45,6 +45,8 @@ export default function BadgesPage() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
+  /** Lỗi đọc kết quả bài làm. `null` = đọc được (kể cả khi chưa có bài nào). */
+  const [statsError, setStatsError] = useState<string | null>(null)
   const [badges, setBadges] = useState<Badge[]>([])
   const [earnedBadges, setEarnedBadges] = useState<Map<string, string>>(new Map())
   const [stats, setStats] = useState<UserStats>({
@@ -60,6 +62,7 @@ export default function BadgesPage() {
 
   const fetchData = async () => {
     setLoading(true)
+    setStatsError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -86,15 +89,36 @@ export default function BadgesPage() {
       }
       setEarnedBadges(earned)
 
-      // Fetch user stats for progress calculation
-      const { data: attemptsData } = await supabase
-        .from('exam_attempts')
-        .select('score, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
+      /*
+        Ba chỗ đã SAI cho tới 2026-09-20, và sai LẶNG LẼ:
+        - `user_id` không tồn tại trên `exam_attempts`; cột đúng là `student_id`.
+        - `status` chỉ nhận in_progress | submitted | graded | abandoned.
+          `'completed'` không bao giờ khớp.
+        - `error` không được kiểm, nên PostgREST trả lỗi mà `attemptsData` chỉ
+          là `null`, nhánh dưới không chạy, và `stats` đứng im ở 0.
 
-      if (attemptsData && attemptsData.length > 0) {
+        Hệ quả: người đã làm hàng chục bài vẫn thấy mọi thanh tiến độ 0%.
+        Không có thông báo nào, nên không ai biết để báo lỗi.
+
+        Mốc thời gian dùng `submit_time` chứ không phải `created_at`:
+        `created_at` là lúc MỞ đề, còn "ngày học" phải là ngày làm xong bài.
+        Bản app điện thoại đã tính đúng như vậy từ đầu
+        (`exam-web-app-phone/src/lib/student/achievements.ts`); giữ hai bên
+        cùng một mốc để con số của học sinh không lệch giữa web và app.
+      */
+      const { data: attemptsData, error: attemptsError } = await supabase
+        .from('exam_attempts')
+        .select('score, submit_time')
+        .eq('student_id', user.id)
+        .in('status', ['submitted', 'graded'])
+        .not('submit_time', 'is', null)
+        .order('submit_time', { ascending: false })
+
+      if (attemptsError) {
+        // NÓI RA thay vì nuốt. "Chưa làm bài nào" và "không đọc được" là hai
+        // chuyện khác hẳn, và gộp chúng lại chính là cái đã giấu lỗi này suốt.
+        setStatsError(logger.supabaseError('fetch badge stats', attemptsError))
+      } else if (attemptsData && attemptsData.length > 0) {
         const scores = attemptsData.map(a => a.score || 0)
         const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length
         const highestScore = Math.max(...scores)
@@ -104,7 +128,7 @@ export default function BadgesPage() {
         // hai cách xử lý múi giờ có thể trôi khỏi nhau (mục 6.1 của
         // docs/STUDENT_SKILL_TREE_REDESIGN.md). Quy tắc hiển thị không đổi: hôm
         // nay chưa học vẫn giữ chuỗi, chuỗi chỉ đứt khi hôm qua cũng trống.
-        const streak = currentStreak(countByDay(attemptsData.map(a => a.created_at)))
+        const streak = currentStreak(countByDay(attemptsData.map(a => a.submit_time)))
 
         setStats({
           totalExams: attemptsData.length,
@@ -116,6 +140,7 @@ export default function BadgesPage() {
 
     } catch (err) {
       logger.error('Fetch badges error', err)
+      setStatsError('Đã xảy ra lỗi. Vui lòng thử lại sau.')
     } finally {
       setLoading(false)
     }
@@ -197,6 +222,26 @@ export default function BadgesPage() {
             </div>
           </div>
         </div>
+
+        {statsError && (
+          <div
+            className="mb-6 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+          >
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Không đọc được kết quả bài làm, nên các con số bên trên chưa đúng. {statsError}
+            </span>
+            <button
+              type="button"
+              onClick={() => void fetchData()}
+              className="inline-flex items-center gap-2 font-semibold hover:underline"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Thử lại
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
