@@ -398,6 +398,61 @@ lựa chọn, cần chủ dự án chọn:
 Ảnh hưởng tới app: `docs/PARITY.md` của `exam-web-app-phone` từng ghi "đồ thị
 tri thức" là việc app còn thiếu. Sai — web cũng không có. Đã sửa lại.
 
+## A19. `question_feedbacks` không có policy nào cho học sinh
+
+Phát hiện khi port nút "Góp ý câu này" sang app.
+
+Học sinh GHI vào bảng này từ `src/app/result/[attemptId]/page.tsx:201`. Nhưng
+trong toàn bộ SQL của repo, `question_feedbacks` chỉ có đúng một policy:
+
+```sql
+-- database/FIX_ADMIN_RLS_COMPLETE.sql:154
+CREATE POLICY "Admin can manage all feedbacks"
+ON question_feedbacks FOR ALL
+TO authenticated
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
+```
+
+Không có policy INSERT/SELECT cho học sinh, và **không file nào chạy
+`ALTER TABLE question_feedbacks ENABLE ROW LEVEL SECURITY`**. Hai khả năng:
+
+| Nếu RLS đang… | Thì… |
+|---|---|
+| **TẮT** | Insert chạy được, nhưng policy admin ở trên là vô hiệu và **ai đăng nhập cũng SELECT được góp ý của mọi học sinh khác**. Góp ý có tên người gửi và nội dung họ viết. |
+| **BẬT** | Học sinh bị từ chối 42501, nghĩa là nút "Gửi góp ý" bên web **đang hỏng** với mọi học sinh, và hộp việc `/admin/feedback` không bao giờ có gì mới. |
+
+Không đoán được là khả năng nào nếu không chạy thật. Câu kiểm nhanh:
+
+```sql
+SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.question_feedbacks');
+SELECT polname, polcmd FROM pg_policy WHERE polrelid = to_regclass('public.question_feedbacks');
+```
+
+**Sửa (cần cả hai vế):**
+
+1. Bật RLS cho bảng.
+2. Thêm hai policy cho học sinh, hẹp đúng phần của họ:
+
+```sql
+CREATE POLICY question_feedbacks_student_insert
+  ON public.question_feedbacks FOR INSERT TO authenticated
+  WITH CHECK (student_id = auth.uid());
+
+CREATE POLICY question_feedbacks_student_read
+  ON public.question_feedbacks FOR SELECT TO authenticated
+  USING (student_id = auth.uid());
+```
+
+Đây là thay đổi quyền nên cần preflight/postflight và test 401/403 theo
+`AGENTS.md` mục "Quyền truy cập" — nhất là vế "trước khi sửa thì đang thế nào",
+vì nếu RLS đang tắt thì bật lên sẽ **chặn ngay** mọi đường ghi hiện có cho tới
+khi hai policy trên được tạo trong cùng một transaction.
+
+App gửi góp ý qua đúng đường đó và khi gặp 42501 thì nói thẳng "hệ thống chưa
+mở tính năng góp ý", không báo "lỗi kết nối" — xem
+`exam-web-app-phone/src/lib/feedback/actions.ts`.
+
 ---
 
 # Phần B — chờ chủ dự án quyết
