@@ -378,6 +378,26 @@ khẩu 6 ký tự ở `/student/settings` là vô hiệu hoá luật của hai m
 thống nhất về luật 8 ký tự. App đã dùng luật chặt ở mọi chỗ
 (`exam-web-app-phone/src/lib/auth/password.ts`).
 
+## A18. `knowledge_block_edges` chỉ có đường ghi, không có đường xem
+
+Rà cùng ngày, khi đối chiếu xem app còn thiếu màn nào.
+
+`createKnowledgeBlockEdge` (`src/lib/theories/actions.ts:252`) ghi cạnh giữa các
+khối tri thức, và `getKnowledgeGraphForTheory` (`:276`) lấy khối + cạnh "cho
+mindmap" — nhưng **không file nào trong `src` gọi hàm thứ hai**, và không màn
+hình nào vẽ `knowledge_block_edges`. `/learn/map` chỉ `redirect` về `/learn`,
+còn `/learn` dùng `theory_edges` (quan hệ giữa các BÀI), không phải cạnh khối.
+
+Nghĩa là dữ liệu cạnh khối có thể đang được nhập vào mà chưa ai xem được. Ba
+lựa chọn, cần chủ dự án chọn:
+
+1. Dựng màn hình xem thật (mindmap trong bài lý thuyết).
+2. Xoá `getKnowledgeGraphForTheory` cho khỏi hiểu nhầm là đã có tính năng.
+3. Để nguyên, nhưng ghi rõ đây là hạ tầng chờ dùng.
+
+Ảnh hưởng tới app: `docs/PARITY.md` của `exam-web-app-phone` từng ghi "đồ thị
+tri thức" là việc app còn thiếu. Sai — web cũng không có. Đã sửa lại.
+
 ---
 
 # Phần B — chờ chủ dự án quyết
