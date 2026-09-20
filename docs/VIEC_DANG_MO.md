@@ -327,6 +327,57 @@ thấy câu mình làm sai là lúc muốn đánh dấu để ôn lại. Cần q
 Vì chưa có đường tạo, **app điện thoại cố ý không port màn này**: dựng một màn
 hình đọc thứ không gì sinh ra là dựng một trang rỗng có thật.
 
+## A17. Client native không hoàn tất được việc đổi mật khẩu bắt buộc
+
+Phát hiện ngày 2026-09-20 khi dựng cổng đăng nhập cho app điện thoại.
+
+`profiles.must_change_password` là cờ chặn thật: `src/middleware.ts:308` đá mọi
+route về `/change-password` khi cờ bật. Nhưng **chỉ có một chỗ xoá được cờ đó**
+là `POST /api/auth/change-password`, và route đó:
+
+- xác thực bằng **cookie** (`createServerClient` + `cookies()`), và
+- xoá cờ bằng `SUPABASE_SERVICE_KEY`, đúng như nó nên làm — trigger
+  `protect_profile_security_fields`
+  (`supabase/migrations/20260722_runtime_security_hardening.sql:2398`) raise
+  `PROFILE_SECURITY_FIELD_UPDATE_FORBIDDEN` khi chính chủ đụng vào cột này.
+
+React Native không có cookie jar dùng chung với trình duyệt, nên app không gọi
+được route này. Hệ quả cụ thể:
+
+- App **đổi được** mật khẩu ở Auth (`supabase.auth.updateUser`) nhưng cờ vẫn
+  bật, nên học sinh đổi xong vẫn bị chặn, rồi lên web lại bị bắt đổi lần nữa.
+- Vì vậy app cố ý **không** cho đổi mật khẩu trong màn chặn, mà đẩy sang
+  `{WEB_URL}/change-password`. Xem `exam-web-app-phone/app/(auth)/change-password.tsx`.
+
+Đây **không phải lỗ hổng của web** — web đang chặn đúng. Nhưng trước bản gần
+đây app **không đọc cờ này**, nên một tài khoản phát mật khẩu tạm dùng được app
+vô thời hạn: web đóng, app mở. App đã vá phía mình (`src/lib/auth/gate.ts`).
+
+**Hai hướng sửa bên web, chọn một:**
+
+1. Cho `/api/auth/change-password` nhận `Authorization: Bearer <access_token>`
+   bên cạnh cookie. Ít việc nhất, nhưng là thay đổi auth — cần test 401/403
+   theo `AGENTS.md`, và phải giữ nguyên chặn `sec-fetch-site: cross-site` cho
+   đường cookie.
+2. Thêm RPC `SECURITY DEFINER` kiểu `complete_forced_password_change()` chỉ xoá
+   cờ cho `auth.uid()` của chính người gọi, sau khi Auth đã đổi mật khẩu. Gọn
+   hơn cho mọi client, nhưng phải cân nhắc: gọi RPC đó mà chưa thực sự đổi mật
+   khẩu thì cờ bị xoá oan, nên cần ràng buộc thêm (ví dụ so
+   `auth.users.updated_at` với thời điểm đặt cờ).
+
+**Kèm theo — ba luật mật khẩu khác nhau trong cùng một repo:**
+
+| Chỗ | Luật |
+|---|---|
+| `src/app/(student)/student/settings/page.tsx:176` | ≥ 6 ký tự, không đòi gì thêm |
+| `src/app/api/auth/change-password/route.ts` | ≥ 8 ký tự + hoa + thường + số |
+| `src/app/complete-profile/page.tsx` | ≥ 8 ký tự + hoa + thường + số |
+
+Người dùng chỉ có MỘT mật khẩu, nên màn lỏng nhất là màn quyết định: đặt mật
+khẩu 6 ký tự ở `/student/settings` là vô hiệu hoá luật của hai màn kia. Nên
+thống nhất về luật 8 ký tự. App đã dùng luật chặt ở mọi chỗ
+(`exam-web-app-phone/src/lib/auth/password.ts`).
+
 ---
 
 # Phần B — chờ chủ dự án quyết
