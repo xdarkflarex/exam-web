@@ -8,7 +8,7 @@
  * docs/STUDENT_TOOLS_ROADMAP.md ("máy giải mọi bài" sẽ sai ở đâu đó).
  */
 
-import { Frac, lcm } from '../fraction.ts'
+import { Frac, lcm } from './fraction.ts'
 import { Surd } from './surd.ts'
 
 const B0 = BigInt(0)
@@ -139,7 +139,7 @@ export class Poly {
    * Chữ gõ lại được vào ô nhập — bộ đọc `parse.ts` phải đọc ra đúng đa thức này.
    * Hệ số phân số bọc ngoặc: `(1/3)x^3`, vì `1/3x^3` đọc thành 1/(3x³).
    */
-  toInput(): string {
+  toInput(variable = 'x'): string {
     if (this.isZero()) return '0'
     let out = ''
     for (let i = this.degree; i >= 0; i--) {
@@ -148,11 +148,36 @@ export class Poly {
       const negative = v.sign() < 0
       const mag = v.abs()
       const num = mag.isInteger() ? mag.toPlain() : `(${mag.toPlain()})`
-      const body = i === 0 ? mag.toPlain() : `${mag.eq(Frac.ONE) ? '' : num}x${i > 1 ? `^${i}` : ''}`
+      const body = i === 0 ? mag.toPlain() : `${mag.eq(Frac.ONE) ? '' : num}${variable}${i > 1 ? `^${i}` : ''}`
       out += out === '' ? `${negative ? '-' : ''}${body}` : ` ${negative ? '-' : '+'} ${body}`
     }
     return out
   }
+}
+
+/**
+ * Một số hữu tỉ "đẹp" nằm TRONG khoảng (lo; hi): ưu tiên 0, rồi số nguyên có trị
+ * tuyệt đối nhỏ nhất — đúng kiểu học sinh chọn khi xét dấu bằng tay. Mọi ứng viên
+ * được kiểm tra chính xác trước khi dùng.
+ */
+export function pickTestPoint(lo: Surd | null, hi: Surd | null): Frac {
+  const inside = (t: Frac) => {
+    const s = Surd.frac(t)
+    return (!lo || s.cmp(lo) > 0) && (!hi || s.cmp(hi) < 0)
+  }
+  if (inside(Frac.ZERO)) return Frac.ZERO
+  for (const den of [1, 2, 4, 10, 100, 1000, 10000, 1000000]) {
+    const candidates: number[] = []
+    if (hi && (!lo || hi.toNumber() <= 0)) candidates.push(Math.ceil(hi.toNumber() * den) - 1, Math.floor(hi.toNumber() * den) - 1)
+    if (lo && (!hi || lo.toNumber() >= 0)) candidates.push(Math.floor(lo.toNumber() * den) + 1, Math.ceil(lo.toNumber() * den) + 1)
+    for (const k of candidates) {
+      const t = Frac.of(k, den)
+      if (inside(t)) return t
+    }
+  }
+  // Khoảng hẹp tới mức trên: lấy trung điểm hai đầu (cả hai hữu hạn mới tới được đây).
+  const mid = ((lo?.toNumber() ?? 0) + (hi?.toNumber() ?? 0)) / 2
+  return Frac.of(Math.round(mid * 1e9), 1e9)
 }
 
 export interface Root {

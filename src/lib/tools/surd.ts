@@ -11,7 +11,7 @@
  * được so sánh gần đúng (không xảy ra với các dạng hàm công cụ nhận).
  */
 
-import { Frac } from '../fraction.ts'
+import { Frac } from './fraction.ts'
 
 const B1 = BigInt(1)
 const B2 = BigInt(2)

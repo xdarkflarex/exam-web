@@ -12,8 +12,8 @@ Tài liệu này trả lời ba câu: làm công cụ nào, theo thứ tự nào
 | Đợt | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Cây xác suất & Bayes · Ghép nhóm · "Tự làm" cho miền nghiệm | ✅ xong 2026-09-14 (mục 7) |
-| 2 | Khảo sát hàm số · Tích phân | khảo sát hàm số ✅ 2026-09-15 (mục 8) · tích phân chưa làm |
-| 3 | Oxyz xoay được · Đường tròn lượng giác | chưa làm |
+| 2 | Khảo sát hàm số · Tích phân | ✅ xong — khảo sát hàm số 2026-09-15 (mục 8) · tích phân 2026-09-18 (mục 9) |
+| 3 | Oxyz xoay được · Đường tròn lượng giác | Oxyz ✅ 2026-09-19 (mục 10) · đường tròn lượng giác chưa làm |
 
 ---
 
@@ -315,3 +315,105 @@ nguyên nhỏ; thế chính xác) → cực trị (giá trị dạng căn kèm �
    lộ đúng bằng phần hình đang hiện.
 2. **Chữ trong SVG co theo hình.** Hình 560 đơn vị trên màn 310px thì chữ 13 còn ~7px.
    `FunctionPlot` đo bề rộng thật (ResizeObserver) và phóng chữ tới 1,7 lần; nét giữ nguyên.
+
+---
+
+## 9. Đợt 2 · Tích phân — đã làm (2026-09-18)
+
+Ba kiểu bài của chương 4 trong MỘT tab, chọn bằng ba nút ở đầu công cụ — thay vì ba
+tab rời, vì cả ba dùng chung đúng một lõi (nguyên hàm + tách khúc theo dấu) và học
+sinh gặp chúng trong cùng một bài học.
+
+| Kiểu bài | Học sinh nhập | Công cụ làm |
+|---|---|---|
+| **Tổng Riemann → tích phân** | f(x), hai cận, thanh trượt n ≤ 40, chọn mút trái / trung điểm / mút phải | Δx và các mốc chia, tổng S\_n bằng phân số chính xác, bảng S\_n với n = 4 → 64, rồi Newton – Leibniz và sai số |
+| **Diện tích hình phẳng** | f(x), g(x) (trống = trục hoành), cận (trống = lấy giao điểm) | phương trình hoành độ giao điểm, xét dấu f − g bằng điểm thử hữu tỉ, bỏ trị tuyệt đối từng khúc, cộng lại |
+| **Quãng đường từ v(t)** | v(t), khoảng thời gian | thời điểm đổi chiều, dấu v từng khúc, ∫\|v\| và ∫v cạnh nhau |
+
+**Nền dùng chung, tách ra trong đợt này:** `poly.ts` và `surd.ts` chuyển lên
+`lib/tools/` (đúng đường mà `fraction.ts` đã đi ở đợt 1), và phần đọc biểu thức tách
+khỏi `function-analysis/parse.ts` thành `lib/tools/expression.ts` — cùng một bộ đọc
+LaTeX/`x²`/nhân ngầm, thêm tham số biến để bài chuyển động gõ được `v(t) = t^2 - 4t + 3`.
+`function-analysis/parse.ts` giờ chỉ còn việc xếp hàm vào dạng SGK.
+
+Công cụ ở `lib/tools/integral/`: `integrate.ts` (nguyên hàm, tích phân, tổng Riemann,
+tách khúc), `analyze.ts` (dựng bài toán, chọn cận), `steps.ts` (lời giải + câu hỏi đoán
+trước); giao diện `IntegralTool` + `IntegralPlot`.
+
+**Phạm vi: chỉ đa thức bậc ≤ 6.** Nguyên hàm của hàm bất kỳ cần hệ đại số máy tính và
+sẽ sai ở đâu đó mà học sinh không biết (mục 5). Ngoài phạm vi thì báo lý do, không đoán:
+phân thức, bậc > 6, và phương trình giao điểm không giải được bằng căn bậc hai
+(x³ = 2 chẳng hạn).
+
+| Đoán trước / Tự làm | Thao tác trực tiếp |
+|---|---|
+| S\_n thiếu hay thừa so với tích phân (giải thích bằng chiều biến thiên, không bằng số) · n → +∞ thì tổng đi đâu · đồ thị nào nằm trên TỪNG khúc (chưa trả lời thì khúc đó chưa được tô) · quãng đường có bằng độ dịch chuyển không · **tính một tích phân duy nhất có ra diện tích không** | Thanh trượt số hình chữ nhật: n từ 1 tới 40, thấy tổng bò về giá trị tích phân và sai số co lại |
+
+Câu cuối là cái bẫy lớn nhất của chương: với y = x³ − 3x² + 2 trên [0; 2] thì tích phân
+bằng **0** trong khi diện tích bằng **5/2**. Công cụ hiện cả hai số cạnh nhau ở bước bỏ
+dấu trị tuyệt đối, thay vì chỉ đưa ra đáp án đúng.
+
+Đối chiếu tay (14 test): ∫₀¹x²dx = 1/3; ∫₀²(x³ − 3x² + 2)dx = 0 mà S = 5/2; hai parabol
+y = x² và y = 2 − x² cho 8/3; y = x³ và y = x cho 1/4 + 1/4; y = x² và y = x + 1 cắt nhau
+tại (1 ± √5)/2 cho 5√5/6 (giao điểm vô tỉ vẫn tính chính xác trong tập a + b√r);
+v(t) = t² − 4t + 3 trên [0; 4] cho quãng đường 4 nhưng độ dịch chuyển 4/3; tổng Riemann
+mút trái/phải/trung điểm của x² trên [0; 1] với n = 4 là 7/32, 15/32, 21/64.
+
+**Hai bẫy mới:**
+
+1. **Nhãn cận đè lên số trên trục.** Cận dạng căn viết dài cả chục ký tự —
+   `(1 − √5)/2` nằm đúng chỗ số `−0,5` của trục. `IntegralPlot` ước lượng bề rộng nhãn
+   cận rồi bỏ những số trục rơi vào đó: thiếu một mốc còn đọc được, chồng chữ thì không.
+2. **Dấu `$` lẻ trong chuỗi lời giải.** `rootsTex` nối nhiều nghiệm bằng `$ hoặc $`, nên
+   đặt nó vào khối `$$…$$` là làm hỏng cả khối. Có một test quét mọi dòng của mọi kiểu
+   bài, đếm dấu `$` và bắt khối `$$…$$` có `$` lẫn bên trong.
+
+---
+
+## 10. Đợt 3 · Hình toạ độ Oxyz — đã làm (2026-09-19)
+
+Bốn kiểu bài của chương 5 trong một tab, chọn bằng bốn nút. Chúng dùng chung
+đúng một phép tính: **hình chiếu của một điểm lên mặt phẳng** — khoảng cách,
+điểm đối xứng, tâm đường tròn giao tuyến của mặt cầu, tiếp điểm đều ra từ đó.
+
+| Kiểu bài | Học sinh nhập | Công cụ làm |
+|---|---|---|
+| **Mặt phẳng qua ba điểm** | A, B, C, và D tuỳ chọn | hai vectơ, tích có hướng viết đủ ba định thức, rút gọn vtpt, phương trình, thử lại; có D thì xét đồng phẳng |
+| **Khoảng cách · hình chiếu** | M và (P) | d(M,(P)) trục căn thức ở mẫu, tham số t, hình chiếu H, điểm đối xứng M′, thử lại MH = d |
+| **Đường thẳng và mặt phẳng** | A + vtcp (hoặc hai điểm), (P) | phương trình tham số, xét u·n, giao điểm hoặc song song/nằm trong, góc bằng sin |
+| **Mặt cầu và mặt phẳng** | tâm + R, hoặc nguyên phương trình (S) | d(I,(P)), so **bình phương** với R², đường tròn giao tuyến hoặc tiếp điểm |
+
+**Hình kéo để xoay, SVG + phép chiếu song song tự viết** (không three.js, đúng
+mục 5): hai tích vô hướng cho mỗi điểm. Kéo chuột hoặc chạm để xoay, phím mũi
+tên khi hình đang được chọn, phím R về góc nhìn ban đầu; góc ngẩng chặn ở ±80°
+vì nhìn đúng từ đỉnh thì trục Oz co thành một điểm. Mặt phẳng vẽ thành mảnh
+hình bình hành, mặt cầu vẽ đường bao tròn kèm một vĩ tuyến, giao tuyến vẽ bằng
+72 điểm lấy mẫu — chiếu song song thì đường tròn ra đúng một elip.
+
+**Xoay được mới là giá trị chính**, không phải hình đẹp: hình tĩnh hay làm học
+sinh đọc sai vị trí tương đối — đường thẳng "trông như cắt" mà thật ra song
+song, điểm trông như nằm trên mặt phẳng. Xoay nửa vòng là thấy.
+
+| Đoán trước / Tự làm | Thao tác trực tiếp |
+|---|---|
+| Tìm vtpt bằng tích có hướng hay tổng hai vectơ · M có nằm trên (P) không · đường MH nhận vectơ nào làm vtcp · **u·n = 0 nói lên điều gì** · góc đường–mặt tính qua sin hay cos · mặt phẳng cắt / tiếp xúc / không cắt mặt cầu | Kéo xoay hình; hình lớn dần theo lời giải (`reveal` từng phần tử) nên bước 1 không lộ sẵn đáp án |
+
+Đối chiếu tay (15 test): (ABC) qua ba điểm trên ba trục cho 6x + 3y + 2z − 6 = 0;
+ba điểm thẳng hàng thì báo, không viết bừa; M(1;−2;3) với 2x − 2y + z + 3 = 0 cho
+d = 4, H(−5/3; 2/3; 5/3), M′(−13/3; 10/3; 1/3) và |MH| = 4; d(M,(P)) = √3 và √2/2
+ở hai ca có căn; đường thẳng cắt, song song, nằm trong; góc 45°, 90° và một góc lẻ
+≈ 35°16′; mặt cầu cắt (r = √65/3), tiếp xúc, không cắt.
+
+**Ba bẫy mới:**
+
+1. **Cộng hai căn khác nhau là không hợp lệ.** Tập a + b√r chỉ đóng khi cùng r,
+   nên mọi so sánh phải tránh căn: vị trí tương đối mặt cầu ↔ mặt phẳng so
+   **d² với R²** (cả hai hữu tỉ). So d với R qua số thực thì ca **tiếp xúc** sẽ
+   trượt thành "cắt" hoặc "không cắt" tuỳ sai số.
+2. **Mảnh mặt phẳng vẽ to quá thì che hết hình.** Bản đầu lấy nửa cạnh bằng
+   1,15 lần bán kính khung: nó phủ kín khung, nuốt mất trục và lưới. Rút về
+   0,78 và lấy một cạnh **nằm ngang** (`e₁ = n × Oz`) thì mặt phẳng đọc như bức
+   tường dựng trên nền — đúng kiểu hình trong sách.
+3. **Tên vectơ đặt ở đầu mũi tên là đè lên tên điểm.** `\overrightarrow{AC}` kết
+   thúc đúng chỗ điểm C. Đặt tên ở **giữa** mũi tên là hết chồng chữ. (SVG không
+   dựng được LaTeX, nên tên vectơ phải rút về chữ thường: `\vec{n}` → `n`.)
