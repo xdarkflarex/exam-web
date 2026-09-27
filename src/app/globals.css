@@ -179,6 +179,22 @@ html:not(.dark) .has-\[\:focus-visible\]\:ring-teal-500:has(:focus-visible) {
   --tw-ring-color: var(--color-teal-700);
 }
 
+/* Nút gradient teal chữ trắng ("Đăng ký" ở header, nút nổi "Đăng ký học",
+   CTA cuối trang chủ). Khối `.from-teal-600` phía trên chỉ sửa ĐẦU TRÁI; đầu
+   phải `to-teal-500` vẫn cho chữ trắng 2,4:1 (hover `to-teal-600`: 3,7:1).
+   Kéo cả dải xuống một bậc: teal-800 -> teal-700 (7,5 / 5,4:1), hover
+   teal-900 -> teal-800. Chỉ khi có `text-white`; dark mode đã có khối riêng
+   đổi chữ sang teal-950. */
+html:not(.dark) .from-teal-600.to-teal-500.text-white {
+  --tw-gradient-from: var(--color-teal-800);
+  --tw-gradient-to: var(--color-teal-700);
+}
+
+html:not(.dark) .from-teal-600.to-teal-500.text-white.hover\:to-teal-600:hover {
+  --tw-gradient-from: var(--color-teal-900);
+  --tw-gradient-to: var(--color-teal-800);
+}
+
 /* QUYẾT ĐỊNH CỦA CHỦ DỰ ÁN (2026-08-09): đẩy `slate-500` lên `slate-600`
    CHỈ Ở CHỮ NHỎ.
 

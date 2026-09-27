@@ -38,12 +38,26 @@ interface Props {
   chips: { label: string; value: number; className: string }[]
 }
 
-/** Tông của CTA. Khớp với `recommendedAction.tone` đã có ở student-capability. */
-const CTA_GRADIENT: Record<StudentCapabilitySummary['recommendedAction']['tone'], string> = {
-  rose: 'from-rose-600 to-rose-500 dark:from-rose-500 dark:to-rose-400',
-  amber: 'from-amber-600 to-amber-500 dark:from-amber-500 dark:to-amber-400',
-  teal: 'from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400',
-  slate: 'from-slate-600 to-slate-500 dark:from-slate-500 dark:to-slate-400',
+/**
+ * Tông của CTA. Khớp với `recommendedAction.tone` đã có ở student-capability.
+ *
+ * Mỗi tông mang cả màu chữ, vì chữ phải đạt 4,5:1 trên CẢ HAI đầu gradient —
+ * dòng mô tả `text-xs` trải gần hết bề ngang nút. Bản cũ để chữ trắng trên
+ * đầu sáng -500/-400: thấp nhất amber 1,7:1, teal 1,9:1, rose 2,9:1 (dark
+ * mode); ở light mode đầu phải cũng dưới 4,5:1 cả ba tông.
+ * Amber theo quy ước đã có của dự án (xem `.bg-amber-500.text-white` trong
+ * globals.css): amber sáng đi với chữ amber-950, không bao giờ chữ trắng.
+ * Cùng một cặp cho light và dark: các nền này đứng được trên cả hai.
+ */
+const CTA_STYLE: Record<StudentCapabilitySummary['recommendedAction']['tone'], { surface: string; detail: string }> = {
+  // trắng 7,9 / 6,0:1; dòng mô tả trắng/90 6,6 / 5,0:1
+  rose: { surface: 'from-rose-800 to-rose-700 text-white', detail: 'text-white/90' },
+  // amber-950 7,0 / 8,7:1; dòng mô tả /80 4,7 / 5,5:1
+  amber: { surface: 'from-amber-500 to-amber-400 text-amber-950', detail: 'text-amber-950/80' },
+  // trắng 7,5 / 5,4:1; dòng mô tả trắng/90 6,4 / 4,7:1
+  teal: { surface: 'from-teal-800 to-teal-700 text-white', detail: 'text-white/90' },
+  // trắng 10,4 / 7,6:1; dòng mô tả trắng/90 8,8 / 6,5:1
+  slate: { surface: 'from-slate-700 to-slate-600 text-white', detail: 'text-white/90' },
 }
 
 /**
@@ -113,11 +127,11 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
             {action ? (
               <Link
                 href={action.href}
-                className={`group mt-5 inline-flex max-w-full items-center gap-3 rounded-xl bg-gradient-to-r ${CTA_GRADIENT[action.tone]} px-5 py-3 text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900`}
+                className={`group mt-5 inline-flex max-w-full items-center gap-3 rounded-xl bg-gradient-to-r ${CTA_STYLE[action.tone].surface} px-5 py-3 shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900`}
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold">{action.label}</span>
-                  <span className="block truncate text-xs text-white/85">{action.detail}</span>
+                  <span className={`block truncate text-xs ${CTA_STYLE[action.tone].detail}`}>{action.detail}</span>
                 </span>
                 <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
               </Link>
