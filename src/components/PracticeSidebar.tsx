@@ -53,14 +53,19 @@ export default function PracticeSidebar({
             return (
               <button
                 key={q.id}
+                type="button"
                 onClick={() => isMobile ? handleQuestionClickMobile(q.id, q.part_number) : onQuestionClick(q.id, q.part_number)}
-                className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
+                /* Ô chỉ có số, nên "đã làm" trước đây chỉ được nói bằng màu xanh —
+                   giống lỗi đã sửa ở ExamSidebar. */
+                aria-label={`Câu ${globalIndex}${isAnswered ? ' — đã làm' : ' — chưa làm'}`}
+                aria-current={isCurrent ? 'true' : undefined}
+                className={`w-8 h-8 rounded-lg text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-800 ${
                   isCurrent
                     ? 'ring-2 ring-teal-500 dark:ring-teal-400 ring-offset-2 ring-offset-slate-200 dark:ring-offset-slate-800'
                     : ''
                 } ${
                   isAnswered
-                    ? 'bg-green-500 dark:bg-green-600 text-white hover:bg-green-600 dark:hover:bg-green-500'
+                    ? 'bg-green-700 text-white hover:bg-green-800'
                     : 'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-400 dark:hover:bg-slate-500 border border-slate-400 dark:border-slate-500'
                 }`}
               >
@@ -149,7 +154,7 @@ export default function PracticeSidebar({
               {/* Legend */}
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                  <div className="w-3 h-3 rounded bg-green-500 dark:bg-green-600" />
+                  <div className="w-3 h-3 rounded bg-green-700" />
                   Đã làm
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
@@ -218,7 +223,7 @@ export default function PracticeSidebar({
             {/* Legend */}
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
               <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <div className="w-3 h-3 rounded bg-green-500 dark:bg-green-600" />
+                <div className="w-3 h-3 rounded bg-green-700" />
                 Đã làm
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">

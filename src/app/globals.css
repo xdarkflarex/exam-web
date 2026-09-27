@@ -164,6 +164,21 @@ html:not(.dark) .from-teal-600 {
   --tw-gradient-from: var(--color-teal-700);
 }
 
+/* Vòng focus bàn phím và vòng "câu đang xem". Vòng là thứ DUY NHẤT cho người
+   dùng bàn phím biết mình đang ở đâu, nên cần 3:1 (WCAG 1.4.11) — `ring-teal-500`
+   chỉ đạt 2,3:1 trên card, 2,4:1 trên ô nhập trắng và 2,0:1 trên nền slate-200
+   của sidebar làm bài. Teal-700: 5,1 / 5,4 / 4,4:1.
+
+   Ghi đè `--tw-ring-color`, vì `ring-2` đọc màu từ biến đó. Chỉ các vòng ĐẶC
+   (không có `/opacity`): `focus:ring-teal-500/20` là quầng mờ trang trí đi kèm
+   `focus:border-teal-500`, viền mới là chỉ báo. Dark mode đã dùng teal-400 (7,8:1). */
+html:not(.dark) .ring-teal-500,
+html:not(.dark) .focus\:ring-teal-500:focus,
+html:not(.dark) .focus-visible\:ring-teal-500:focus-visible,
+html:not(.dark) .has-\[\:focus-visible\]\:ring-teal-500:has(:focus-visible) {
+  --tw-ring-color: var(--color-teal-700);
+}
+
 /* QUYẾT ĐỊNH CỦA CHỦ DỰ ÁN (2026-08-09): đẩy `slate-500` lên `slate-600`
    CHỈ Ở CHỮ NHỎ.
 

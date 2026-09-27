@@ -106,7 +106,7 @@ export default function ExamSidebar({
                     : ''
                 } ${
                   isAnswered
-                    ? 'bg-green-500 dark:bg-green-600 text-white hover:bg-green-600 dark:hover:bg-green-500'
+                    ? 'bg-green-700 text-white hover:bg-green-800'
                     : 'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-400 dark:hover:bg-slate-500 border border-slate-400 dark:border-slate-500'
                 }`}
               >
@@ -221,7 +221,7 @@ export default function ExamSidebar({
               {/* Legend */}
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                  <div className="w-3 h-3 rounded bg-green-500 dark:bg-green-600" />
+                  <div className="w-3 h-3 rounded bg-green-700" />
                   Đã làm
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
@@ -314,7 +314,7 @@ export default function ExamSidebar({
             {/* Legend */}
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-300 dark:border-slate-700">
               <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <div className="w-3 h-3 rounded bg-green-500 dark:bg-green-600" />
+                <div className="w-3 h-3 rounded bg-green-700" />
                 Đã làm
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
