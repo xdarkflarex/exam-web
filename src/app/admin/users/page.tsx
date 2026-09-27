@@ -279,7 +279,7 @@ export default function AdminUsersPage() {
                   <tr key={user.id} className="hover:bg-slate-100 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-medium">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-700 to-blue-700 flex items-center justify-center text-white font-medium">
                           {user.full_name?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                         <div>
@@ -456,7 +456,7 @@ function UserDetailModal({
         {/* Avatar + Name overlay */}
         <div className="relative px-6 -mt-10 mb-4">
           <div className="flex items-end gap-4">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg border-4 border-white dark:border-slate-900 flex-shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-700 to-blue-700 flex items-center justify-center text-white text-3xl font-bold shadow-lg border-4 border-white dark:border-slate-900 flex-shrink-0">
               {user.full_name?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div className="flex-1 min-w-0 pb-1">

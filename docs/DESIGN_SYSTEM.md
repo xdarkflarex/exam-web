@@ -8,14 +8,23 @@ Token runtime nằm trong `src/app/globals.css`.
 
 | Token | Light | Dark | Dùng cho |
 |---|---|---|---|
-| `--background` | `#f5f7fa` | `#0f172a` | Nền trang |
-| `--background-card` | `#eef2f7` | `#1e293b` | Card/panel |
+| `--background` | `#eef1f6` | `#0f172a` | Nền trang — tối nhất trong ba bậc nền ở light mode |
+| `--background-card` | `#f7f9fc` | `#1e293b` | Card/panel, nổi lên trên nền |
+| `--background-raised` | `#ffffff` | `#334155` | Ô nhập, vùng cần nổi rõ nhất (chỗ duy nhất được trắng thuần) |
+| `--background-overlay` | `rgba(238,241,246,.92)` | `rgba(15,23,42,.9)` | Lớp phủ loading |
 | `--foreground` | `#1e293b` | `#e2e8f0` | Text chính |
 | `--foreground-secondary` | `#475569` | `#94a3b8` | Text phụ |
-| `--foreground-muted` | `#64748b` | `#64748b` | Metadata |
-| `--border` | `#d1d9e4` | `#334155` | Border |
-| `--accent` | `#0d9488` | `#2dd4bf` | Primary teal |
-| `--accent-hover` | `#0f766e` | `#14b8a6` | Hover/focus |
+| `--foreground-muted` | `#64748b` | `#64748b` | Hiện chỉ dùng cho thanh cuộn. Dark mode chỉ đạt 3,1–3,75:1 — đừng dùng cho chữ |
+| `--border` | `#dbe1ea` | `#334155` | Border |
+| `--border-strong` | `#94a3b8` | `#475569` | Thanh cuộn. Dưới 3:1 — đừng dùng làm viền control |
+| `--accent` | `#0f766e` | `#2dd4bf` | Primary teal |
+| `--accent-hover` | `#115e59` | `#14b8a6` | Hover/focus |
+| `--accent-soft` | `#ccfbf1` | `#134e4a` | Nền badge/nút phụ |
+| `--accent-soft-text` | `#115e59` | `#99f6e4` | Chữ trên `--accent-soft` |
+
+Token chuyển động (`--mm-motion-*`, `--mm-ease-*`) nằm cùng file; tiền tố `--mm-` là bắt buộc vì Tailwind v4 giữ namespace `--ease-*`, `--color-*`, `--font-*`…
+
+**Bảng màu utility là của Tailwind v4, không phải v3.** `teal-500`, `green-700`… biên dịch ra `oklch()` và lệch mã hex quen thuộc của v3 (v4 `teal-700` ≈ `#00786f`, v3 là `#0f766e`). Đo tương phản phải dùng màu v4; các token viết tay ở bảng trên thì đúng như ghi.
 
 CSS còn một nhóm semantic token blue/orange/success/warning/error ở cuối file. Khi refactor, hợp nhất dần thay vì tạo hệ màu thứ ba.
 
@@ -23,6 +32,7 @@ CSS còn một nhóm semantic token blue/orange/success/warning/error ở cuối
 
 - Inter cho UI/body; Baloo 2 có thể dùng cho điểm nhấn thân thiện với học sinh.
 - Root đã cấu hình subset Vietnamese và `display: swap`.
+- Class `font-baloo` chỉ tồn tại vì `@theme inline` trong `globals.css` khai báo `--font-baloo` (trỏ vào `--font-baloo-2` của next/font). Trước 2026-09-27 dòng đó thiếu nên Tailwind v4 không sinh class, và 49 chỗ `font-baloo` âm thầm hiện bằng Inter. Font mới phải khai báo trong `@theme` theo cùng cách; đừng đặt tên biến next/font trùng namespace `--font-*`.
 - Không dùng text slate quá nhạt cho nội dung dài; metadata mới dùng muted.
 - Heading mô tả hành động/nội dung, tránh tiêu đề chung chung như “Quản lý”.
 
@@ -88,6 +98,13 @@ Cách đã dùng, ghi ở đầu `globals.css`: ghi đè chính các class dư�
 - **Gradient cần override riêng.** `.bg-teal-600` không chạm nút gradient vì màu nằm ở `background-image`. Ghi đè `--tw-gradient-from` thì được, vì Tailwind v4 dựng `--tw-gradient-stops` từ nó.
 - **Đánh đổi phải biết:** trong light mode, `teal-600` không còn đúng là teal-600 của Tailwind. Ai tra bảng màu gốc sẽ thấy lệch.
 - **Còn nợ, đã đo:** chữ phụ `text-slate-500` đạt ~3.9:1, vẫn dưới 4.5 cho chữ nhỏ. Đẩy lên `slate-600` sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ chính/phụ — đó là quyết định thiết kế, không phải việc sửa máy móc.
+- **Sửa thêm 2026-09-27** (cùng cách, cùng khối trong `globals.css`):
+  - Vòng focus và vòng "câu đang xem" `ring-teal-500` ở light mode chỉ 2,0–2,4:1 → ghi đè `--tw-ring-color` sang teal-700 (4,4–5,4:1). Chỉ vòng đặc; quầng mờ `/20` `/30` đi kèm `focus:border-*` giữ nguyên.
+  - Nút gradient `from-teal-600 to-teal-500 text-white`: khối cũ chỉ sửa đầu trái, đầu phải vẫn 2,4:1 → cả dải teal-800 → teal-700.
+  - Ô "đã làm" của `ExamSidebar`/`PracticeSidebar`: số trắng trên green-500/600 chỉ 2,2/3,2:1 → green-700 ở cả hai chế độ (4,95:1).
+  - CTA "Hôm nay" (`TodayHero`): mỗi tông mang cả màu chữ; amber dùng chữ amber-950, không bao giờ chữ trắng.
+  - Mọi gradient chữ trắng còn lại (quét toàn `src`, 12 chỗ): avatar chữ cái đầu ở admin và leaderboard → teal-700 → blue-700; banner leaderboard, header trang chuẩn bị thi và thẻ "Việc nên làm tiếp theo" ở analytics → dải -800 để chữ phụ trắng/80 vẫn đạt 4,5:1; bục vinh danh bạc/vàng/đồng → chữ tối (slate-800 / amber-950).
+- **Quy tắc rút ra:** chữ trên gradient phải đạt chuẩn ở **cả hai đầu**, kể cả chữ phụ có độ trong suốt (`text-white/80` trên teal-700 chỉ còn 4,0:1). Nền sáng (amber, yellow, kim loại) đi với chữ tối, không đi với chữ trắng.
 
 ## Checklist UI
 

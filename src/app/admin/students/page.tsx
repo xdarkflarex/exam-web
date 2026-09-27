@@ -509,7 +509,7 @@ export default function StudentsListPage() {
                       <tr key={student.id} className="align-top transition hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 font-bold text-white">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-700 to-blue-700 font-bold text-white">
                               {student.fullName.charAt(0).toLocaleUpperCase('vi')}
                             </div>
                             <div className="min-w-0">
@@ -590,7 +590,7 @@ export default function StudentsListPage() {
                   className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-teal-700"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-blue-600 font-bold text-white">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-700 to-blue-700 font-bold text-white">
                       {student.fullName.charAt(0).toLocaleUpperCase('vi')}
                     </div>
                     <div className="min-w-0 flex-1">

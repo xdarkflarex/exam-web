@@ -267,7 +267,7 @@ export default function AdminAccessPage() {
                 const mine = !!(s.class_id && myClassIds.includes(s.class_id))
                 return (
                   <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900/40">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-700 to-blue-700 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                       {s.full_name?.charAt(0)?.toUpperCase() || '?'}
                     </div>
                     <div className="flex-1 min-w-0">

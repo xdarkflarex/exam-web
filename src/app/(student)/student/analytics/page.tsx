@@ -112,11 +112,14 @@ export default function StudentAnalyticsPage() {
   }
 
   const advanced = summary.student.canViewAdvancedAnalytics
+  // Chữ phụ trắng/80 cỡ `text-sm` phải đạt 4,5:1 trên cả hai đầu gradient; bản
+  // cũ đầu sáng chỉ 2,3-2,9:1. Amber dùng chữ amber-950 như CTA "Hôm nay"
+  // (TodayHero) — cùng một `recommendedAction` thì cùng một bộ màu.
   const recommendedTone = {
-    teal: 'from-teal-600 to-cyan-600',
-    amber: 'from-amber-600 to-orange-500',
-    rose: 'from-rose-600 to-red-500',
-    slate: 'from-slate-700 to-slate-900',
+    teal: { surface: 'from-teal-800 to-cyan-800 text-white', label: 'text-white/80', detail: 'text-white/85', ring: 'focus:ring-white' },
+    amber: { surface: 'from-amber-500 to-amber-400 text-amber-950', label: 'text-amber-950/80', detail: 'text-amber-950/85', ring: 'focus:ring-amber-950' },
+    rose: { surface: 'from-rose-800 to-red-800 text-white', label: 'text-white/80', detail: 'text-white/85', ring: 'focus:ring-white' },
+    slate: { surface: 'from-slate-700 to-slate-900 text-white', label: 'text-white/80', detail: 'text-white/85', ring: 'focus:ring-white' },
   }[summary.recommendedAction.tone]
 
   // Ba giá trị dưới đây phân biệt "chưa có" với "bằng 0". `percent()` trong
@@ -190,16 +193,16 @@ export default function StudentAnalyticsPage() {
 
       {/* Bề mặt gradient DUY NHẤT của trang, dành cho hành động quan trọng nhất
           (docs/DESIGN_OVERHAUL_2026-08-09.md mục 2.3). Đừng thêm cái thứ hai. */}
-      <section className={`animate-dash-in-1 overflow-hidden rounded-2xl bg-gradient-to-r ${recommendedTone} p-5 text-white shadow-lg`}>
+      <section className={`animate-dash-in-1 overflow-hidden rounded-2xl bg-gradient-to-r ${recommendedTone.surface} p-5 shadow-lg`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm text-white/80">Việc nên làm tiếp theo</p>
+            <p className={`text-sm ${recommendedTone.label}`}>Việc nên làm tiếp theo</p>
             <h2 className="mt-1 text-xl font-semibold">{summary.recommendedAction.label}</h2>
-            <p className="mt-1 text-sm text-white/85">{summary.recommendedAction.detail}</p>
+            <p className={`mt-1 text-sm ${recommendedTone.detail}`}>{summary.recommendedAction.detail}</p>
           </div>
           <Link
             href={summary.recommendedAction.href}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition-transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent"
+            className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition-transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent ${recommendedTone.ring}`}
           >
             Mở ngay
             <ChevronRight className="h-4 w-4" aria-hidden="true" />

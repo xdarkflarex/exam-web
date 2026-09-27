@@ -162,7 +162,7 @@ export default function LeaderboardPage() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         {/* Current User Rank Card */}
         {currentUserRank && (
-          <div className="bg-gradient-to-r from-teal-500 to-blue-600 rounded-2xl p-5 mb-6 text-white">
+          <div className="bg-gradient-to-r from-teal-800 to-blue-700 rounded-2xl p-5 mb-6 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
@@ -252,7 +252,7 @@ export default function LeaderboardPage() {
               <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8 pt-8">
                 {/* 2nd Place */}
                 <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mb-2">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-slate-800 text-xl font-bold mb-2">
                     {leaderboard[1].avatarInitial}
                   </div>
                   <Medal className="w-8 h-8 text-slate-400 mb-1" />
@@ -266,7 +266,7 @@ export default function LeaderboardPage() {
                 {/* 1st Place */}
                 <div className="flex flex-col items-center -mt-4">
                   <Crown className="w-8 h-8 text-yellow-500 mb-1" />
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-white text-2xl font-bold mb-2 ring-4 ring-yellow-300 dark:ring-yellow-600">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-amber-950 text-2xl font-bold mb-2 ring-4 ring-yellow-300 dark:ring-yellow-600">
                     {leaderboard[0].avatarInitial}
                   </div>
                   <p className="font-semibold text-slate-800 dark:text-white text-center truncate max-w-[120px]">
@@ -278,7 +278,7 @@ export default function LeaderboardPage() {
 
                 {/* 3rd Place */}
                 <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xl font-bold mb-2">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-amber-950 text-xl font-bold mb-2">
                     {leaderboard[2].avatarInitial}
                   </div>
                   <Medal className="w-8 h-8 text-amber-600 mb-1" />
@@ -305,7 +305,7 @@ export default function LeaderboardPage() {
                   {getRankIcon(entry.rank)}
                 </div>
                 
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-bold">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-700 to-blue-700 flex items-center justify-center text-white font-bold">
                   {entry.avatarInitial}
                 </div>
                 
