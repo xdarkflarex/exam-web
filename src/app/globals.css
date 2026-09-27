@@ -255,6 +255,11 @@ html.dark .text-red-500 {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* Trước dòng này, class `font-baloo` (49 chỗ dùng) KHÔNG sinh ra CSS nào:
+     Tailwind v4 chỉ tạo utility `font-*` từ biến khai báo trong `@theme`, còn
+     biến của next/font nằm trên <body> lúc chạy. Baloo 2 được tải về mà chưa
+     bao giờ hiện — mọi chỗ `font-baloo` vẫn là Inter. */
+  --font-baloo: var(--font-baloo-2), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* =============================================
