@@ -10,7 +10,10 @@ const inter = Inter({
 });
 
 const baloo2 = Baloo_2({
-  variable: "--font-baloo",
+  // Không đặt tên `--font-baloo`: tên đó thuộc namespace theme `--font-*` của
+  // Tailwind v4. Biến này chỉ là nguồn; `@theme inline` trong globals.css mới
+  // khai báo `--font-baloo` để class `font-baloo` được sinh ra.
+  variable: "--font-baloo-2",
   subsets: ["latin", "vietnamese"],
   display: "swap",
   weight: ["400", "500", "600", "700"],
