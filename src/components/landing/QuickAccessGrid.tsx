@@ -174,7 +174,7 @@ export default function QuickAccessGrid({
                   href={href}
                   className="group bento-tile flex h-full flex-col gap-2 p-4 sm:p-5"
                 >
-                  <span className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center transition-colors duration-300 group-hover:bg-teal-600 dark:group-hover:bg-teal-500">
+                  <span className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-teal-600 dark:group-hover:bg-teal-500">
                     <Icon
                       className="w-[18px] h-[18px] text-teal-600 dark:text-teal-400 transition-colors duration-300 group-hover:text-white"
                       aria-hidden="true"

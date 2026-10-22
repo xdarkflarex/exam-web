@@ -444,7 +444,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="animate-list-stagger space-y-3">
           {filtered.length === 0 ? (
             <div className="bento-tile p-8 sm:p-12 text-center">
               <FileText className="mx-auto mb-3 h-12 w-12 text-slate-300 dark:text-slate-600" aria-hidden="true" />

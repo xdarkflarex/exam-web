@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Search, X, Menu, Phone } from 'lucide-react'
@@ -37,6 +37,23 @@ export default function LandingHeader({
   const router = useRouter()
   const pathname = usePathname()
   const [query, setQuery] = useState(initialQuery)
+
+  /*
+    Thanh nav nổi lên khi trang đã cuộn qua hero.
+
+    Chỉ đổi BÓNG, không đổi chiều cao hay padding: đổi kích thước thanh dính ở
+    đỉnh làm cả trang nhích lên một nhịp mỗi lần cuộn qua ngưỡng — đúng loại
+    layout shift mà NT8 cấm. Ngưỡng 24px để một cú cuộn nhẹ không làm nó nhấp
+    nháy, và `setScrolled` nhận cùng giá trị thì React bỏ qua nên không có
+    render thừa.
+  */
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
   const [menuOpen, setMenuOpen] = useState(false)
 
   const isActive = (href: string) =>
@@ -85,7 +102,11 @@ export default function LandingHeader({
   )
 
   return (
-    <header className="sticky top-0 z-50 glass-strong shadow-sm fade-in">
+    <header
+      className={`sticky top-0 z-50 glass-strong fade-in transition-shadow duration-300 ${
+        scrolled ? 'shadow-lg shadow-slate-900/10 dark:shadow-black/40' : 'shadow-sm'
+      }`}
+    >
       {/* Tầng 1 — thương hiệu, tìm kiếm, liên hệ, tài khoản */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3 sm:gap-6 h-16">

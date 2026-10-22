@@ -1707,6 +1707,30 @@ html.dark .glow-teal {
   opacity: 0;
 }
 
+/* Vạch của mục đang mở trên thanh điều hướng học sinh.
+
+   Vẽ bằng `::after` + `scaleX` (dùng lại keyframes `progress-grow`) nên không
+   đụng tới bố cục — NT8. Chọn theo `aria-current="page"`, tức không cần thêm
+   một state JS nào và không có nguy cơ lệch hydration: trạng thái "đang mở"
+   vốn đã nằm trong markup cho trình đọc màn hình (DESIGN_TODO.md mục 0 bất
+   biến 4). Màu lấy `currentColor` nên tự đúng ở cả hai chế độ sáng/tối. */
+.nav-underline {
+  position: relative;
+}
+
+.nav-underline[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.25rem;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  transform-origin: left center;
+  animation: progress-grow var(--mm-motion-base) var(--mm-ease-out) both;
+}
+
 /* =============================================
    REDUCED MOTION
    Nguá»“n sá»± tháº­t cho DESIGN_SYSTEM.md: "tÃ´n trá»ng prefers-reduced-motion".

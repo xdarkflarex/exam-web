@@ -4,19 +4,20 @@ Sổ ghi việc của dự án. **Phần A** là việc còn phải làm, **ph�
 chủ dự án quyết, **phần C** là hồ sơ việc đã xong — giữ lại vì phần lớn bài học
 nằm trong đó.
 
-## Trạng thái kho code — rà 2026-09-18
+## Trạng thái kho code — rà 2026-10-22
 
-Đo lại trong phiên 2026-09-18, trước khi thêm công cụ tích phân:
+Đo lại đầu phiên 2026-10-22, trước đợt thêm chuyển động cho landing và trang học sinh:
 
-- Nhánh làm việc `claude/eloquent-ritchie-tmf8zr`, lúc bắt đầu trùng đúng
-  `origin/main`, working tree sạch, không có pull request nào đang mở.
-- Typecheck pass · test **530/530** pass (410/410 ở bản trước của file này là số
-  cũ; bộ test đã lớn thêm nhờ công cụ học tập) · lint **68 error, 124 warning** —
-  đúng bằng lần đo 2026-09-07, tức hai đợt việc này không thêm lỗi nào.
-- `npm run build` **cần biến môi trường Supabase**: không có `.env` thì bước
-  prerender hỏng ở `/admin/theories` và `/student/analytics` với lỗi "Your
-  project's URL and API key are required". Đó là thiếu cấu hình, không phải lỗi
-  code — đặt giá trị giả cho `NEXT_PUBLIC_SUPABASE_URL` và
+- `origin/main` đã **nhận ba commit công cụ học tập** (tích phân, Oxyz, registry)
+  và **bảy commit của đợt port app điện thoại** (A15–A20). Nhánh làm việc
+  `claude/eloquent-ritchie-tmf8zr` được dựng lại từ `origin/main` đầu phiên này
+  vì phần cũ của nó đã gộp hết.
+- Typecheck pass · test **535/535** pass · lint **68 error, 124 warning** — đúng
+  bằng lần đo 2026-09-07 và 2026-09-18, tức ba đợt việc gần đây không thêm lỗi nào.
+- `npm run build` xong, 72 trang tĩnh. Nó **cần biến môi trường Supabase**: không
+  có `.env` thì bước prerender hỏng ở `/admin/theories` và `/student/analytics`
+  với lỗi "Your project's URL and API key are required". Đó là thiếu cấu hình,
+  không phải lỗi code — đặt giá trị giả cho `NEXT_PUBLIC_SUPABASE_URL` và
   `NEXT_PUBLIC_SUPABASE_ANON_KEY` là build xong.
 - Không có CI. Mọi con số trong tài liệu là do người đo tay, nên **kiểm lại trước
   khi dựa vào nó** — xem `AGENTS.md` mục 3.
@@ -26,7 +27,7 @@ nằm trong đó.
 ## Số đo hiện tại
 
 Bảng dưới đây đo trên **database ngày 2026-09-07** và **chưa được kiểm lại** kể từ
-đó — phiên 2026-09-18 không có `.env` nên không nối được vào Primary. Trước khi dựa
+đó — các phiên 2026-09-18, 2026-09-19 và 2026-10-22 đều không có `.env` nên không nối được vào Primary. Trước khi dựa
 vào một dòng nào, đếm lại theo `RUNBOOK.md` mục 0.
 
 | Thứ | Số đo 2026-09-07 |
@@ -479,6 +480,23 @@ WITH CHECK (
 Lưu ý kèm theo: policy SELECT chỉ mở cho giáo viên tạo đề
 (`database/EXAM_SYSTEM_SCHEMA.sql:487`), nên chính học sinh không đọc lại được
 nhật ký của mình — đúng ý đồ, giữ nguyên.
+
+## A21. Công cụ học tập chưa có đường vào từ bài lý thuyết
+
+Việc nền số 4 của `STUDENT_TOOLS_ROADMAP.md` mục 4: học sinh đang học chương 4
+thì phải được mời mở công cụ tích phân ngay tại đó, thay vì phải tự nhớ ra khu
+`/student/tools` có gì.
+
+**Đã có (2026-09-19):** `findToolsForLesson()` trong `src/lib/tools/registry.ts`
+— mỗi công cụ khai báo khối lớp và từ khoá chương, hàm trả về các công cụ hợp
+với một bài đang mở. Có 5 test, kể cả ca "mặt phẳng lớp 11 không phải Oxyz".
+
+**Còn thiếu:** chỗ gọi. Panel bài học trong `src/app/learn/page.tsx` (khối
+`selectedTheory`, quanh dòng 640) chưa hiện nút nào. Dữ liệu cần truyền vào hàm
+đã có sẵn ngay tại đó: `gradeOf(selectedTheory)`, `groupOf(selectedTheory)` và
+`selectedTheory.title`.
+
+---
 
 ---
 
@@ -1013,3 +1031,24 @@ hình đọc thứ không gì sinh ra là dựng một trang rỗng có thật.
   nhập ở một bên là tạo dữ liệu chỉ nửa hệ thống hiểu.
 - Từ nay `/bookmarks` có dữ liệu để hiện. Hai đường tạo: web (nút này) và app
   điện thoại (cùng màn kết quả).
+
+## 24. XONG 2026-10-22 — thêm chuyển động cho landing và trang học sinh
+
+Phase 7 của `VISUAL_MOTION_PLAN.md` (mục 15). Tám chỗ, **không thêm một lớp CSS
+trùng chức năng nào** — bảy chỗ dùng lại primitive đã có (`ScrollRevealClient`,
+`.stagger-children`, `.animate-list-stagger`, `group-hover:scale-*`), một chỗ
+thêm `.nav-underline` dựng trên keyframes `progress-grow` sẵn có.
+
+**Bài học — chỗ chưa có chuyển động thường là chỗ bị quên, không phải chỗ cố ý
+để yên.** `StatsStrip` là khối duy nhất của landing chưa từng được bọc
+`ScrollRevealClient`: cả trang hiện dần khi cuộn, riêng dải số liệu bật ra ngay.
+Không ai nhận ra vì nó nằm cao, gần như luôn ở trong khung nhìn đầu tiên. Rà
+bằng `grep` tên lớp chuyển động trên từng file (xem mục 15 của kế hoạch) tìm ra
+nó trong một phút, còn đọc trang bằng mắt thì không.
+
+**Phép thử của lưới reduced-motion phải chạy trên trình duyệt thật.** Đếm số
+phần tử còn `opacity: 0` sau khi tải xong, với `prefers-reduced-motion: reduce`:
+phải bằng **0**. Đo được 0 ở cả ba cỡ màn. Không có phép đếm này thì một lớp
+`.animate-*` mới quên khai báo trong lưới sẽ làm mất hẳn nội dung của người bật
+giảm chuyển động — mà người đo bằng mắt với cấu hình mặc định thì không bao giờ
+thấy.

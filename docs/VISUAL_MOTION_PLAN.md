@@ -368,6 +368,7 @@ Hai bài học về repo này, không phải về CSS:
 | 4b | `.btn-action` cho 4 nút dashboard | ✅ xong |
 | 5 | Dashboard chống lặp khuôn (rail, thanh tiến độ, stagger) | ✅ xong |
 | 6 | Nền động "chòm kiến thức" cho hero landing + `TodayHero` (mục 14) | ✅ xong 2026-09-13 |
+| 7 | Lấp tám chỗ còn đứng yên ở landing và `/student` (mục 15) | ✅ xong 2026-10-22 |
 
 **Cố ý KHÔNG làm:** nút CTA gradient cuối landing giữ nguyên, không gắn
 `.btn-action`. Nó có bộ bóng riêng (`shadow-lg shadow-teal-600/25` →
@@ -441,3 +442,61 @@ cửa sổ cùng bằng 3,59 tại cùng một thời điểm.
   lớp đó phủ cả hero, animate thuộc tính vẽ là bắt vẽ lại khổ lớn mỗi khung hình.
 - **Ra khỏi khung nhìn thì dừng** (IntersectionObserver → `data-paused`).
 - **Tuyệt đối không đặt vào màn làm bài** (AGENTS.md §6).
+
+---
+
+## 15. Phase 7 — Lấp những chỗ còn đứng yên (2026-10-22)
+
+Sáu phase đầu dựng **vốn liếng** chuyển động; phase này đi tìm những chỗ chưa
+tiêu vốn ấy. Cách tìm, chạy lại được bất cứ lúc nào:
+
+```bash
+for f in src/app/page.tsx src/components/landing/*.tsx src/components/student/*.tsx; do
+  printf '%s: %s\n' "$(basename "$f")" \
+    "$(grep -o 'reveal-in-left\|reveal-in-bottom\|stagger-children\|animate-list-stagger\|animate-dash-in\|bento-hover\|btn-action\|ScrollReveal' "$f" | sort -u | tr '\n' ' ')"
+done
+```
+
+Tám chỗ đã sửa:
+
+| # | Chỗ | Trước | Sau |
+|---|---|---|---|
+| 1 | `StatsStrip` | **không có reveal nào** — cả landing hiện dần khi cuộn, riêng dải số liệu bật ra ngay | `ScrollRevealClient` + `.stagger-children` cho ba ô số phụ |
+| 2 | `KnowledgeTopicsGrid` | tối đa 12 pill hiện cùng một lúc | `.animate-list-stagger` (chịu được 20 con) |
+| 3 | `QuickAccessGrid` | bốn ô nhỏ chỉ đổi màu icon khi hover | thêm `group-hover:scale-110`, khớp với ô dẫn dắt và lưới tính năng |
+| 4 | `LandingHeader` | thanh dính không hề đổi khi cuộn | đổ bóng đậm dần sau 24px |
+| 5 | `TodayHero` | hàng chip việc-cần-làm hiện cùng lúc | `.stagger-children` |
+| 6 | `WeakAreas` | ba thẻ hiện cùng lúc | `.animate-list-stagger` |
+| 7 | `AssessmentListPage` | danh sách đề hiện cùng lúc | `.animate-list-stagger` |
+| 8 | `StudentSidebar` | mục đang mở chỉ khác màu nền | `.nav-underline` — vạch 2px vẽ từ trái sang |
+
+**Chỉ `.nav-underline` là lớp mới**, và nó không có keyframes riêng: dùng lại
+`progress-grow` (`scaleX` 0→1) của phase 5. Nó chọn theo `aria-current="page"`
+nên không sinh thêm state JS nào, cũng không có nguy cơ lệch hydration — trạng
+thái "đang mở" vốn đã nằm trong markup cho trình đọc màn hình.
+
+### Không làm, và lý do
+
+- **Nút hero của landing không gắn `.btn-action`.** Cùng lý do đã ghi ở mục 12
+  cho nút CTA gradient: nút này mang bộ bóng riêng (`shadow-lg shadow-teal-600/20`)
+  mà `.btn-action:hover` sẽ đè mất.
+- **Ngăn kéo điều hướng trên điện thoại không gắn `.nav-underline`.** Vạch chân
+  dưới một danh sách DỌC đọc thành đường kẻ phân cách giữa hai mục, không phải
+  dấu hiệu mục đang mở.
+- **`ActiveExamBanner` giữ nguyên.** Nó đã có `animate-slide-up` + chấm
+  `animate-pulse`; thêm nữa thì một thanh báo "đang thi" lại thành thứ gây mất
+  tập trung đúng lúc không nên.
+
+### Đo được trên trình duyệt thật (Chromium, dev server)
+
+| Phép đo | Kết quả |
+|---|---|
+| `prefers-reduced-motion: reduce`, đếm phần tử còn `opacity: 0` sau khi tải | **0** ở cả 1280px và 390px — phép thử của phase 0 vẫn đạt |
+| Tràn ngang ở 390px (landing) | không |
+| Bóng của header trước/sau khi cuộn 800px | `0 1px 3px` → `0 10px 15px`, chiều cao không đổi (NT8) |
+| Số bề mặt gradient trên landing | không đổi so với trước đợt này (NT3) |
+
+Hai khối số 1 và 2 **tự ẩn khi không có dữ liệu** (`stats === 0`, `items` rỗng),
+nên sandbox không có `.env` thì chúng không hiện trên `/`. Đã kiểm bằng một trang
+xem thử tạm dựng chính hai component ấy với dữ liệu giả, chụp cả khung hình giữa
+chừng để thấy thứ tự hiện — rồi xoá trang đó trước khi commit.

@@ -44,7 +44,7 @@ export default function WeakAreas({ stats, limit = 3 }: Props) {
         </h2>
       </div>
 
-      <ul className="grid gap-3 sm:grid-cols-3">
+      <ul className="animate-list-stagger grid gap-3 sm:grid-cols-3">
         {items.map((item) => (
           <li key={item.id}>
             <Link

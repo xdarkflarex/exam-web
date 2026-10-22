@@ -57,7 +57,7 @@ export default function KnowledgeTopicsGrid({
         </ScrollRevealClient>
 
         <ScrollRevealClient>
-          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+          <div className="animate-list-stagger flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
             {/* Ô dẫn dắt: pill lớn hơn, nền teal đặc — teal là màu của hành động. */}
             <Link
               href="/learn"

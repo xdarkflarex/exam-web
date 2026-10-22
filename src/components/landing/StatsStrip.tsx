@@ -1,5 +1,6 @@
 import { BookOpen, GraduationCap, Newspaper, Layers } from 'lucide-react'
 import CountUpNumber from '@/components/motion/CountUpNumber'
+import ScrollRevealClient from '@/components/ScrollRevealClient'
 import { surfaceClass, type SectionSurface } from './sectionSurface'
 
 /**
@@ -75,6 +76,7 @@ export default function StatsStrip({ stats, surface = 'plain' }: StatsStripProps
   return (
     <section className={`py-10 sm:py-12 ${surfaceClass(surface)}`} aria-label="Số liệu nền tảng">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <ScrollRevealClient>
         <div className="bento-tile-lead overflow-hidden flex flex-col lg:flex-row">
           {/* Ô dẫn dắt: dải teal mỏng bên trái thay cho một khung riêng. */}
           <div
@@ -96,7 +98,7 @@ export default function StatsStrip({ stats, surface = 'plain' }: StatsStripProps
 
           {rest.length > 0 && (
             <div
-              className={`grid ${restCols} flex-1 border-t border-slate-300/70 dark:border-slate-700/70 lg:border-t-0 lg:border-l`}
+              className={`stagger-children grid ${restCols} flex-1 border-t border-slate-300/70 dark:border-slate-700/70 lg:border-t-0 lg:border-l`}
             >
               {rest.map(({ key, label, Icon }, index) => (
                 <div
@@ -120,6 +122,7 @@ export default function StatsStrip({ stats, surface = 'plain' }: StatsStripProps
             </div>
           )}
         </div>
+        </ScrollRevealClient>
       </div>
     </section>
   )

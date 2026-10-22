@@ -97,7 +97,7 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
             </h1>
 
             {chips.length > 0 && (
-              <dl className="mt-4 flex flex-wrap gap-2">
+              <dl className="stagger-children mt-4 flex flex-wrap gap-2">
                 {chips.map((chip) => (
                   <div
                     key={chip.label}
