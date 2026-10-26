@@ -515,6 +515,33 @@ Hai hình TikZ ở bài 2 lớp 10 nằm ngoài mọi khối tri thức nên s�
 nào. Chọn một trong hai: đưa vào khối gần nhất, hay sửa parser để giữ cả phần
 văn bản ngoài khối. Chi tiết ở `docs/LATEX_PARSER_DEBUG.md` mục "Còn treo".
 
+## B4. Có nên chuyển OCR từ Gemini sang DeepSeek không?
+
+Hỏi ngày 2026-10-26. **Phần code đã sẵn sàng, phần quyết định thì chưa.**
+
+Đã làm: `OCR_PROVIDER=deepseek` chạy được (adapter dùng chung đường
+`/chat/completions` kiểu OpenAI), allowlist có hai tên model kèm cảnh báo chưa
+xác minh, 9 test cho hình dạng request và luật đọc cấu hình, và
+`--ocr-compare` trong benchmark để chạy cùng bộ ảnh qua hai nhà.
+
+Chưa biết, phải đo trước khi quyết:
+
+1. Tên model nào còn sống — `node scripts/deepseek-vision-probe.mjs <ảnh>`.
+   Phiên thêm adapter bị chặn ra `deepseek.com` nên không xác minh được tại
+   nguồn, mà nguồn bên thứ ba thì mâu thuẫn nhau.
+2. Đọc chữ viết tay tiếng Việt kèm công thức có bằng Gemini không —
+   `node scripts/essay-ai-benchmark.mjs --ocr-compare "gemini:gemini-3.6-flash,deepseek:<model>"`.
+   Hiện `fixtures/essay-ai/` **chưa có fixture nào kèm ảnh**, nên bước này cần
+   chủ dự án thêm vài ảnh bài làm (ẩn danh) kèm `expected_ocr_text`.
+
+Hai điều đáng cân khi quyết:
+
+- **Dồn nhà cung cấp.** Chấm bài đã chạy trên DeepSeek. Đưa OCR sang nữa thì
+  một lần họ đổi model là mất cả hai đường — mà họ đã đổi ngầm một lần rồi
+  (2026-09-10, `deepseek-chat` âm thầm chạy bằng `deepseek-flash`).
+- **Gemini đang chạy ổn.** Lợi ích của việc đổi chủ yếu là giá, nên chỉ đáng
+  đổi nếu cột "khớp ký hiệu" trong benchmark không tụt.
+
 ## B3. Mấy file đang nằm lẫn trong thư mục dự án
 
 - `testAI_OCR.jpg`: nếu là ảnh bài làm của học sinh thật thì `AGENTS.md` mục 5

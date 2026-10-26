@@ -70,7 +70,7 @@ flowchart LR
 Thêm vào `.env.example` (chỉ tên biến, không giá trị):
 
 ```text
-OCR_PROVIDER=            # openai | gemini
+OCR_PROVIDER=            # openai | gemini | deepseek
 OCR_API_KEY=             # server-only
 OCR_MODEL=               # nằm trong allowlist server-side
 DEEPSEEK_API_KEY=        # server-only
@@ -87,6 +87,33 @@ Quy tắc theo `AGENTS.md` mục 5, không có ngoại lệ:
 - Không log key, không đưa vào context pack, không commit `.env`.
 - `OCR_MODEL`/`DEEPSEEK_MODEL` phải được đối chiếu với một allowlist hard-code phía server; không tin giá trị env một cách mù quáng nếu sau này nó đến từ database.
 - Hai kill-switch tách rời: `ESSAY_AI_ENABLED` tắt toàn bộ pipeline, `ESSAY_AI_AUTO_FINALIZE` chỉ tắt phần auto-chốt và quay về luồng giáo viên duyệt. Tách ra để khi phát hiện AI chấm sai hàng loạt có thể ngắt auto-chốt mà vẫn giữ OCR.
+
+### DeepSeek làm OCR — adapter đã có, lựa chọn thì chưa (2026-10-26)
+
+DeepSeek có vision trên API từ tháng 8/2026, rồi tháng 9/2026 gộp multimodal
+vào model chính. Vì API của họ nói giao thức OpenAI, adapter chỉ tốn một bảng
+endpoint: `callChatVision` dùng chung cho `openai` và `deepseek`, khác đúng
+URL và tham số `detail` (riêng của OpenAI).
+
+**Hai thứ CHƯA biết, và không được đoán:**
+
+1. **Tên model.** Phiên thêm adapter bị chặn ra `deepseek.com` nên không đọc
+   được tài liệu gốc; nguồn bên thứ ba mâu thuẫn nhau. Allowlist ghi
+   `deepseek-flash` và `deepseek-v4-flash` kèm cảnh báo chưa xác minh.
+   `scripts/deepseek-vision-probe.mjs` hỏi thẳng API xem tên nào còn sống —
+   và quan trọng hơn, in trường `model` trong phản hồi để lộ việc bị định
+   tuyến ngầm (đã xảy ra ngày 2026-09-10 với `deepseek-chat`).
+2. **Chất lượng đọc chữ viết tay tiếng Việt kèm công thức.** Đây mới là câu
+   quyết định, và nó chỉ trả lời được bằng số:
+   `node scripts/essay-ai-benchmark.mjs --ocr-compare "gemini:gemini-3.6-flash,deepseek:<model>"`
+   chạy cùng bộ ảnh qua cả hai nhà. Nhìn cột **khớp ký hiệu** trước cột khớp
+   text: đọc sai một chữ trong lời văn không đổi kết luận, đọc sót một dấu trừ
+   thì bài bị chấm sai.
+
+**Rủi ro dồn nhà cung cấp:** chấm bài đã chạy trên DeepSeek. Chuyển OCR sang
+đó nữa thì một lần họ đổi/ngừng model là mất cả hai đường cùng lúc. Gemini
+đang chạy OCR ổn, nên lợi ích của việc đổi chủ yếu là giá — và chỉ đáng đổi
+khi benchmark cho thấy chất lượng không tụt.
 
 Cập nhật bảng biến môi trường trong `docs/RUNBOOK.md` mục 3 khi triển khai — mục đó hiện đang khẳng định "pilot essay hiện không gọi AI bằng API, không cần key", câu này sẽ sai.
 

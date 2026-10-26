@@ -12,10 +12,10 @@
  * mà bỏ qua các kiểm tra khác.
  */
 
-import { ProviderError, type OcrResult, type OcrWarning } from './contracts'
-import { normalizeAnswerText } from './normalize'
-import { redactPii } from './redaction'
-import { readOcrConfig, type OcrConfig } from './model-allowlist'
+import { ProviderError, type OcrResult, type OcrWarning } from './contracts.ts'
+import { normalizeAnswerText } from './normalize.ts'
+import { redactPii } from './redaction.ts'
+import { readOcrConfig, type OcrConfig } from './model-allowlist.ts'
 
 export interface OcrRequest {
   /** Ảnh dạng base64 (không kèm tiền tố data URL). */
@@ -28,7 +28,16 @@ export interface OcrProvider {
 }
 
 const REQUEST_TIMEOUT_MS = 90_000
-const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+
+/**
+ * Hai nhà cung cấp này nói CÙNG một giao thức (`/chat/completions` kiểu OpenAI),
+ * nên dùng chung một hàm gọi — khác nhau đúng một URL và vài tham số nhỏ.
+ * Gemini nói giao thức riêng nên có hàm riêng.
+ */
+const CHAT_VISION_ENDPOINT: Readonly<Record<'openai' | 'deepseek', string>> = {
+  openai: 'https://api.openai.com/v1/chat/completions',
+  deepseek: 'https://api.deepseek.com/chat/completions',
+}
 
 const OCR_PROMPT = `Bạn là công cụ nhận dạng chữ viết bài làm Toán THPT tiếng Việt.
 
@@ -55,7 +64,7 @@ export function createOcrProvider(config: OcrConfig = readOcrConfig()): OcrProvi
       const raw =
         config.provider === 'gemini'
           ? await callGeminiVision(config, request)
-          : await callOpenAiVision(config, request)
+          : await callChatVision(config, request)
       const parsed = parseOcrPayload(config, raw)
 
       // Redaction chạy NGAY sau OCR, trước khi text đi bất cứ đâu khác.
@@ -173,38 +182,66 @@ function stripCodeFence(raw: string): string {
     .replace(/\s*```$/, '')
 }
 
-async function callOpenAiVision(config: OcrConfig, request: OcrRequest): Promise<string> {
+/**
+ * Thân request cho các provider nói giao thức OpenAI. Tách ra khỏi hàm gọi để
+ * test được hình dạng payload mà không cần chạm mạng.
+ *
+ * `detail: 'high'` CHỈ gửi cho OpenAI: đó là tham số riêng của họ. Gửi trường
+ * lạ sang nhà khác là trò may rủi — bên thì bỏ qua, bên thì trả 400, và hỏng
+ * đúng lúc học sinh đang nộp bài thì không đáng để tiết kiệm một nhánh if.
+ */
+export function buildChatVisionBody(
+  config: Pick<OcrConfig, 'provider' | 'model'>,
+  request: OcrRequest
+): Record<string, unknown> {
+  const url = `data:${request.mimeType};base64,${request.imageBase64}`
+  return {
+    model: config.model,
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: OCR_PROMPT },
+          {
+            type: 'image_url',
+            image_url: config.provider === 'openai' ? { url, detail: 'high' } : { url },
+          },
+        ],
+      },
+    ],
+  }
+}
+
+export function chatVisionEndpoint(provider: OcrConfig['provider']): string {
+  // `gemini` không bao giờ tới đây (có hàm riêng); kiểu dữ liệu đã chặn, dòng
+  // này chỉ để lỗi cấu hình không biến thành `fetch(undefined)`.
+  const endpoint = CHAT_VISION_ENDPOINT[provider as 'openai' | 'deepseek']
+  if (!endpoint) {
+    throw new ProviderError({
+      provider,
+      kind: 'config',
+      message: `Không có endpoint cho provider OCR "${provider}".`,
+      retryable: false,
+    })
+  }
+  return endpoint
+}
+
+async function callChatVision(config: OcrConfig, request: OcrRequest): Promise<string> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   let response: Response
   try {
-    response = await fetch(OPENAI_ENDPOINT, {
+    response = await fetch(chatVisionEndpoint(config.provider), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.apiKey}`,
       },
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: OCR_PROMPT },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${request.mimeType};base64,${request.imageBase64}`,
-                  detail: 'high',
-                },
-              },
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify(buildChatVisionBody(config, request)),
       signal: controller.signal,
     })
   } catch (error) {

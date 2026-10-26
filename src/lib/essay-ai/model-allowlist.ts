@@ -10,9 +10,9 @@
  * Module này chỉ chạy phía server. Không import vào client component.
  */
 
-import { ProviderError } from './contracts'
+import { ProviderError } from './contracts.ts'
 
-export type OcrProviderName = 'openai' | 'gemini'
+export type OcrProviderName = 'openai' | 'gemini' | 'deepseek'
 export type GradingProviderName = 'deepseek'
 
 /**
@@ -23,6 +23,22 @@ export type GradingProviderName = 'deepseek'
  */
 const OCR_MODEL_ALLOWLIST: Readonly<Record<OcrProviderName, readonly string[]>> = {
   openai: ['gpt-4o-mini', 'gpt-4o'],
+  /**
+   * DeepSeek — THÊM 2026-10-26, CHƯA BENCHMARK, VÀ TÊN MODEL CHƯA XÁC MINH
+   * TẠI NGUỒN.
+   *
+   * DeepSeek có vision trên API từ tháng 8/2026 (`deepseek-v4-flash-vision-exp`),
+   * rồi tháng 9/2026 gộp multimodal vào model chính và khai tử bản thử nghiệm.
+   * Hai tên dưới đây lấy từ tài liệu bên thứ ba: phiên thêm chúng bị chặn ra
+   * deepseek.com nên KHÔNG đọc được tài liệu gốc, mà các nguồn thứ ba thì mâu
+   * thuẫn nhau về tên và về ngày.
+   *
+   * Trước khi đặt `OCR_PROVIDER=deepseek` trên production, chạy
+   * `node scripts/deepseek-vision-probe.mjs <ảnh>` để hỏi thẳng API xem tên nào
+   * còn sống và nó có nhận ảnh thật không. Nhớ bài học ngày 2026-09-10 ở khối
+   * chú thích phía dưới: API trả 200 không có nghĩa là model bạn gọi đang chạy.
+   */
+  deepseek: ['deepseek-flash', 'deepseek-v4-flash'],
   gemini: [
     'gemini-2.0-flash',
     'gemini-2.5-flash',
@@ -87,7 +103,7 @@ function assertServerOnly(): void {
 }
 
 function isOcrProviderName(value: string): value is OcrProviderName {
-  return value === 'openai' || value === 'gemini'
+  return value === 'openai' || value === 'gemini' || value === 'deepseek'
 }
 
 export function assertAllowedOcrModel(provider: OcrProviderName, model: string): void {
@@ -186,8 +202,17 @@ export function readOcrConfig(): OcrConfig {
   // server chỉ hợp thức hoá một key đã rò rỉ.
   const apiKey =
     readEnv('OCR_API_KEY') ??
-    (provider === 'gemini' ? readEnv('GEMINI_API_KEY') : null)
+    (provider === 'gemini'
+      ? readEnv('GEMINI_API_KEY')
+      : // Dùng chung key với pipeline chấm bài: cùng một tài khoản DeepSeek,
+        // không bắt người vận hành đặt hai biến cho cùng một key.
+        provider === 'deepseek'
+        ? readEnv('DEEPSEEK_API_KEY')
+        : null)
 
+  // Gemini có mặc định vì đó là đường đang chạy. DeepSeek CỐ Ý không có mặc
+  // định: tên model bên đó đã đổi ngầm một lần rồi, nên bắt đặt `OCR_MODEL`
+  // tường minh để người vận hành biết chính xác mình đang gọi cái gì.
   const model =
     readEnv('OCR_MODEL') ?? (provider === 'gemini' ? 'gemini-3.6-flash' : null)
 
@@ -198,7 +223,9 @@ export function readOcrConfig(): OcrConfig {
       message:
         provider === 'gemini'
           ? 'Thiếu GEMINI_API_KEY (hoặc OCR_API_KEY) trong biến môi trường server.'
-          : 'Thiếu OCR_PROVIDER, OCR_API_KEY hoặc OCR_MODEL.',
+          : provider === 'deepseek'
+            ? 'Thiếu DEEPSEEK_API_KEY (hoặc OCR_API_KEY) và OCR_MODEL. DeepSeek không có model mặc định — đặt OCR_MODEL tường minh.'
+            : 'Thiếu OCR_PROVIDER, OCR_API_KEY hoặc OCR_MODEL.',
       retryable: false,
     })
   }

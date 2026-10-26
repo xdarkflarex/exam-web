@@ -77,7 +77,9 @@ registerHooks({
 
 const { createDeepSeekGradingProvider } = await import('../src/lib/essay-ai/grading-provider.ts')
 const { createOcrProvider } = await import('../src/lib/essay-ai/ocr-provider.ts')
-const { readGradingConfig, readOcrConfig } = await import('../src/lib/essay-ai/model-allowlist.ts')
+const { readGradingConfig, readOcrConfig, assertAllowedOcrModel } = await import(
+  '../src/lib/essay-ai/model-allowlist.ts'
+)
 const { assertNoIdentifiers, redactPii } = await import('../src/lib/essay-ai/redaction.ts')
 const { normalizeAnswerText, hashText } = await import('../src/lib/essay-ai/normalize.ts')
 
@@ -97,6 +99,11 @@ Tuỳ chọn:
   --out <path>     Ghi báo cáo JSON. Mặc định: chỉ in ra màn hình.
   --dry-run        Chỉ kiểm tra fixture, KHÔNG gọi provider, không tốn tiền.
   --ocr            Đo thêm độ chính xác OCR trên các fixture có ảnh.
+  --ocr-compare <spec>
+                   Chạy CÙNG bộ ảnh qua nhiều provider OCR rồi so cạnh nhau.
+                   spec: "gemini:gemini-3.6-flash,deepseek:deepseek-flash"
+                   Key lấy theo từng nhà: GEMINI_API_KEY / DEEPSEEK_API_KEY /
+                   OPENAI_API_KEY, hoặc OCR_API_KEY dùng chung.
   --limit <n>      Chỉ chạy n fixture đầu tiên.
   --help
 
@@ -113,6 +120,7 @@ function parseArgs(argv) {
     out: null,
     dryRun: false,
     ocr: false,
+    ocrCompare: null,
     limit: null,
   }
   for (let index = 0; index < argv.length; index += 1) {
@@ -120,6 +128,11 @@ function parseArgs(argv) {
     if (arg === '--help' || arg === '-h') return { help: true }
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--ocr') options.ocr = true
+    else if (arg === '--ocr-compare') {
+      options.ocrCompare = argv[++index]
+      // So sánh cũng là đo OCR; bật luôn để không phải gõ cả hai cờ.
+      options.ocr = true
+    }
     else if (arg === '--dir') options.dir = argv[++index]
     else if (arg === '--out') options.out = argv[++index]
     else if (arg === '--limit') options.limit = Number(argv[++index])
@@ -134,6 +147,10 @@ function parseArgs(argv) {
   }
   if (options.limit !== null && (!Number.isInteger(options.limit) || options.limit < 1)) {
     console.error('--limit phải là số nguyên >= 1.')
+    return { help: true, invalid: true }
+  }
+  if (options.ocrCompare !== null && !options.ocrCompare) {
+    console.error('--ocr-compare cần một spec, ví dụ "gemini:gemini-3.6-flash,deepseek:deepseek-flash".')
     return { help: true, invalid: true }
   }
   return options
@@ -420,14 +437,52 @@ function mathCharAccuracy(expected, actual) {
   return total === 0 ? null : matched / total
 }
 
-async function runOcr(fixtures, fixtureDir) {
+/**
+ * Đọc spec `--ocr-compare` thành danh sách cấu hình.
+ *
+ * Key lấy theo từng nhà chứ không ép một biến chung: muốn so Gemini với
+ * DeepSeek thì phải có hai key cùng lúc, mà `OCR_API_KEY` chỉ chứa được một.
+ *
+ * Tên model vẫn đi qua `assertAllowedOcrModel`: đường chạy thật có allowlist
+ * thì đường benchmark cũng phải có, nếu không benchmark sẽ "chứng minh" được
+ * một model mà production từ chối chạy.
+ */
+function parseOcrCompareSpec(spec) {
+  const KEY_ENV = {
+    gemini: 'GEMINI_API_KEY',
+    deepseek: 'DEEPSEEK_API_KEY',
+    openai: 'OPENAI_API_KEY',
+  }
+  return spec
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [provider, model] = part.split(':').map((piece) => piece?.trim())
+      if (!provider || !model) {
+        throw new Error(`Spec OCR sai: "${part}". Đúng dạng là "nhà:model".`)
+      }
+      const apiKey = process.env[KEY_ENV[provider] ?? ''] || process.env.OCR_API_KEY
+      if (!apiKey) {
+        throw new Error(
+          `Thiếu key cho "${provider}": đặt ${KEY_ENV[provider] ?? 'OCR_API_KEY'} trong biến môi trường.`
+        )
+      }
+      assertAllowedOcrModel(provider, model)
+      return { provider, apiKey, model }
+    })
+}
+
+async function runOcr(fixtures, fixtureDir, config = null) {
   const withImages = fixtures.filter((fixture) => fixture.imagePath)
   if (withImages.length === 0) {
     return { skipped: true, reason: 'Không có fixture nào kèm ảnh.' }
   }
 
-  const config = readOcrConfig()
-  const provider = createOcrProvider(config)
+  // Không truyền config thì đọc từ biến môi trường như cũ. Truyền vào là lúc
+  // so nhiều provider trên cùng bộ ảnh.
+  const resolved = config ?? readOcrConfig()
+  const provider = createOcrProvider(resolved)
   const rows = []
 
   for (const fixture of withImages) {
@@ -476,8 +531,8 @@ async function runOcr(fixtures, fixtureDir) {
   const measured = rows.filter((row) => row.ok && row.similarity !== null)
   return {
     skipped: false,
-    provider: config.provider,
-    model: config.model,
+    provider: resolved.provider,
+    model: resolved.model,
     total: rows.length,
     failed: rows.filter((row) => !row.ok).length,
     avgSimilarity: mean(measured.map((row) => row.similarity)),
@@ -551,6 +606,37 @@ function summarize(rows, fixtures) {
 
 function formatNumber(value, digits = 2) {
   return value === null || value === undefined ? '—' : value.toFixed(digits)
+}
+
+/**
+ * Bảng so hai (hoặc nhiều) provider OCR trên CÙNG bộ ảnh.
+ *
+ * Cố ý KHÔNG tuyên bố nhà nào thắng. Độ khớp text và độ khớp ký hiệu là hai
+ * cột khác nhau vì chúng nói hai chuyện: đọc sai một chữ trong lời văn làm
+ * giảm cột đầu nhưng không đổi kết luận bài toán, còn đọc sót một dấu trừ thì
+ * cột sau tụt và bài bị chấm sai. Người đọc bảng phải tự cân, không để một
+ * con số trung bình gộp quyết định thay.
+ */
+function printOcrCompare(results) {
+  console.log('\n-- So sánh provider OCR (cùng bộ ảnh)')
+  const header = ['Provider', 'Ảnh', 'Lỗi', 'Khớp text', 'Khớp ký hiệu', 'Tự tin'].join('  |  ')
+  console.log(`  ${header}`)
+  console.log(`  ${'-'.repeat(header.length)}`)
+  for (const row of results) {
+    if (row.skipped) {
+      console.log(`  (bỏ qua) ${row.reason}`)
+      continue
+    }
+    console.log(
+      `  ${row.provider}:${row.model}  |  ${row.total}  |  ${row.failed}  |  ` +
+        `${formatNumber(row.avgSimilarity, 3)}  |  ${formatNumber(row.avgMathAccuracy, 3)}  |  ` +
+        `${formatNumber(row.avgSelfConfidence, 3)}`
+    )
+  }
+  console.log(
+    '\n  "Tự tin" là model TỰ khai, không phải phép đo — một model tự tin mà\n' +
+      '  đọc sai thì nguy hiểm hơn một model thú nhận là nó không chắc.'
+  )
 }
 
 function printReport(summary, ocr, options) {
@@ -678,7 +764,10 @@ async function main() {
       `\n--dry-run: mọi fixture đã qua kiểm tra cấu trúc và kiểm tra ẩn danh.\n` +
         `Chạy thật sẽ gọi provider ${selected.length} lượt` +
         (options.ocr
-          ? ` + ${selected.filter((fixture) => fixture.imagePath).length} lượt OCR`
+          ? ` + ${
+              selected.filter((fixture) => fixture.imagePath).length *
+              (options.ocrCompare ? parseOcrCompareSpec(options.ocrCompare).length : 1)
+            } lượt OCR`
           : '') +
         '.\nBỏ --dry-run để chạy.'
     )
@@ -738,12 +827,22 @@ async function main() {
 
   const summary = summarize(rows, selected)
   let ocr = null
-  if (options.ocr) {
+  let ocrCompare = null
+  if (options.ocrCompare) {
+    ocrCompare = []
+    for (const ocrConfig of parseOcrCompareSpec(options.ocrCompare)) {
+      console.log(`\nĐang đo OCR với ${ocrConfig.provider}:${ocrConfig.model}…`)
+      ocrCompare.push(await runOcr(selected, absolute, ocrConfig))
+    }
+    // Giữ `ocr` cho phần báo cáo cũ: nhà đầu tiên trong spec.
+    ocr = ocrCompare[0] ?? null
+  } else if (options.ocr) {
     console.log('\nĐang đo OCR…')
     ocr = await runOcr(selected, absolute)
   }
 
   printReport(summary, ocr, options)
+  if (ocrCompare && ocrCompare.length > 1) printOcrCompare(ocrCompare)
 
   if (options.out) {
     const report = {
@@ -754,6 +853,7 @@ async function main() {
       fixtureDir: options.dir,
       summary,
       ocr,
+      ocrCompare,
       // `rows` chỉ chứa id fixture và số — không có nội dung bài làm.
       rows,
     }
