@@ -66,6 +66,7 @@ docs/                  tài liệu chuẩn
 | Student shell | `src/app/(student)/layout.tsx`, `src/components/student/StudentSidebar.tsx` |
 | Admin shell | `src/app/admin/layout.tsx`, `src/components/admin/AdminSidebar.tsx` |
 | Exam | `src/app/exam/**`, `src/components/ExamRunner.tsx`, `src/lib/exam/questions.ts`, `src/lib/exam/draft.ts` |
+| Trang chủ (khối đề) | `src/app/page.tsx`, `src/lib/landing/exam-catalog.ts`, `src/components/landing/ExamFilterChips.tsx` |
 | Pilot tự luận | `docs/ESSAY_GRADING.md`, `src/app/admin/questions/essay/new/page.tsx`, `src/components/admin/EssayGradingPanel.tsx`, `src/lib/essay-grading/prompt.ts` |
 | Practice | `src/app/practice/**`, `src/components/PracticeRunner.tsx` |
 | Homework | `src/app/homework/**`, `src/components/HomeworkRunner.tsx`, `src/lib/homework/actions.ts` |

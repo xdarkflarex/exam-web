@@ -510,6 +510,36 @@ với một bài đang mở. Có 5 test, kể cả ca "mặt phẳng lớp 11 kh
 
 ---
 
+## A22. Người lạ bấm một đề cụ thể rồi mất dấu nó sau khi đăng nhập
+
+Thấy khi quay hành trình người ngoài (mục C26, video 2026-10-27).
+
+Trang chủ cho khách bấm vào một đề cụ thể, nhưng link là `/login` trần
+(`src/app/page.tsx`, card đề): **đề vừa bấm không được mang theo**. Đăng nhập
+xong, middleware đẩy về `/student` theo vai trò, nên người ta rơi vào bảng điều
+khiển rỗng thay vì vào đúng đề họ vừa chọn. Người lạ phải tự mò lại
+`/student/exams` và tìm lại đúng cái tên đề đó.
+
+Sửa: cho card đề trỏ tới `/login?next=/exam/prepare/<id>`, và ở `/login` sau khi
+đăng nhập thành công thì đi tới `next` nếu nó là **đường dẫn nội bộ** (bắt đầu
+bằng `/`, không phải `//`, không có scheme) — nhận `next` tuỳ ý là mở open
+redirect ngay trên trang đăng nhập.
+
+Kiểm cùng lúc hai nhánh: `next` hợp lệ thì vào đúng đề; `next` trỏ ra ngoài
+(`https://...`, `//evil`) thì **bỏ qua** và về `/student` như cũ.
+
+## A23. Tài khoản mới không được mời làm gì
+
+Thấy cùng lượt quay. Người vừa đăng ký vào `/student` và thấy "Không có việc
+mới đang chờ" — đúng sự thật (chưa ai giao bài), nhưng với người tự tìm tới
+trang để làm thử thì đó là một bảng trắng. Trang chủ đã mời họ làm đề; `/student`
+thì không mời gì.
+
+Chưa sửa vì nó đụng vào gói quyền: mời họ làm đề thi thử trong khi
+gói `basic` đang **tắt** `simulation` là mời vào đúng cái cửa khoá. Thứ tự đúng
+là quyết gói quyền trước (xem A19 phần "Hệ quả" và `/admin/access`), rồi mới
+thêm lời mời.
+
 ---
 
 # Phần B — chờ chủ dự án quyết
@@ -1136,3 +1166,73 @@ chỗ React gắn lại state sau khi trang dựng lại.
 lại tính từ `exam_attempts.start_time` trên server — `ExamSidebar` dựng lại mốc
 kết thúc mỗi lần mount — nên F5 không làm trôi giờ, nhưng cũng nghĩa là học sinh
 mất đúng số giây họ loay hoay tải lại. Không sửa được ở lớp này.
+
+## 26. XONG 2026-10-27 — phân loại đề ở trang chủ, và quay lại hành trình của người ngoài
+
+Hai việc một mạch, vì việc thứ nhất tìm ra lý do cho việc thứ hai.
+
+### Quay lại toàn bộ hành trình người lạ
+
+Container của phiên làm việc không có `.env` của Primary nên không chạm được
+database thật. Thay vì bỏ cuộc hoặc quay một màn hình chết, dựng một **Supabase
+giả chạy trong máy** nói đúng phương ngữ PostgREST + GoTrue mà `supabase-js`
+gửi đi (`scripts/mock-supabase.mjs`), rồi lái trình duyệt thật đi hết hành trình
+và ghi hình (`scripts/record-student-flow.mjs`). **App không bị sửa một dòng
+nào để quay** — đó là điều kiện để bản ghi còn có giá trị.
+
+Nó chứng minh được: giao diện, điều hướng, thông báo lỗi, và các cổng chặn mà
+client phải xử lý. Nó **không** chứng minh: RLS thật, transaction thật, hiệu
+năng thật. Mock có hai công tắc để diễn đúng trạng thái production hôm nay
+(`MOCK_ANON_GRADE`, `MOCK_ANON_PRACTICE`, `MOCK_ACCESS_TIER`).
+
+**Ba điều nhìn thấy trong video mà đọc code không thấy:**
+
+1. **Người lạ bấm một đề cụ thể ở trang chủ rồi bị đẩy sang `/login` — và đề
+   vừa bấm bị quên sạch.** Đăng nhập xong họ rơi vào `/student`, không phải vào
+   đề. Chưa sửa: cần `?next=` xuyên qua login (xem mục A22).
+2. **Tài khoản mới vào `/student` thấy một bảng rỗng**: "Không có việc mới đang
+   chờ". Người vừa đăng ký xong không được mời làm gì cả.
+3. **Rồi họ bị chặn**: `start_exam_attempt` ném `FEATURE_NOT_AVAILABLE` vì gói
+   `basic` mặc định **tắt** `simulation`. Màn hình nói "Hãy liên hệ giáo viên" —
+   với một người tự tìm tới trang để làm thử, đó là ngõ cụt. Đây là **cổng
+   chặn đứng giữa đường quảng bá**, và nó là một ô cờ ở `/admin/access`.
+
+### Phân loại đề ở trang chủ
+
+Trước: một danh sách phẳng. Thứ phân loại duy nhất đang chạy là dải màu bên
+trái card, băm từ `exams.subject` — mà cả ngân hàng chỉ có môn Toán, nên **mọi
+đề ra cùng một màu**. Có code phân loại, không có phân loại.
+
+Sau: hàng chip `Tất cả lớp · Lớp 10 · Lớp 11 · Lớp 12` và `Thi thử · Ôn tập`,
+mỗi chip kèm số đề thật, và nhãn lớp/loại đề trên từng card. Chip là `<Link>`
+chứ không phải nút JS: chạy cả khi JS chưa tải xong, và **mỗi bộ lọc là một
+đường dẫn gửi được** — dán `minhmath.../?lop=12#exams` vào nhóm Zalo lớp 12 là
+học sinh mở ra thấy đúng đề của mình.
+
+**Chỗ khó không phải giao diện mà là quyền.** `20260722:3339` cấp cho `anon`
+theo danh sách cột đóng, **không có `grade`**; grant theo cột của Postgres từ
+chối **cả câu** khi chạm cột chưa cấp. Thêm `grade` vào câu select của trang chủ
+mà chưa nạp migration là khối đề biến mất sạch khỏi trang chủ với mọi khách, im
+lặng — đúng họ lỗi `max_attempts` ngày 2026-09-03. Nên mã viết để chạy **cả hai
+phía**: câu đầy đủ trước, bị từ chối thì rơi về câu cũ và tự ẩn phần lọc theo
+lớp. Nạp `20261027_landing_exam_catalog.sql` là **bật** phân loại lên, không
+phải sửa một trang đang hỏng.
+
+Cùng lúc phát hiện hai thứ nữa, cả hai đều do thiếu quyền chứ không do code:
+
+- **Đề ôn tập chưa bao giờ xuất hiện trên trang chủ.** Policy cũ chỉ cho
+  `exam_mode = 'simulation'`. Tức là loại đề dễ mời người lạ nhất — không bấm
+  giờ, không giới hạn lượt — lại là loại bị giấu.
+- **Dòng "22 câu" trên card luôn bị ẩn với khách.** `anon` không có GRANT lẫn
+  policy nào trên `exam_questions`, nên số câu luôn đếm ra 0. Chỉ người đã đăng
+  nhập mới thấy con số đó.
+
+Cả ba mở trong cùng một migration, kèm preflight in ra **toàn bộ `description`
+sẽ thành công khai** (đọc trước khi chạy) và hai chốt ngược trong postflight:
+`anon` không được đọc `created_by`/`class_id`/`max_attempts`/..., và không được
+đọc `questions`/`answers`. Quy trình: `RUNBOOK.md` mục 8vicies.
+
+9 test cho `src/lib/landing/exam-catalog.ts`. Hai test đáng giá nhất không phải
+"lọc có chạy không" mà là hai ca đã từng làm hỏng sản phẩm: đề `grade = NULL`
+(đề cho **mọi lớp**) phải hiện ở **mọi** tab lớp, và khi chưa cấp quyền đọc cột
+`grade` thì không lọc theo lớp và không bịa nhãn.

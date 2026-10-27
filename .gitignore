@@ -60,3 +60,6 @@ next-env.d.ts
 
 # Báo cáo đối chiếu ba nguồn do scripts/classify-scan-ai.mjs sinh ra.
 .quet-ai-*.csv
+
+# Bản ghi hình hành trình học sinh (scripts/record-student-flow.mjs)
+.quay-hanh-trinh/

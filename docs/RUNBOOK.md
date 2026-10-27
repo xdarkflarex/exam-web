@@ -23,6 +23,7 @@ khi cả bốn đã live.
 | `20260909` sửa lớp của đề | đã nạp | `has_column_privilege(...)` = true |
 | `20260910` thêm chương Dãy số | đã nạp | 4 bản ghi `categories` khớp "dãy số"/"cấp số" |
 | `20260920` RLS góp ý + nhật ký chống gian lận | **chưa nạp** (viết 2026-09-20) | checklist áp ở mục 8novendecies; sau khi nạp: `to_regprocedure('public.owns_exam_attempt(text)')` khác NULL, và `pg_class.relrowsecurity` của `question_feedbacks` = true |
+| `20261027` phân loại đề ở trang chủ | **chưa nạp** (viết 2026-10-27) | checklist áp ở mục 8vicies; sau khi nạp: `has_column_privilege('anon', 'public.exams', 'grade', 'SELECT')` = true |
 
 ### Cách kiểm, và cái bẫy của từng cách
 
@@ -1262,6 +1263,77 @@ cánh cửa.
 
 Sau khi nạp xong: sửa dòng trạng thái đầu mục này kèm ngày và kết quả đo thật,
 và đóng A19/A20 trong [`VIEC_DANG_MO.md`](VIEC_DANG_MO.md).
+
+## 8vicies. Nạp `20261027_landing_exam_catalog.sql` — phân loại đề ở trang chủ
+
+**CHƯA NẠP** (viết 2026-10-27). Cần quyền database nên chỉ chủ dự án chạy được.
+
+Trang chủ là chỗ **duy nhất** người lạ nhìn thấy đề trước khi có tài khoản, và
+hôm nay nó đổ ra một danh sách phẳng: không lớp, không loại đề. Thứ phân loại
+duy nhất đang chạy là dải màu bên trái card, băm từ `exams.subject` — mà cả
+ngân hàng chỉ có môn Toán, nên **mọi đề ra cùng một màu**.
+
+Dữ liệu phân loại nằm sẵn trong bảng (`grade`, `exam_mode`); cái thiếu là
+**quyền đọc**. `20260722:3339` cấp cho `anon` theo danh sách cột đóng, không có
+`grade` và `description`; và policy `anon_read_published_simulation_exams` chỉ
+cho `exam_mode = 'simulation'`, nên **đề ôn tập chưa bao giờ xuất hiện trên
+trang chủ** — đúng loại đề dễ mời người lạ làm thử nhất (không bấm giờ, không
+giới hạn lượt) lại là loại bị giấu.
+
+**Mã trang chủ đã chạy được ở CẢ HAI phía.** Chưa nạp file này thì
+`getPublishedExamCatalog()` bị từ chối câu select đầy đủ (42501), tự rơi về câu
+cũ, và hàng chip lọc theo lớp **tự ẩn**. Nạp file này là bật phân loại lên, chứ
+không phải sửa một trang đang hỏng — nên không có áp lực thời gian, và có thể
+rollback bất cứ lúc nào mà trang chủ vẫn nguyên vẹn.
+
+### Thứ tự
+
+1. **Preflight** — [`../supabase/preflight/20261027_landing_exam_catalog_preflight.sql`](../supabase/preflight/20261027_landing_exam_catalog_preflight.sql).
+   - Ba dòng `chan_*` phải **= 0**; bốn dòng `xac_nhan_*` kỳ vọng **= 1** (đó là
+     trạng thái "chưa mở" của hôm nay). Ra ngược kỳ vọng nghĩa là có người đã
+     cấp quyền ngoài quy trình — **dừng lại**, postflight sẽ "đạt" bất kể.
+   - **Ảnh chụp 3 là phần phải đọc bằng mắt, không lướt.** Nó in toàn bộ
+     `description` của đề đã xuất bản — sau migration những dòng chữ đó là nội
+     dung **công khai**. Có ghi chú nội bộ (tên học sinh, "đề lớp thầy B",
+     "chưa sửa xong") thì sửa **trước**, đừng chạy rồi sửa.
+   - Ảnh chụp 4 cho biết trước trang chủ sẽ hiện ra gì: số đề theo lớp và theo
+     loại, và danh sách đề ôn tập sắp xuất hiện lần đầu.
+2. **Migration** — [`../supabase/migrations/20261027_landing_exam_catalog.sql`](../supabase/migrations/20261027_landing_exam_catalog.sql).
+   Cấp `SELECT (grade, description)` trên `exams` và `SELECT (id, exam_id)` trên
+   `exam_questions` cho `anon`, rồi thay policy `anon_read_published_simulation_exams`
+   bằng `anon_read_published_exam_catalog` (nhận cả `practice`). Tự kiểm trước
+   `COMMIT`, trong đó có hai **chốt ngược**: `anon` không được đọc
+   `created_by`/`class_id`/`max_attempts`/`passing_score`/`total_score`/
+   `start_time`/`end_time`/`scoring_profile`, và không được đọc `questions` hay
+   `answers`. Raise là rollback trọn vẹn, chạy lại được.
+3. **Postflight** — [`../supabase/preflight/20261027_landing_exam_catalog_postflight.sql`](../supabase/preflight/20261027_landing_exam_catalog_postflight.sql).
+   Mọi `must_be_zero` phải **= 0** (12 dòng). Hai dòng quan trọng nhất là
+   `anon_doc_duoc_cot_khong_nen_doc` và `policy_khong_con_rang_buoc_is_published`
+   — mất vế `is_published` là lộ đề nháp cho cả Internet.
+4. **Phép thử thật bằng anon key** — catalog không chứng minh được:
+
+```bash
+node --env-file=.env -e 'const u=process.env.NEXT_PUBLIC_SUPABASE_URL,k=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;const g=(q)=>fetch(`${u}/rest/v1/exams?${q}`,{headers:{apikey:k,Authorization:`Bearer ${k}`}}).then(r=>r.json().then(b=>console.log(q,"→",r.status,JSON.stringify(b).slice(0,300))));g("select=id,title,grade,exam_mode&is_published=eq.true");g("select=id,created_by&limit=1");g("select=id,title&is_published=eq.false")'
+```
+
+   Đọc ba dòng kết quả, theo đúng thứ tự:
+   - Câu 1: trước migration **403 `42501`**, sau migration **200** kèm `grade`.
+   - Câu 2 (**chốt ngược**): phải **vẫn 403** — `created_by` không được mở.
+   - Câu 3 (**chốt ngược**): phải trả **mảng rỗng** — đề chưa xuất bản không
+     được lộ. Trả về dòng nào là dừng và rollback ngay.
+5. **Nhìn bằng mắt.** Mở trang chủ ở chế độ ẩn danh: phải thấy hàng chip
+   `Tất cả lớp · Lớp 10 · Lớp 11 · Lớp 12` và `Thi thử · Ôn tập`, mỗi chip kèm
+   số đề. Bấm một chip → URL thành `/?lop=12#exams` và danh sách đổi theo. Đường
+   dẫn đó **gửi được**: dán vào nhóm Zalo lớp 12 là học sinh mở ra thấy đúng đề
+   của mình.
+
+**Rollback:** [`../supabase/rollback/20261027_landing_exam_catalog_rollback.sql`](../supabase/rollback/20261027_landing_exam_catalog_rollback.sql).
+Thu lại hai cột, trả policy về bản chỉ `simulation`. **Trang chủ không hỏng sau
+khi rollback** — mã tự rơi về câu select cũ và ẩn phần lọc theo lớp. Thứ mất đi
+là phân loại và tab "Ôn tập", không phải khối đề.
+
+Sau khi nạp xong: sửa dòng trạng thái đầu mục này kèm ngày, và cập nhật dòng
+`20261027` ở mục 0.
 
 ## 9. Database troubleshooting
 

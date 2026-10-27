@@ -22,6 +22,14 @@ import HeroActions from '@/components/landing/HeroActions'
 import HeroParallax from '@/components/landing/HeroParallax'
 import MathConstellation from '@/components/motion/MathConstellation'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
+import ExamFilterChips from '@/components/landing/ExamFilterChips'
+import {
+  examBadges,
+  filterCatalog,
+  readGradeFilter,
+  readModeFilter,
+  type CatalogExam,
+} from '@/lib/landing/exam-catalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -180,44 +188,74 @@ async function getLandingContent() {
 }
 
 /**
- * Fetch featured exams (published only, no question data)
- * Uses public client - no authentication required
+ * Danh mục đề công khai cho trang chủ.
  *
- * Kèm `question_count` để card đề hiển thị số câu thật. Đếm bằng
- * `count: 'exact', head: true` nên không tải nội dung câu hỏi nào về client.
- * Nếu anon không đọc được `exam_questions` (RLS) thì count = 0 và card ẩn dòng đó.
+ * HAI ĐIỀU PHẢI NHỚ KHI SỬA CÂU SELECT NÀY:
+ *
+ * 1. `anon` chỉ được cấp vài CỘT của `exams` (`20260722:3339`), và grant theo
+ *    cột của Postgres từ chối **cả câu** khi chạm cột chưa cấp. Thêm `grade`
+ *    mà chưa nạp `20261027_landing_exam_catalog.sql` là khối đề biến mất sạch
+ *    khỏi trang chủ với mọi khách, im lặng. Vì vậy có hai câu: câu đầy đủ, và
+ *    câu rút gọn chạy khi câu đầy đủ bị từ chối.
+ * 2. Trước bản này, hàm đếm số câu hỏi cho MỌI đề lấy về. Danh mục giờ lấy tới
+ *    60 đề để đếm cho các chip lọc, nên đếm số câu phải tách ra và chỉ chạy
+ *    cho những đề THỰC SỰ hiện lên — 6 request thay vì 60.
+ *
+ * Trả `classified: false` khi chưa đọc được `grade`; giao diện tự ẩn phần lọc
+ * theo lớp thay vì hiện một bộ lọc không lọc được gì.
  */
-async function getFeaturedExams(count: number = 6) {
-  try {
-    const supabase = createPublicSupabaseClient()
+async function getPublishedExamCatalog(poolSize: number = 60): Promise<{
+  exams: CatalogExam[]
+  classified: boolean
+}> {
+  const supabase = createPublicSupabaseClient()
 
-    const { data: exams } = await supabase
+  const query = (columns: string) =>
+    supabase
       .from('exams')
-      .select('id, title, subject, duration')
+      .select(columns)
       .eq('is_published', true)
-      .eq('exam_mode', 'simulation')
+      .in('exam_mode', ['simulation', 'practice'])
       .order('created_at', { ascending: false })
-      .limit(count)
+      .limit(poolSize)
 
-    if (!exams || exams.length === 0) return []
+  try {
+    const full = await query('id, title, subject, duration, exam_mode, grade, description')
+    if (!full.error && full.data) {
+      return { exams: full.data as unknown as CatalogExam[], classified: true }
+    }
 
-    return await Promise.all(
-      exams.map(async exam => {
-        try {
-          const { count: questionCount } = await supabase
-            .from('exam_questions')
-            .select('id', { count: 'exact', head: true })
-            .eq('exam_id', exam.id)
-          return { ...exam, question_count: questionCount || 0 }
-        } catch {
-          return { ...exam, question_count: 0 }
-        }
-      })
-    )
+    const lite = await query('id, title, subject, duration, exam_mode')
+    return { exams: (lite.data || []) as unknown as CatalogExam[], classified: false }
   } catch (error) {
-    console.error('Error fetching featured exams:', error)
-    return []
+    console.error('Error fetching exam catalog:', error)
+    return { exams: [], classified: false }
   }
+}
+
+/**
+ * Bổ sung số câu hỏi cho đúng những đề sắp hiện.
+ *
+ * Đếm bằng `count: 'exact', head: true` nên không tải nội dung câu hỏi nào về.
+ * Nếu `anon` không đọc được `exam_questions` (RLS) thì count = 0 và card ẩn
+ * dòng đó — không hiện số bịa.
+ */
+async function withQuestionCounts(exams: CatalogExam[]): Promise<CatalogExam[]> {
+  if (exams.length === 0) return []
+  const supabase = createPublicSupabaseClient()
+  return await Promise.all(
+    exams.map(async (exam) => {
+      try {
+        const { count } = await supabase
+          .from('exam_questions')
+          .select('id', { count: 'exact', head: true })
+          .eq('exam_id', exam.id)
+        return { ...exam, question_count: count || 0 }
+      } catch {
+        return { ...exam, question_count: 0 }
+      }
+    })
+  )
 }
 
 /**
@@ -374,31 +412,40 @@ function BenefitIcon({ icon, className }: { icon: string; className?: string }) 
 export default async function LandingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; lop?: string; kieu?: string }>
 }) {
-  const { q } = await searchParams
+  const { q, lop, kieu } = await searchParams
   const query = (q || '').trim()
+  const gradeFilter = readGradeFilter(lop)
+  const modeFilter = readModeFilter(kieu)
 
   const content = await getLandingContent() as any
   const showExams = content.config?.show_featured_exams ?? true
-  const [allExams, recentPosts, stats, knowledgeTopics, isAuthenticated] = await Promise.all([
-    showExams ? getFeaturedExams(content.config?.featured_exams_count || 6) : Promise.resolve([]),
+  const [catalog, recentPosts, stats, knowledgeTopics, isAuthenticated] = await Promise.all([
+    showExams
+      ? getPublishedExamCatalog()
+      : Promise.resolve({ exams: [] as CatalogExam[], classified: false }),
     getRecentPosts(6),
     getLandingStats(),
     getKnowledgeTopics(12),
     getIsAuthenticated(),
   ])
 
-  // Lọc phía client-render trên đúng danh sách đề public đã lấy về.
-  // Không mở route search mới nên không thêm bề mặt dữ liệu nào.
-  const normalize = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd')
-  const needle = normalize(query)
-  const exams = needle
-    ? allExams.filter(e =>
-        normalize(`${e.title || ''} ${e.subject || ''}`).includes(needle)
-      )
-    : allExams
+  /*
+    Lọc ngay trên danh mục đã lấy về: không mở route tìm kiếm mới nên không
+    thêm bề mặt dữ liệu nào, và bộ lọc nằm trong URL nên gửi link được.
+    `featured_exams_count` vẫn là SỐ CARD HIỆN RA như admin đặt; phần còn lại
+    của danh mục dùng để đếm cho chip và để nói còn bao nhiêu đề nữa.
+  */
+  const displayCount = Number(content.config?.featured_exams_count) || 6
+  const matching = filterCatalog(catalog.exams, {
+    grade: gradeFilter,
+    mode: modeFilter,
+    query,
+  })
+  const exams = await withQuestionCounts(matching.slice(0, displayCount))
+  const hiddenCount = Math.max(0, matching.length - exams.length)
+  const filterActive = Boolean(query || gradeFilter || modeFilter)
 
   const heroSlides = content.hero_slides || []
   const enrollment = content.enrollment || []
@@ -649,6 +696,19 @@ export default async function LandingPage({
                       </p>
                     </div>
                   </ScrollRevealClient>
+
+                  {/* Phân loại đề: hàng chip tự ẩn khi không có gì để chọn. */}
+                  <ScrollRevealClient>
+                    <ExamFilterChips
+                      exams={catalog.exams}
+                      grade={gradeFilter}
+                      mode={modeFilter}
+                      current={{ q: query || undefined, lop, kieu }}
+                      query={query}
+                      classified={catalog.classified}
+                    />
+                  </ScrollRevealClient>
+
                   {exams.length > 0 ? (
                     /*
                       LƯỚI BENTO — không còn ba cột đều nhau.
@@ -666,6 +726,7 @@ export default async function LandingPage({
                       (`.bento-rail`), rẻ hơn về thị giác và không đụng vào ngân
                       sách màu teal vốn để dành cho hành động.
                     */
+                    <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                       {/*
                         Đã đăng nhập thì vào thẳng trang chuẩn bị làm bài; chưa thì qua
@@ -698,6 +759,18 @@ export default async function LandingPage({
                                   {exams[0].subject}
                                 </span>
                               )}
+                              {/* Lớp và loại đề — hai câu hỏi đầu tiên của học
+                                  sinh khi nhìn một đề lạ. Nhãn lớp chỉ hiện khi
+                                  ĐỌC ĐƯỢC cột `grade`; không đọc được thì không
+                                  đoán. */}
+                              {examBadges(exams[0]).grade && (
+                                <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  {examBadges(exams[0]).grade}
+                                </span>
+                              )}
+                              <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                {examBadges(exams[0]).mode}
+                              </span>
                             </div>
                             <h3 className="font-baloo text-2xl sm:text-3xl font-bold leading-snug text-slate-800 dark:text-slate-100 line-clamp-3 transition-colors group-hover:text-teal-700 dark:group-hover:text-teal-300">
                               {exams[0].title}
@@ -712,10 +785,10 @@ export default async function LandingPage({
                                 </div>
                                 <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100">
                                   <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" aria-hidden="true" />
-                                  {exams[0].duration} phút
+                                  {exams[0].duration > 0 ? `${exams[0].duration} phút` : 'Không bấm giờ'}
                                 </div>
                               </div>
-                              {exams[0].question_count > 0 && (
+                              {(exams[0].question_count ?? 0) > 0 && (
                                 <div>
                                   <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Số câu
@@ -760,16 +833,37 @@ export default async function LandingPage({
                               />
                             </div>
                             <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-4 text-xs text-slate-500 dark:text-slate-400">
+                              {/* Lớp + loại đề đứng TRƯỚC môn: cả ngân hàng
+                                  chỉ có môn Toán nên "Toán" không phân loại
+                                  được gì, còn lớp thì phân loại được ngay. */}
+                              {examBadges(exam).grade && (
+                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                  {examBadges(exam).grade}
+                                </span>
+                              )}
+                              <span className="font-semibold text-teal-700 dark:text-teal-300">
+                                {examBadges(exam).mode}
+                              </span>
+                              {examBadges(exam).note && (
+                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                  {examBadges(exam).note}
+                                </span>
+                              )}
                               {exam.subject && (
                                 <span className="font-semibold text-slate-600 dark:text-slate-300">
                                   {exam.subject}
                                 </span>
                               )}
-                              <span className="inline-flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                                {exam.duration} phút
-                              </span>
-                              {exam.question_count > 0 && (
+                              {/* `duration = 0` là đề ôn tập không bấm giờ
+                                  (`20260905`). Hiện "0 phút" vừa sai nghĩa vừa
+                                  đá nhau với nhãn "Không bấm giờ" ngay cạnh. */}
+                              {exam.duration > 0 && (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                                  {exam.duration} phút
+                                </span>
+                              )}
+                              {(exam.question_count ?? 0) > 0 && (
                                 <span className="inline-flex items-center gap-1.5">
                                   <ListOrdered className="w-3.5 h-3.5" aria-hidden="true" />
                                   {exam.question_count} câu
@@ -780,19 +874,37 @@ export default async function LandingPage({
                         </ScrollRevealClient>
                       ))}
                     </div>
-                  ) : query ? (
+
+                    {/* Nói thẳng còn bao nhiêu đề nữa, kèm đường đi tới chúng.
+                        Đây là chỗ duy nhất trên trang chủ mà việc đăng nhập có
+                        một lý do CỤ THỂ, đo được, thay vì một lời mời chung. */}
+                    {hiddenCount > 0 && (
+                      <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
+                        Còn {hiddenCount} đề nữa trong phần này.{' '}
+                        <Link
+                          href={isAuthenticated ? '/student/exams' : '/login'}
+                          className="font-semibold text-teal-700 dark:text-teal-300 hover:underline"
+                        >
+                          {isAuthenticated ? 'Xem tất cả đề' : 'Đăng nhập để xem tất cả'}
+                        </Link>
+                      </p>
+                    )}
+                    </>
+                  ) : filterActive ? (
                     <div className="text-center py-12">
                       <div className="w-16 h-16 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center mx-auto mb-4">
                         <BookOpen className="w-8 h-8 text-slate-500 dark:text-slate-400" />
                       </div>
                       <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Không tìm thấy đề thi phù hợp
+                        Không có đề nào khớp
                       </h3>
                       <p className="text-slate-500 dark:text-slate-400 mb-6">
-                        Không có đề nào khớp với &ldquo;{query}&rdquo; trong danh sách đề nổi bật.
+                        {query
+                          ? `Không có đề nào khớp với “${query}” trong phần đang lọc.`
+                          : 'Chưa có đề nào cho lựa chọn này. Thử bỏ bớt một bộ lọc.'}
                       </p>
                       <Link
-                        href="/"
+                        href="/#exams"
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/30 hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors"
                       >
                         Xem tất cả đề thi
