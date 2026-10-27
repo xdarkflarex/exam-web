@@ -4,9 +4,17 @@ Sổ ghi việc của dự án. **Phần A** là việc còn phải làm, **ph�
 chủ dự án quyết, **phần C** là hồ sơ việc đã xong — giữ lại vì phần lớn bài học
 nằm trong đó.
 
-## Trạng thái kho code — rà 2026-10-22
+## Trạng thái kho code — rà 2026-10-27
 
-Đo lại đầu phiên 2026-10-22, trước đợt thêm chuyển động cho landing và trang học sinh:
+Đo lại cuối phiên 2026-10-27, sau đợt lưu nháp bài thi (mục C25):
+
+- Typecheck pass · test **555/555** pass · lint **68 error, 124 warning** — đúng
+  bằng các lần đo 2026-09-07, 2026-09-18 và 2026-10-22, tức các đợt việc gần đây
+  không thêm lỗi nào. `npm run build` xong (vẫn cần biến môi trường giả, xem dưới).
+- Vẫn **chưa nối được vào Primary** trong phiên này (không có `.env`), nên mọi
+  dòng ở "Số đo hiện tại" vẫn là số của 2026-09-07.
+
+Ảnh chụp đầu phiên 2026-10-22, giữ lại để so:
 
 - `origin/main` đã **nhận ba commit công cụ học tập** (tích phân, Oxyz, registry)
   và **bảy commit của đợt port app điện thoại** (A15–A20). Nhánh làm việc
@@ -18,7 +26,11 @@ nằm trong đó.
   có `.env` thì bước prerender hỏng ở `/admin/theories` và `/student/analytics`
   với lỗi "Your project's URL and API key are required". Đó là thiếu cấu hình,
   không phải lỗi code — đặt giá trị giả cho `NEXT_PUBLIC_SUPABASE_URL` và
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY` là build xong.
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` là build xong. (Phiên 2026-10-27 dựng lại đúng
+  cách này: `.env.local` giả, build xong, xoá ngay sau đó.)
+
+Hai điều đúng ở mọi phiên, không gắn với lần đo nào:
+
 - Không có CI. Mọi con số trong tài liệu là do người đo tay, nên **kiểm lại trước
   khi dựa vào nó** — xem `AGENTS.md` mục 3.
 - Working tree thường có sẵn thay đổi chưa commit của chủ dự án; đừng gộp chúng
@@ -418,26 +430,26 @@ mở tính năng góp ý", không báo "lỗi kết nối" — xem
 
 ### Quy trình áp `20260920` (cho cả A19 và A20)
 
-1. **Preflight** — `supabase/preflight/20260920_feedback_anticheat_rls_preflight.sql`.
-   Đọc ảnh chụp 1 trước tiên: nó trả lời câu duy nhất mà tài liệu không trả lời
-   được là `question_feedbacks` đang BẬT hay TẮT RLS, tức lỗ này đang là "rò rỉ"
-   hay "nút hỏng". Mọi dòng `chan_*` phải bằng 0.
-2. **Áp migration.** Bật RLS và tạo policy nằm trong CÙNG một transaction — tách
-   ra là chặn đứng đường ghi hiện có.
-3. **Postflight** — mọi dòng `must_be_zero` phải bằng 0.
-4. **Phép thử JWT thật**, bước không được bỏ:
+Checklist đầy đủ — tiền kiểm, áp, hậu kiểm, phép thử JWT, dọn rác, rollback —
+nằm ở `docs/RUNBOOK.md` **mục 8novendecies** (viết 2026-10-27). Chỉ có một bản,
+ở đó; đừng dựng bản thứ hai trong file này rồi để hai bản lệch nhau.
 
-   ```
-   node --env-file=.env scripts/feedback-anticheat-rls-check.mjs \
-     --email <hoc-sinh-test> --password '...' --write
-   ```
+Bốn điều quyết định kết quả, nhắc lại ở đây vì chúng là chỗ dễ làm sai nhất:
 
-   Cần một tài khoản học sinh test ĐÃ LÀM ít nhất một đề, và một `attempt_id`
-   của người khác (`--other-attempt`, hoặc script tự tìm nếu có
-   `SUPABASE_SERVICE_KEY`). Thiếu chúng thì script **bỏ qua** đúng hai phép thử
-   quan trọng nhất và thoát mã 2 — bỏ qua không phải là đạt.
-
-5. **Cập nhật `RUNBOOK.md` mục 0** với trạng thái thật sau khi áp.
+1. **Đọc `xac_nhan_loi_A19_rls_dang_tat` của preflight trước tiên.** Nó trả lời
+   câu mà không tài liệu nào trả lời được: lỗ này đang là "rò rỉ" (RLS tắt) hay
+   "nút hỏng" (RLS bật). Hai kết quả dẫn tới hai cách kiểm khác nhau ở bước cuối.
+2. **Các dòng `xac_nhan_loi_*` ra ngược kỳ vọng thì ĐỪNG áp migration** — nghĩa
+   là có người đã sửa ngoài quy trình, và postflight sẽ "đạt" bất kể trạng thái
+   thật là gì.
+3. **Phép thử JWT không bỏ được:** `scripts/feedback-anticheat-rls-check.mjs`,
+   bằng tài khoản `role = 'student'`, và phải có `--other-attempt <id>` hoặc
+   `SUPABASE_SERVICE_KEY` — thiếu thì hai phép thử quan trọng nhất bị **bỏ qua**
+   và script thoát mã 2. Bỏ qua không phải là đạt. Supabase SQL Editor **không
+   dùng được** cho việc này: nó chạy bằng vai trò chủ sở hữu nên `auth.uid()` là
+   NULL và mọi policy trông như bị bỏ qua.
+4. **Sau khi áp:** sửa dòng `20260920` ở `RUNBOOK.md` mục 0 và dòng trạng thái
+   của mục 8novendecies kèm ngày + kết quả đo thật, rồi mới đóng A19/A20.
 
 **Hệ quả phải biết trước:** sau khi áp, `role = 'teacher'` sẽ thấy hộp góp ý
 `/admin/feedback` RỖNG. Hôm nay giáo viên đọc được là vì RLS đang tắt chứ không
@@ -1079,3 +1091,48 @@ phải bằng **0**. Đo được 0 ở cả ba cỡ màn. Không có phép đ�
 `.animate-*` mới quên khai báo trong lưới sẽ làm mất hẳn nội dung của người bật
 giảm chuyển động — mà người đo bằng mắt với cấu hình mặc định thì không bao giờ
 thấy.
+
+## 25. XONG 2026-10-27 — F5 giữa giờ thi không còn mất bài
+
+`ExamRunner` giữ đáp án trong state React và chỉ gửi lên server **một lần duy
+nhất** lúc nộp (`submit_exam_attempt`). Thiết kế đó rất nhẹ cho server — một
+transaction cho một bài thi thay vì hàng nghìn lượt autosave — nhưng nó có đúng
+một hệ quả xấu: **tải lại trang là mất sạch đáp án đã chọn**, và không có cách
+nào cứu. Hệ quả ấy rơi vào người thật, giữa lúc đang thi, và trang thi không hề
+có cảnh báo nào trước khi nó xảy ra.
+
+**Bản sửa giữ nguyên hợp đồng "một lượt ghi server cho một bài thi".** Nháp nằm
+trong `localStorage` trên máy của chính học sinh, không đi đâu cả, nên không
+thêm một byte tải nào cho server và cũng không thêm rủi ro lộ dữ liệu.
+[`src/lib/exam/draft.ts`](../src/lib/exam/draft.ts) + 11 test.
+
+Ba điều bất biến, mỗi điều là một ca đã gặp ở nơi khác:
+
+1. **Không bao giờ được làm vỡ buổi thi.** Mọi lời gọi đều nuốt lỗi: chế độ
+   riêng tư, hết quota, `localStorage` bị chặn — tất cả chỉ dẫn tới "không có
+   nháp", không bao giờ dẫn tới một exception ném ra giữa giờ. Hết quota thì
+   hàm tự dọn nháp của các lượt khác rồi ghi lại đúng một lần: bài đang thi quan
+   trọng hơn mọi bản nháp cũ.
+2. **Khoá theo `attemptId`, không theo `examId`.** Một học sinh làm lại cùng một
+   đề (đề ôn tập không giới hạn lượt, mục 13) sẽ bị chèn đáp án của lượt cũ vào
+   lượt mới nếu khoá theo đề.
+3. **Nháp không phải nguồn sự thật.** Nộp xong là xoá ngay sau khi RPC trả về,
+   trước cả khi chuyển trang. Nháp hỏng một phần thì cứu phần lành: câu nào
+   không còn đúng hình dạng thì bỏ câu đó, không ném lỗi — ném ở đây là biến một
+   bản nháp méo thành một buổi thi trắng.
+
+Học sinh thấy gì: một dải thông báo "Đã khôi phục bài làm lưu trên máy lúc
+**14:05 ngày 27/10**. Bài chỉ được gửi lên hệ thống khi em bấm nộp." Câu thứ hai
+có mặt để không ai hiểu nhầm là đã nộp rồi.
+
+**Đo thật trên trình duyệt**, không chỉ test đơn vị: trả lời cả ba loại câu
+(trắc nghiệm, Đúng/Sai, trả lời ngắn) → `localStorage` có khoá
+`exam-draft:<attemptId>` → F5 → dải thông báo hiện ra, và đếm lại được
+`aria-pressed=true` ở 2 nút cùng ô trả lời ngắn giữ nguyên `0,333`. Test đơn vị
+không thay được phép đo này: nó dùng `Storage` giả, còn thứ hỏng thật thì nằm ở
+chỗ React gắn lại state sau khi trang dựng lại.
+
+**Còn nợ:** nháp chỉ cứu được đáp án, **không cứu được đồng hồ**. Thời gian còn
+lại tính từ `exam_attempts.start_time` trên server — `ExamSidebar` dựng lại mốc
+kết thúc mỗi lần mount — nên F5 không làm trôi giờ, nhưng cũng nghĩa là học sinh
+mất đúng số giây họ loay hoay tải lại. Không sửa được ở lớp này.

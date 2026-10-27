@@ -22,7 +22,7 @@ khi cả bốn đã live.
 | `20260908` `get_my_grade` | đã nạp | `to_regprocedure` khác NULL |
 | `20260909` sửa lớp của đề | đã nạp | `has_column_privilege(...)` = true |
 | `20260910` thêm chương Dãy số | đã nạp | 4 bản ghi `categories` khớp "dãy số"/"cấp số" |
-| `20260920` RLS góp ý + nhật ký chống gian lận | **chưa nạp** (viết 2026-09-20) | sau khi nạp: `to_regprocedure('public.owns_exam_attempt(text)')` khác NULL, và `pg_class.relrowsecurity` của `question_feedbacks` = true |
+| `20260920` RLS góp ý + nhật ký chống gian lận | **chưa nạp** (viết 2026-09-20) | checklist áp ở mục 8novendecies; sau khi nạp: `to_regprocedure('public.owns_exam_attempt(text)')` khác NULL, và `pg_class.relrowsecurity` của `question_feedbacks` = true |
 
 ### Cách kiểm, và cái bẫy của từng cách
 
@@ -1104,6 +1104,164 @@ hàng 1324 → 1511 câu đã phân loại. Mặc định script **không ghi đ
 loại; `--sua-sai` mới cho phép, và chỉ với câu mà hàng rào luật khẳng định đang
 sai. Mọi lượt ghi để lại file hoàn tác `.taxonomy-added-*.json` /
 `.taxonomy-backup-*.json` (đã gitignore).
+
+## 8novendecies. Nạp `20260920_feedback_anticheat_rls.sql` — hai lỗ quyền ở góp ý và nhật ký chống gian lận
+
+**CHƯA NẠP.** File migration viết 2026-09-20, checklist này viết 2026-10-27. Chạy
+nó cần quyền database nên chỉ chủ dự án làm được — phiên AI không chạy được bước
+nào ở đây. Vì vậy mọi con số dưới đây là **kỳ vọng**, không phải kết quả đo.
+
+Hai lỗ, [`VIEC_DANG_MO.md`](VIEC_DANG_MO.md) mục A19 và A20:
+
+- **A19 — `question_feedbacks`.** Toàn bộ SQL của repo chỉ có đúng một policy cho
+  bảng này (`"Admin can manage all feedbacks"`, `database/FIX_ADMIN_RLS_COMPLETE.sql:154`),
+  và **không file nào** chạy `ENABLE ROW LEVEL SECURITY` cho nó. Hai trạng thái,
+  hai lỗi trái ngược nhau: RLS đang **tắt** thì ai đăng nhập cũng `SELECT` được
+  góp ý của mọi học sinh khác, kèm tên người gửi và nội dung họ viết; RLS đang
+  **bật** thì học sinh nhận `42501`, nút "Gửi góp ý" ở `/result` hỏng với tất cả
+  và hộp việc `/admin/feedback` không bao giờ có gì mới. Chỉ database đang chạy
+  mới biết là cái nào — **preflight trả lời câu đó trước khi chạy bất cứ gì**.
+- **A20 — `anti_cheat_logs`.** `"System can insert anti-cheat logs" FOR INSERT
+  WITH CHECK (true)` (`database/EXAM_SYSTEM_SCHEMA.sql:496`) không ràng buộc
+  `attempt_id` phải thuộc người gọi. Ai đăng nhập cũng chèn được bản ghi "chuyển
+  tab" vào lượt thi của **bất kỳ** học sinh nào nếu biết `attempt_id`. Một cuốn
+  sổ ai cũng viết vào được thì không còn là bằng chứng.
+
+Migration bật RLS **và** tạo policy trong **cùng một transaction**. Bật RLS trước
+khi có policy là chặn đứng đường ghi đang chạy, nên hai việc không tách file
+được. Phạm vi: một hàm helper mới (`owns_exam_attempt`), bật RLS cho một bảng,
+dựng lại năm policy. Không đổi dữ liệu, không đổi cấu trúc, không đổi `GRANT`.
+
+### Hai thứ sẽ đổi thấy được — quyết trước khi chạy, không phải sau
+
+**1. Tài khoản `role = 'teacher'` sẽ thấy hộp góp ý RỖNG.** `src/middleware.ts`
+cho cả `teacher` lẫn `admin` vào `/admin`, nhưng policy của bảng này là exact
+`admin`. Hôm nay giáo viên đọc được góp ý **chỉ vì RLS đang tắt** — đọc nhờ một
+lỗi, không nhờ một quyền. Ba chỗ rỗng theo cùng lúc: [`/admin/feedback`](../src/app/admin/feedback/page.tsx),
+thẻ đếm "góp ý chờ xem" ở [`/admin`](../src/app/admin/page.tsx), và cột góp ý
+trong [`/admin/questions`](../src/app/admin/questions/page.tsx). Migration cố ý
+**không** nới sang `teacher`: `AGENTS.md` mục 4 xếp sai lệch teacher/admin là
+**P1 đang mở** và dặn thẳng "không nới policy riêng lẻ để chữa triệu chứng" —
+sửa nó phải đồng bộ middleware, handler, RLS và UI trong một lần. Nếu chủ dự án
+đang xem góp ý bằng tài khoản `teacher` thì xử lý chuyện đó **trước** bước 1.
+
+**2. Nếu preflight cho biết RLS đang TẮT** thì sau migration học sinh mất đường
+đọc góp ý của người khác — đó chính là mục đích. Không dòng nào bị xoá: preflight
+đếm sẵn `tong_dong` và `gop_y_lac_luot_thi` để biết bản sửa đụng tới bao nhiêu
+dòng trước khi chạm vào gì.
+
+Chạy SQL bằng gì: xem mục 8 ("Chạy SQL bằng gì") — dán trọn file vào Supabase SQL
+Editor, hoặc `psql`.
+
+### Thứ tự
+
+1. **Preflight** — [`../supabase/preflight/20260920_feedback_anticheat_rls_preflight.sql`](../supabase/preflight/20260920_feedback_anticheat_rls_preflight.sql).
+   Chỉ đọc. Đọc bảng kết luận ở câu lệnh cuối, và **đọc khác preflight thường**:
+   - Bốn dòng `chan_*` phải **= 0**. Hai dòng `chan_thieu_ham_*` đòi
+     `viewer_is_admin()` (từ `20260812`, mục 8quinquies) và
+     `can_manage_exam_attempt(text)` (từ `20260722`, mục 8) — cả hai migration
+     đó đã xác minh live, nên hai dòng này ra 0 là bình thường; khác 0 nghĩa là
+     database này không phải Primary như tưởng, **dừng lại**.
+   - `xac_nhan_loi_A19_rls_dang_tat` — **đây là câu trả lời quan trọng nhất của
+     cả file**. `1` = RLS đang tắt (góp ý đang lộ chéo giữa học sinh). `0` = RLS
+     đang bật (nút "Gửi góp ý" đang hỏng với mọi học sinh). Đối chiếu với ảnh
+     chụp 1. Hai kết quả dẫn tới hai cách đọc bước 5 khác nhau.
+   - `xac_nhan_loi_A19_khong_co_policy_hoc_sinh` kỳ vọng **0**,
+     `xac_nhan_loi_A20_insert_with_check_true` kỳ vọng **1**,
+     `xac_nhan_loi_policy_khong_co_TO` kỳ vọng **≥ 2**. Các dòng
+     `xac_nhan_loi_*` ra ngược kỳ vọng nghĩa là ai đó đã sửa ngoài quy trình —
+     **đừng chạy migration**, tìm hiểu vì sao trước, vì postflight sẽ "đạt" dù
+     trạng thái thật là gì.
+   - `ham_owns_exam_attempt_da_ton_tai` thường **0**; khác 0 nghĩa là migration
+     đã chạy rồi, nhảy xuống bước 3.
+2. **Migration** — chạy trọn [`../supabase/migrations/20260920_feedback_anticheat_rls.sql`](../supabase/migrations/20260920_feedback_anticheat_rls.sql)
+   một lần. Nó tự kiểm **trước `COMMIT`** và raise một trong các mã này nếu
+   không đạt: `THIEU_BANG`, `THIEU_HAM`, `RLS_CHUA_BAT`,
+   `CON_POLICY_KHONG_GIOI_HAN_ROLE`, `CON_DOC_BANG_KHAC`,
+   `INSERT_KHONG_RANG_BUOC`, `HAM_SAI`, `THIEU_QUYEN_EXECUTE`. Raise là
+   transaction rollback trọn vẹn — không có trạng thái nửa vời, chạy lại được
+   sau khi sửa nguyên nhân. `THIEU_QUYEN_EXECUTE` đáng để ý nhất: thiếu
+   `EXECUTE` trên `owns_exam_attempt()` thì học sinh nhận **lỗi** thay vì ghi
+   được, tức lỗ A19 đổi thành lỗi A19.
+3. **Postflight** — [`../supabase/preflight/20260920_feedback_anticheat_rls_postflight.sql`](../supabase/preflight/20260920_feedback_anticheat_rls_postflight.sql).
+   Mọi dòng `must_be_zero` phải **= 0** (13 dòng). Bốn dòng dễ bị bỏ qua mà quan
+   trọng: `ham_thieu_search_path` (`SECURITY DEFINER` không cố định `search_path`
+   là đường leo quyền kinh điển), `anon_van_goi_duoc_ham` (khách không được gọi
+   helper), `hoc_sinh_sua_xoa_duoc_gop_y` (gửi rồi thì không sửa, không rút), và
+   `policy_cu_con_sot`. Đọc cả ảnh chụp `policy_sau_khi_sua`: cột `ap_cho_role`
+   không được còn `{public}` ở dòng nào.
+4. **Phép thử thật bằng JWT — không bỏ được.** `AGENTS.md` mục 4 nói thẳng:
+   postflight đọc catalog **không** chứng minh được lớp lỗi này; `20260809` từng
+   có postflight đạt toàn bộ trong khi tính năng hỏng hoàn toàn.
+
+```bash
+# Chỉ các nhánh PHẢI-BỊ-CHẶN. Không ghi gì.
+node --env-file=.env scripts/feedback-anticheat-rls-check.mjs \
+  --email <email-hoc-sinh-test> --password '<mat-khau>'
+
+# Thêm các nhánh PHẢI-CHO-QUA. GHI THẬT, để lại dòng rác.
+node --env-file=.env scripts/feedback-anticheat-rls-check.mjs \
+  --email <email-hoc-sinh-test> --password '<mat-khau>' --write
+```
+
+   [`scripts/feedback-anticheat-rls-check.mjs`](../scripts/feedback-anticheat-rls-check.mjs)
+   đăng nhập bằng anon key qua đúng con đường production (PostgREST) và chạy 6
+   phép thử: (1) gửi góp ý vào lượt thi người khác → phải `42501`; (2) ghi
+   `anti_cheat_logs` vào lượt thi người khác → phải `42501`; (3) đọc
+   `question_feedbacks` → chỉ thấy dòng của mình; (4) học sinh đọc
+   `anti_cheat_logs` → phải không thấy gì; (5) gửi góp ý cho lượt thi của mình →
+   phải ghi được; (6) ghi `anti_cheat_logs` cho lượt thi của mình → phải ghi
+   được. Phép 5 và 6 chỉ chạy với `--write`.
+
+   Ba điều kiện để kết quả có nghĩa:
+   - Tài khoản truyền vào phải là `role = 'student'`. Chạy bộ này bằng JWT admin
+     cho kết quả vô nghĩa.
+   - Phép 1 và 2 — **hai phép quan trọng nhất** — cần một `exam_attempts.id`
+     không thuộc học sinh đang đăng nhập: truyền `--other-attempt <id>`, hoặc để
+     `SUPABASE_SERVICE_KEY` có trong `.env` cho script tự tìm. Không có cả hai
+     thì hai phép đó bị **BỎ QUA**, và bỏ qua **không phải là đạt** — đó là lý do
+     script thoát `2` chứ không phải `0`. Mã thoát: `0` đạt hết, `1` có phép
+     không đạt, `2` có phép bị bỏ qua.
+   - **Tuyệt đối không dùng Supabase SQL Editor để kiểm.** Editor chạy bằng vai
+     trò chủ sở hữu nên `auth.uid()` là `NULL` và mọi policy trông như bị bỏ qua.
+5. **Dọn rác và kiểm hai luồng thật trên UI.** Chạy `--write` xong, script in
+   sẵn các câu `DELETE` ở cuối — chạy chúng bằng service role.
+
+   Rồi kiểm bằng tay, vì script chỉ chứng minh lớp database:
+   - Học sinh mở `/result/<attemptId>` của lượt thi **của chính mình** → "Gửi
+     góp ý" phải hiện "Đã gửi góp ý thành công!", và dòng đó phải xuất hiện ở
+     `/admin/feedback` khi xem bằng tài khoản `admin`. Nếu preflight bước 1 cho
+     biết RLS **đang bật** thì đây đúng là luồng đang hỏng — kiểm nó là kiểm bản
+     sửa, không phải kiểm lại cái đã chạy.
+   - Vào phòng thi, chuyển tab vài lần, rồi đếm bằng service role:
+     `select count(*) from public.anti_cheat_logs where attempt_id = '<id>';`
+     — phải tăng. **Không tin vào giao diện ở bước này:**
+     [`useExamAntiCheat`](../src/hooks/useExamAntiCheat.ts) chỉ `console.warn`
+     khi bị từ chối và không bao giờ nói gì với học sinh, nên một đường ghi hỏng
+     trông y hệt "không có gì xảy ra". Sổ trống không phải bằng chứng trung thực.
+
+   Một chỗ **sẽ không thấy đổi gì**, đúng như thiết kế: dấu "đã gửi góp ý" ở
+   `/result` hiện nằm trong state React và chưa bao giờ được đọc lại từ
+   database, nên policy `question_feedbacks_student_read` mới không làm giao diện
+   khác đi hôm nay. Nó có mặt để bản sau đọc lại được; đừng tìm một thay đổi
+   không tồn tại rồi kết luận policy hỏng.
+
+**Rollback:** [`../supabase/rollback/20260920_feedback_anticheat_rls_rollback.sql`](../supabase/rollback/20260920_feedback_anticheat_rls_rollback.sql).
+**Nó khôi phục lại cả hai lỗ** — `anti_cheat_logs` trở về `WITH CHECK (true)`, và
+`question_feedbacks` trở về chỉ có policy admin. File cố ý **không** tắt lại RLS:
+tắt là mở lại đường cho mọi người đọc góp ý của nhau, nên muốn vậy phải gõ tay,
+có ý thức (`ALTER TABLE public.question_feedbacks DISABLE ROW LEVEL SECURITY;`).
+Không mất dữ liệu — chỉ đổi policy và gỡ một hàm.
+
+**Nếu triệu chứng sau khi nạp là "học sinh không gửi được góp ý" thì đừng
+rollback vội.** Policy mới đòi **cả hai** điều kiện (`student_id = auth.uid()`
+**và** `owns_exam_attempt(attempt_id)`), nên nhiều khả năng là `attempt_id`
+không thuộc học sinh đó — preflight có cột `gop_y_lac_luot_thi` đếm sẵn số dòng
+cũ kiểu này. Chạy script ở bước 4 để biết nhánh nào hỏng trước khi mở lại cả
+cánh cửa.
+
+Sau khi nạp xong: sửa dòng trạng thái đầu mục này kèm ngày và kết quả đo thật,
+và đóng A19/A20 trong [`VIEC_DANG_MO.md`](VIEC_DANG_MO.md).
 
 ## 9. Database troubleshooting
 
