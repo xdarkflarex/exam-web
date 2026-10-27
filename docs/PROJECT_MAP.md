@@ -65,7 +65,7 @@ docs/                  tài liệu chuẩn
 | Root providers/theme/math | `src/app/layout.tsx`, `src/app/providers.tsx`, `src/app/globals.css` |
 | Student shell | `src/app/(student)/layout.tsx`, `src/components/student/StudentSidebar.tsx` |
 | Admin shell | `src/app/admin/layout.tsx`, `src/components/admin/AdminSidebar.tsx` |
-| Exam | `src/app/exam/**`, `src/components/ExamRunner.tsx`, `src/lib/exam/questions.ts` |
+| Exam | `src/app/exam/**`, `src/components/ExamRunner.tsx`, `src/lib/exam/questions.ts`, `src/lib/exam/draft.ts` |
 | Pilot tự luận | `docs/ESSAY_GRADING.md`, `src/app/admin/questions/essay/new/page.tsx`, `src/components/admin/EssayGradingPanel.tsx`, `src/lib/essay-grading/prompt.ts` |
 | Practice | `src/app/practice/**`, `src/components/PracticeRunner.tsx` |
 | Homework | `src/app/homework/**`, `src/components/HomeworkRunner.tsx`, `src/lib/homework/actions.ts` |
@@ -216,6 +216,7 @@ Runtime expectation sau cutover đồng bộ `20260721` + `20260722` và source 
 1. Prepare gọi `get_exam_preparation`; `start_exam_attempt` tạo/resume attempt sau khi kiểm tra mode, publish, feature, thời gian và số lượt ở server.
 2. `src/lib/exam/questions.ts` gọi `get_exam_attempt_questions` bằng capability attempt. Payload học sinh không lấy answer key/solution trực tiếp từ `questions`/`answers` trước policy cho phép.
 3. Simulation runner chỉ gửi raw answer tới `submit_exam_attempt`; wrapper chấm ba loại cũ ở server, đưa essay có nội dung vào `pending_review` và không công bố điểm khi grading/release policy chưa đạt.
+   Từ 2026-10-27 runner còn lưu **nháp trên máy học sinh** (`src/lib/exam/draft.ts`, khoá `exam-draft:<attemptId>` trong `localStorage`) để F5 không mất đáp án. Nháp **không** đi lên server và bị xoá ngay sau khi RPC nộp trả về — hợp đồng "một lượt ghi server cho một bài thi" không đổi.
 4. Practice chỉ autosave raw draft của attempt đang làm; `submit_practice_attempt` chấm ba loại cũ ở server và trả feedback theo policy practice. Practice từ chối `essay`.
 5. Student dashboard/history/result dùng các RPC metadata an toàn thay vì đọc answer key trực tiếp; admin/teacher vẫn phải được scope theo exam/lớp.
 

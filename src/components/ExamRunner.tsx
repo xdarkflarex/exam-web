@@ -3,21 +3,28 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Question, ExamData, QuestionType } from '@/types'
+import { Question, ExamData } from '@/types'
 import MathContent, { MathProvider } from './MathContent'
 import ConfirmModal from './ConfirmModal'
 import ExamSidebar from './ExamSidebar'
 import QuestionImage from './QuestionImage'
+import { Save } from 'lucide-react'
 import { useLoading } from '@/contexts/LoadingContext'
 import { useExamAntiCheat } from '@/hooks/useExamAntiCheat'
+import {
+  clearDraft,
+  formatSavedAt,
+  loadDraft,
+  pruneDrafts,
+  saveDraft,
+  type ExamDraftAnswer,
+} from '@/lib/exam/draft'
 
-interface StudentAnswer {
-  questionId: string
-  questionType: QuestionType
-  selectedAnswer?: string
-  selectedAnswers?: Record<string, boolean>
-  textAnswer?: string
-}
+/**
+ * Dùng chung đúng kiểu với module lưu nháp, không khai lại hình dạng thứ hai:
+ * hai bản sao lệch nhau là cách bản nháp ghi ra thứ mà runner không đọc nổi.
+ */
+type StudentAnswer = ExamDraftAnswer
 
 interface ExamRunnerProps {
   attemptId: string
@@ -65,6 +72,8 @@ export default function ExamRunner({ attemptId, examData, startTime }: ExamRunne
   useExamAntiCheat({ attemptId, enabled: true })
   
   const [answers, setAnswers] = useState<Record<string, StudentAnswer>>({})
+  /** Giờ của bản nháp vừa khôi phục; `null` = không có nháp nào. */
+  const [restoredAt, setRestoredAt] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [currentPart, setCurrentPart] = useState(1)
   const [currentQuestionId, setCurrentQuestionId] = useState<string | undefined>()
@@ -365,6 +374,60 @@ export default function ExamRunner({ attemptId, examData, startTime }: ExamRunne
   }
 
   const allQuestions = [...examData.part1, ...examData.part2, ...examData.part3]
+
+  /*
+    LƯU NHÁP BÀI LÀM TRÊN MÁY HỌC SINH — xem `src/lib/exam/draft.ts`.
+
+    Đáp án chỉ rời máy một lần duy nhất, lúc nộp. Rất nhẹ cho server, nhưng
+    đồng nghĩa F5 giữa giờ thi là mất sạch. Ba effect dưới đây vá đúng chỗ đó
+    mà không đụng tới hợp đồng "một lần ghi cho một bài thi".
+
+    `answersRef` để trình duyệt đóng tab vẫn kịp ghi: lúc `pagehide` bắn ra thì
+    không còn render nào nữa, nên phải đọc giá trị mới nhất từ ref.
+  */
+  const answersRef = useRef(answers)
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
+
+  useEffect(() => {
+    pruneDrafts()
+    const ids = new Set(
+      [...examData.part1, ...examData.part2, ...examData.part3].map((question) => question.id)
+    )
+    const draft = loadDraft(attemptId, ids)
+    if (!draft) return
+    setAnswers(draft.answers)
+    setRestoredAt(formatSavedAt(draft.savedAt))
+  }, [attemptId, examData])
+
+  useEffect(() => {
+    // Nộp xong thì nháp đã bị xoá; đừng ghi lại ngay sau đó.
+    if (submitting) return
+    if (Object.keys(answers).length === 0) return
+    const timer = setTimeout(() => saveDraft(attemptId, answers), 600)
+    return () => clearTimeout(timer)
+  }, [answers, attemptId, submitting])
+
+  useEffect(() => {
+    const flush = () => {
+      if (!submitting && Object.keys(answersRef.current).length > 0) {
+        saveDraft(attemptId, answersRef.current)
+      }
+    }
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    // `pagehide` chứ không phải `beforeunload`: Safari trên iOS không bắn
+    // `beforeunload` khi người dùng chuyển app hay đóng tab.
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onHidden)
+    }
+  }, [attemptId, submitting])
+
   const totalQuestions = allQuestions.length
 
   // Nguồn duy nhất cho tab điều hướng phần và các panel câu hỏi: trước đây ba
@@ -602,6 +665,11 @@ export default function ExamRunner({ attemptId, examData, startTime }: ExamRunne
         setSubmitting(false)
         return
       }
+
+      // Server đã nhận bài: nháp trên máy hết nhiệm vụ. Xoá ngay tại đây chứ
+      // không đợi tới lúc chuyển trang — chuyển trang có thể hỏng, còn bài thì
+      // đã nộp rồi, và một bản nháp sống sót sẽ hiện lại ở lượt thi sau.
+      clearDraft(attemptId)
 
       // Chấm tự luận NGAY, không chờ lượt cron kế tiếp: học sinh nộp xong phải
       // thấy điểm. `grade-mine` chỉ chấm attempt của chính người gọi và đi qua
@@ -925,6 +993,24 @@ export default function ExamRunner({ attemptId, examData, startTime }: ExamRunne
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{examData.examMeta.subject}</p>
           </div>
         </div>
+
+        {/* Đã khôi phục bài làm từ máy. Nói thẳng ra thay vì âm thầm điền sẵn:
+            thấy đáp án tự nhiên có mặt mà không hiểu vì sao là chuyện đáng sợ
+            giữa giờ thi. Chữ tĩnh, không hiệu ứng — đây là màn làm bài. */}
+        {restoredAt && (
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 pt-4">
+            <p
+              role="status"
+              className="flex items-start gap-2 rounded-xl border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-teal-900 dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-100"
+            >
+              <Save className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                Đã khôi phục bài làm lưu trên máy lúc <strong>{restoredAt}</strong>. Bài chỉ được
+                gửi lên hệ thống khi em bấm nộp.
+              </span>
+            </p>
+          </div>
+        )}
 
         {/* Responsive Layout */}
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
