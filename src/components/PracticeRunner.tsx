@@ -284,35 +284,55 @@ export default function PracticeRunner({ attemptId, examData, initialAnswers }: 
 
         {question.question_type === 'true_false' && (
           <div className="space-y-2 sm:space-y-3 ml-0 sm:ml-10">
-            {[0, 1, 2, 3].map((statementIdx) => {
+            {/*
+              Nội dung bốn mệnh đề nằm ở `answers[].content`, KHÔNG nằm trong
+              `question.content` (app nhập câu tách đề dẫn và mệnh đề ra hai
+              chỗ). Bản cũ chỉ vẽ [0, 1, 2, 3] nên học sinh thấy "a) Đúng Sai"
+              mà không thấy mệnh đề nào. Khoá chọn lấy `order_index` thật vì
+              `submit_practice_attempt` so `selected_answers` theo đúng cột đó —
+              cùng cách `ExamRunner` đang làm.
+            */}
+            {(question.answers?.length ? question.answers : [0, 1, 2, 3].map((order_index) => ({
+              id: `${question.id}-${order_index}`,
+              question_id: question.id,
+              content: '',
+              is_correct: false,
+              order_index,
+            }))).map((statement, fallbackIndex) => {
+              const statementIdx = statement.order_index ?? fallbackIndex
               const currentValue = answers[question.id]?.selectedAnswers?.[statementIdx]
-              
+
               return (
                 <div key={statementIdx} className="flex items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
                   <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 w-5 sm:w-6">
                     {String.fromCharCode(97 + statementIdx)})
                   </span>
-                  <div className="flex gap-1.5 sm:gap-2">
-                    <button
-                      onClick={() => handleTrueFalseAnswer(question.id, statementIdx, true)}
-                      className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
-                        currentValue === true
-                          ? 'bg-green-500 text-white'
-                          : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
-                      }`}
-                    >
-                      Đúng
-                    </button>
-                    <button
-                      onClick={() => handleTrueFalseAnswer(question.id, statementIdx, false)}
-                      className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
-                        currentValue === false
-                          ? 'bg-red-500 text-white'
-                          : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
-                      }`}
-                    >
-                      Sai
-                    </button>
+                  <div className="min-w-0 flex-1">
+                    {statement.content && (
+                      <MathContent content={statement.content} className="mb-2 text-sm text-slate-700 dark:text-slate-200" />
+                    )}
+                    <div className="flex gap-1.5 sm:gap-2">
+                      <button
+                        onClick={() => handleTrueFalseAnswer(question.id, statementIdx, true)}
+                        className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
+                          currentValue === true
+                            ? 'bg-green-500 text-white'
+                            : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
+                        }`}
+                      >
+                        Đúng
+                      </button>
+                      <button
+                        onClick={() => handleTrueFalseAnswer(question.id, statementIdx, false)}
+                        className={`px-2.5 sm:px-3 py-1 rounded text-xs sm:text-sm font-medium transition-all ${
+                          currentValue === false
+                            ? 'bg-red-500 text-white'
+                            : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-500'
+                        }`}
+                      >
+                        Sai
+                      </button>
+                    </div>
                   </div>
                 </div>
               )
