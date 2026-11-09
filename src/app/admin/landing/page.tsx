@@ -7,8 +7,15 @@ import MediaPickerModal from '@/components/admin/MediaPickerModal'
 import {
   Save, RefreshCw, Globe, Layers, Image, ImageIcon, Video, Megaphone,
   Plus, Trash2, CheckCircle, AlertCircle, Type, BookOpen, Award,
-  Sparkles, MessageSquare, ToggleLeft, ToggleRight, Camera, UserPlus
+  Sparkles, MessageSquare, ToggleLeft, ToggleRight, Camera, UserPlus, CalendarClock
 } from 'lucide-react'
+import {
+  DEFAULT_EXAM_COUNTDOWN,
+  fromVietnamInputValue,
+  readCountdownConfig,
+  toVietnamInputValue,
+  type ExamCountdownConfig,
+} from '@/lib/landing/exam-countdown'
 
 /* ── Types ── */
 interface BrandContent {
@@ -44,6 +51,7 @@ const DEF_BENEFITS: Benefit[] = [
 const DEF_CONFIG: LandingConfig = { show_featured_exams: true, featured_exams_count: 6 }
 const SECTION_CATALOG: { id: string; label: string }[] = [
   { id: 'hero', label: 'Hero Carousel' },
+  { id: 'exam_countdown', label: 'Đếm ngược kỳ thi' },
   { id: 'stats', label: 'Số liệu nền tảng' },
   { id: 'quick_access', label: 'Truy cập nhanh' },
   { id: 'exams', label: 'Đề thi nổi bật' },
@@ -94,12 +102,13 @@ const ICON_OPTIONS = [
   { value: 'check', label: 'Hoàn thành' },
 ]
 
-type TabId = 'layout' | 'brand_hero' | 'hero_slides' | 'enrollment' | 'gallery' | 'videos' | 'benefits' | 'enrollment_form_section' | 'cta' | 'config'
+type TabId = 'layout' | 'brand_hero' | 'hero_slides' | 'countdown' | 'enrollment' | 'gallery' | 'videos' | 'benefits' | 'enrollment_form_section' | 'cta' | 'config'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'layout', label: 'Bố cục', icon: <Layers className="w-4 h-4" /> },
   { id: 'brand_hero', label: 'Brand & Hero', icon: <Type className="w-4 h-4" /> },
   { id: 'hero_slides', label: 'Hero Slides', icon: <Image className="w-4 h-4" /> },
+  { id: 'countdown', label: 'Đếm ngược', icon: <CalendarClock className="w-4 h-4" /> },
   { id: 'enrollment', label: 'Tuyển sinh', icon: <Megaphone className="w-4 h-4" /> },
   { id: 'gallery', label: 'Gallery', icon: <ImageIcon className="w-4 h-4" /> },
   { id: 'videos', label: 'Videos', icon: <Video className="w-4 h-4" /> },
@@ -124,6 +133,7 @@ export default function LandingCMSPage() {
   const [cta, setCta] = useState<CtaContent>(DEF_CTA)
   const [benefits, setBenefits] = useState<Benefit[]>(DEF_BENEFITS)
   const [config, setConfig] = useState<LandingConfig>(DEF_CONFIG)
+  const [countdown, setCountdown] = useState<ExamCountdownConfig>(DEFAULT_EXAM_COUNTDOWN)
 
   // Sections state (from old sections page)
   const [sections, setSections] = useState<SectionConfig[]>(DEF_SECTIONS)
@@ -168,6 +178,7 @@ export default function LandingCMSPage() {
         if (g('landing.benefits_section')) setBenefitsSection(g('landing.benefits_section') as SectionHeading)
         if (g('landing.cta')) setCta(g('landing.cta') as CtaContent)
         if (g('landing.config')) setConfig(g('landing.config') as LandingConfig)
+        if (g('landing.exam_countdown')) setCountdown(readCountdownConfig(g('landing.exam_countdown')))
         if (g('landing.sections_config')) {
           const raw = g('landing.sections_config') as SectionConfig[]
           const validIds = new Set(SECTION_CATALOG.map(c => c.id))
@@ -203,6 +214,7 @@ export default function LandingCMSPage() {
         { key: 'landing.benefits_section', value: benefitsSection },
         { key: 'landing.cta', value: cta },
         { key: 'landing.config', value: config },
+        { key: 'landing.exam_countdown', value: readCountdownConfig(countdown) },
         { key: 'landing.sections_config', value: sections },
         { key: 'landing.hero_slides', value: heroSlides },
         { key: 'landing.enrollment', value: enrollment },
@@ -734,6 +746,98 @@ export default function LandingCMSPage() {
             )}
 
             {/* ─── CONFIG ─── */}
+            {tab === 'countdown' && (
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                  <CalendarClock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  Đếm ngược kỳ thi
+                </h2>
+                {/* Nói rõ múi giờ ngay tại ô nhập: `datetime-local` không mang
+                    múi giờ, và người sửa ở máy để giờ UTC sẽ lưu lệch 7 tiếng
+                    nếu không biết ô này hiểu theo giờ nào. */}
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Mọi mốc tính theo <strong>giờ Việt Nam</strong>, bất kể máy đang để múi giờ nào.
+                  Khi Bộ GD&ĐT công bố lịch thi chi tiết, sửa mốc bắt đầu thành giờ phát đề môn đầu tiên
+                  và bỏ dấu &ldquo;dự kiến&rdquo;.
+                </p>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-slate-700">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-100">Hiện khối đếm ngược</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Tự ẩn sau ngày thi cuối một tuần nếu chưa đổi sang năm sau.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setCountdown({ ...countdown, enabled: !countdown.enabled })}
+                      aria-pressed={countdown.enabled}
+                      className={`p-1 rounded-full transition-colors ${countdown.enabled ? 'bg-teal-600 dark:bg-teal-500' : 'bg-slate-400 dark:bg-slate-600'}`}
+                    >
+                      {countdown.enabled ? <ToggleRight className="w-8 h-8 text-white" /> : <ToggleLeft className="w-8 h-8 text-white" />}
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tiêu đề</label>
+                    <input value={countdown.title} onChange={e => setCountdown({ ...countdown, title: e.target.value })} className={inputCls} />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Bắt đầu — giờ phát đề môn đầu tiên (giờ Việt Nam)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={toVietnamInputValue(countdown.start)}
+                        onChange={e => {
+                          const iso = fromVietnamInputValue(e.target.value)
+                          if (iso) setCountdown({ ...countdown, start: iso })
+                        }}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Kết thúc — hết ngày thi cuối (giờ Việt Nam)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={toVietnamInputValue(countdown.end)}
+                        onChange={e => {
+                          const iso = fromVietnamInputValue(e.target.value)
+                          if (iso) setCountdown({ ...countdown, end: iso })
+                        }}
+                        className={inputCls}
+                      />
+                      {Date.parse(countdown.end) <= Date.parse(countdown.start) && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                          Mốc kết thúc đang sớm hơn mốc bắt đầu — khi lưu sẽ tự lấy hai ngày sau mốc bắt đầu.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Chữ ngày thi hiện trên trang</label>
+                      <input value={countdown.dateLabel} onChange={e => setCountdown({ ...countdown, dateLabel: e.target.value })} className={inputCls} placeholder="11–12/6/2027" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nguồn (một dòng)</label>
+                      <input value={countdown.note} onChange={e => setCountdown({ ...countdown, note: e.target.value })} className={inputCls} />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={countdown.tentative}
+                      onChange={e => setCountdown({ ...countdown, tentative: e.target.checked })}
+                      className="w-4 h-4 accent-teal-600"
+                    />
+                    Ngày thi còn là dự kiến (trang chủ ghi chữ &ldquo;Dự kiến&rdquo;)
+                  </label>
+                </div>
+              </div>
+            )}
+
             {tab === 'config' && (
               <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">

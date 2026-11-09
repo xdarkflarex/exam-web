@@ -52,6 +52,12 @@ const db = {
       grade: null, access_tier: DEFAULT_TIER, must_change_password: false,
       created_at: daysAgo(120), updated_at: daysAgo(3),
     },
+    {
+      id: 'admin-1', email: 'admin@example.com', role: 'admin',
+      full_name: 'Quản trị viên', school: null, class_id: null,
+      grade: null, access_tier: 'full', must_change_password: false,
+      created_at: daysAgo(400), updated_at: daysAgo(1),
+    },
   ],
   exams: [
     {
@@ -143,7 +149,12 @@ const db = {
     },
   ],
   announcements: [],
-  site_settings: [],
+  // `requireAdminOTP: false` là công tắc THẬT của app (middleware đọc nó ở
+  // `admin.settings`); bật nó trong mock để vào được /admin mà không cần gửi
+  // email OTP. Chỉ có trong mock, không đụng cấu hình production.
+  site_settings: [
+    { key: 'admin.settings', value: { requireAdminOTP: false, adminSessionTimeout: false } },
+  ],
   exam_questions: [],
   questions: [],
   answers: [],
@@ -218,6 +229,10 @@ const users = new Map() // id → {id, email, password, user_metadata}
 users.set('student-cu', {
   id: 'student-cu', email: 'hocsinh.cu@example.com', password: 'MatKhau123!',
   user_metadata: { full_name: 'Nguyễn Văn An' },
+})
+users.set('admin-1', {
+  id: 'admin-1', email: 'admin@example.com', password: 'MatKhau123!',
+  user_metadata: { full_name: 'Quản trị viên' },
 })
 const tokens = new Map() // access_token → user id
 
@@ -675,8 +690,16 @@ const server = http.createServer(async (req, res) => {
         ...(table === 'profiles' ? { access_tier: 'basic', must_change_password: false, grade: null } : {}),
         ...row,
       }))
-      db[table].push(...rows)
-      log(`201 insert ${rows.length} dòng vào ${table}`)
+      // `upsert(..., { onConflict })` gửi `?on_conflict=<cột>`: dòng trùng khoá
+      // thì THAY, không thêm bản sao. Thiếu nhánh này thì lưu lần hai tạo dòng
+      // trùng và trang đọc nhầm bản cũ.
+      const conflict = params.get('on_conflict')
+      for (const row of rows) {
+        const existing = conflict ? db[table].findIndex((item) => item[conflict] === row[conflict]) : -1
+        if (existing >= 0) db[table][existing] = { ...db[table][existing], ...row }
+        else db[table].push(row)
+      }
+      log(`201 ${conflict ? 'upsert' : 'insert'} ${rows.length} dòng vào ${table}`)
       const wants = String(req.headers.prefer || '').includes('return=representation')
       return send(res, 201, wants ? (single ? rows[0] : rows) : undefined)
     }

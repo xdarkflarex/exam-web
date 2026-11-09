@@ -4,13 +4,13 @@ Sổ ghi việc của dự án. **Phần A** là việc còn phải làm, **ph�
 chủ dự án quyết, **phần C** là hồ sơ việc đã xong — giữ lại vì phần lớn bài học
 nằm trong đó.
 
-## Trạng thái kho code — rà 2026-10-27
+## Trạng thái kho code — rà 2026-11-09
 
-Đo lại cuối phiên 2026-10-27, sau đợt lưu nháp bài thi (mục C25):
+Đo lại cuối phiên 2026-11-09, sau khối đếm ngược kỳ thi (mục C27):
 
-- Typecheck pass · test **555/555** pass · lint **68 error, 124 warning** — đúng
-  bằng các lần đo 2026-09-07, 2026-09-18 và 2026-10-22, tức các đợt việc gần đây
-  không thêm lỗi nào. `npm run build` xong (vẫn cần biến môi trường giả, xem dưới).
+- Typecheck pass · test **575/575** pass · lint **68 error, 124 warning** — đúng
+  bằng các lần đo từ 2026-09-07 tới nay, tức các đợt việc gần đây không thêm lỗi
+  nào. `npm run build` xong (vẫn cần biến môi trường giả, xem dưới).
 - Vẫn **chưa nối được vào Primary** trong phiên này (không có `.env`), nên mọi
   dòng ở "Số đo hiện tại" vẫn là số của 2026-09-07.
 
@@ -539,6 +539,22 @@ Chưa sửa vì nó đụng vào gói quyền: mời họ làm đề thi thử t
 gói `basic` đang **tắt** `simulation` là mời vào đúng cái cửa khoá. Thứ tự đúng
 là quyết gói quyền trước (xem A19 phần "Hệ quả" và `/admin/access`), rồi mới
 thêm lời mời.
+
+## A24. Ngày thi 2027 trên trang chủ còn là DỰ KIẾN — sửa khi Bộ công bố lịch chi tiết
+
+Khối đếm ngược (mục C27) đếm tới **7 giờ 30 sáng 11/6/2027**, kèm chữ "Dự kiến".
+Ngày 11–12/6 lấy từ khung kế hoạch thời gian năm học (QĐ 2308/QĐ-BGDĐT ký
+06/8/2026, áp dụng từ năm học 2026-2027); giờ 7 giờ 30 là **suy ra từ lịch
+năm 2026** (phát đề Ngữ văn 7 giờ 30, bắt đầu làm bài 7 giờ 35), chưa phải lịch
+đã công bố cho 2027.
+
+Khi Bộ ra hướng dẫn tổ chức thi năm 2027 (thường vào đầu năm): `/admin/landing`
+→ tab **Đếm ngược** → sửa mốc bắt đầu thành giờ phát đề môn đầu tiên, sửa mốc
+kết thúc, **bỏ dấu "dự kiến"**, sửa dòng nguồn thành văn bản mới. Không cần
+deploy.
+
+Sau kỳ thi: khối tự ẩn sau ngày thi cuối 7 ngày. Muốn đếm cho 2028 thì sửa cả
+tiêu đề lẫn hai mốc ở cùng tab đó.
 
 ---
 
@@ -1236,3 +1252,41 @@ sẽ thành công khai** (đọc trước khi chạy) và hai chốt ngược tr
 "lọc có chạy không" mà là hai ca đã từng làm hỏng sản phẩm: đề `grade = NULL`
 (đề cho **mọi lớp**) phải hiện ở **mọi** tab lớp, và khi chưa cấp quyền đọc cột
 `grade` thì không lọc theo lớp và không bịa nhãn.
+
+## 27. XONG 2026-11-09 — đếm ngược kỳ thi tốt nghiệp THPT 2027 trên trang chủ
+
+Khối ngay dưới hero: số ngày to, giờ/phút/giây nhỏ hơn, và một nút "Luyện đề
+ngay" dẫn thẳng xuống khối đề — con số đang giảm là lý do để làm đề **hôm nay**,
+nút ngay cạnh là chỗ để làm. Sửa được ở `/admin/landing` → tab **Đếm ngược**;
+ẩn/hiện và đổi vị trí ở tab **Bố cục** như mọi khối khác.
+
+**Ngày thi tra lại ngày 2026-11-09, không viết từ trí nhớ.** Dự kiến 11–12/6/2027
+theo khung kế hoạch năm học của Bộ; giờ đếm tới là suy ra từ lịch 2026. Cả hai
+đều là dự kiến nên trang ghi chữ "Dự kiến", và việc sửa khi có lịch chính thức
+nằm ở mục A24.
+
+**Bốn cái bẫy đã chặn, mỗi cái có test hoặc phép đo:**
+
+1. **Múi giờ.** Mốc lưu kèm `+07:00`; mốc thiếu múi giờ bị từ chối. Ô
+   `datetime-local` ở trang quản trị không mang múi giờ, nên hai hàm chuyển đổi
+   ép cách hiểu về giờ Việt Nam. Đo thật: máy admin để múi giờ Los Angeles, ô
+   vẫn hiện `07:30` và lưu đúng `+07:00`. Test chạy qua ở 4 múi giờ (UTC, Hồ Chí
+   Minh, Los Angeles, Kiritimati).
+2. **Lệch hydration.** Server không biết đồng hồ người xem, nên con số đến từ
+   `useSyncExternalStore`: lúc hydrate dùng snapshot server (`null` → ô hiện
+   "–"), rồi mới chuyển sang giờ thật. Đo: 0 lỗi hydration ở desktop lẫn
+   điện thoại, sáng lẫn tối.
+3. **Đếm tới quá khứ.** Ba pha (trước giờ thi / đang thi / đã xong) đo bằng
+   đồng hồ giả của Playwright. Qua ngày thi cuối 7 ngày thì server tự không
+   render khối — quyết ở server để khỏi lệch hydration và để nhịp nền xen kẽ
+   giữa các section không đếm một section không hiện.
+4. **Bố cục và trình đọc màn hình.** Chữ số `tabular-nums` nên "9" thành "10"
+   không đẩy gì sang bên (NT8). `role="timer"` không đọc to từng giây; câu tóm
+   tắt theo NGÀY. Không có hiệu ứng lật số nên không cần khai báo gì vào lưới
+   `prefers-reduced-motion` — đo: 0 phần tử bị ẩn trong khối với chế độ giảm
+   chuyển động.
+
+**Không cần migration:** khoá `landing.exam_countdown` khách đọc được sẵn nhờ
+policy `public_read_landing_settings` (`key LIKE 'landing.%'`). Chưa có dòng
+nào trong `site_settings` thì trang dùng mặc định — chạy ngay sau deploy.
+

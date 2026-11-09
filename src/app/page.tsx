@@ -23,6 +23,8 @@ import HeroParallax from '@/components/landing/HeroParallax'
 import MathConstellation from '@/components/motion/MathConstellation'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 import ExamFilterChips from '@/components/landing/ExamFilterChips'
+import ExamCountdown from '@/components/landing/ExamCountdown'
+import { readCountdownConfig, shouldShowCountdown } from '@/lib/landing/exam-countdown'
 import {
   examBadges,
   filterCatalog,
@@ -180,6 +182,8 @@ async function getLandingContent() {
       videos_section: get('landing.videos_section') || { title: 'Video giới thiệu', subtitle: '' },
       enrollment_form_section: get('landing.enrollment_form_section') || { title: 'Đăng ký học ngay hôm nay', subtitle: 'Điền thông tin bên dưới, chúng tôi sẽ liên hệ với bạn trong 24 giờ' },
       sections_config: get('landing.sections_config') || null,
+      // Thô: `readCountdownConfig` lo kiểm và điền mặc định, kể cả khi thiếu.
+      exam_countdown: get('landing.exam_countdown') ?? null,
     }
   } catch (error) {
     console.error('Error fetching landing content:', error)
@@ -403,6 +407,18 @@ function BenefitIcon({ icon, className }: { icon: string; className?: string }) 
 }
 
 /**
+ * Khối đếm ngược: đọc cấu hình rồi quyết CÓ RENDER HAY KHÔNG ngay ở server.
+ *
+ * Quyết ở server chứ không để component tự ẩn: ẩn ở client là server vẽ một
+ * đằng, client vẽ một nẻo — lệch hydration, và nhịp nền xen kẽ giữa các
+ * section (`willRender` bên dưới) tính sai vì đếm cả một section không hiện.
+ */
+function landingCountdown(raw: unknown) {
+  const config = readCountdownConfig(raw)
+  return { config, visible: shouldShowCountdown(config, Date.now()) }
+}
+
+/**
  * Public Landing Page
  * 
  * This is the default entry point of the website.
@@ -447,6 +463,8 @@ export default async function LandingPage({
   const hiddenCount = Math.max(0, matching.length - exams.length)
   const filterActive = Boolean(query || gradeFilter || modeFilter)
 
+  const countdown = landingCountdown(content.exam_countdown)
+
   const heroSlides = content.hero_slides || []
   const enrollment = content.enrollment || []
   const gallery = content.gallery || []
@@ -454,6 +472,7 @@ export default async function LandingPage({
 
   const defaultSectionsOrder = [
     { id: 'hero', label: 'Hero Carousel', visible: true },
+    { id: 'exam_countdown', label: 'Đếm ngược kỳ thi', visible: true },
     { id: 'stats', label: 'Số liệu nền tảng', visible: true },
     { id: 'quick_access', label: 'Truy cập nhanh', visible: true },
     { id: 'exams', label: 'Đề thi nổi bật', visible: true },
@@ -507,6 +526,8 @@ export default async function LandingPage({
   */
   const willRender = (id: string): boolean => {
     switch (id) {
+      case 'exam_countdown':
+        return countdown.visible
       case 'stats':
         return stats.exams > 0 || stats.topics > 0 || stats.theories > 0 || stats.posts > 0
       case 'knowledge_topics':
@@ -656,6 +677,15 @@ export default async function LandingPage({
                 </div>
               </section>
             )
+
+          case 'exam_countdown':
+            return countdown.visible ? (
+              <ExamCountdown
+                key="exam_countdown"
+                config={countdown.config}
+                surface={sectionSurface('exam_countdown')}
+              />
+            ) : null
 
           case 'stats':
             return <StatsStrip key="stats" stats={stats} surface={sectionSurface('stats')} />
