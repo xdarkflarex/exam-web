@@ -49,6 +49,8 @@ export default function ResultPage() {
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null)
   const [questions, setQuestions] = useState<AttemptQuestionView[]>([])
   const [examTitle, setExamTitle] = useState('')
+  /** Để nút quay lại đưa về đúng nơi học sinh vừa bấm "Xem lại". */
+  const [examMode, setExamMode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -96,6 +98,7 @@ export default function ResultPage() {
 
       setAttempt(bundle.attempt)
       setExamTitle(bundle.exam.title)
+      setExamMode(bundle.exam.exam_mode)
       const examQuestions = bundle.questions.map((question) => ({
         part_number: question.part_number,
         order_in_part: question.order_in_part,
@@ -261,23 +264,52 @@ export default function ResultPage() {
   }
 
   const renderStudentAnswer = (question: AttemptQuestionView) => {
-    if (!question.studentAnswerText) {
-      return <span className="text-slate-400 italic">Không trả lời</span>
-    }
-
+    /*
+      Đúng/Sai khi đáp án đã mở: từng ý một — nội dung mệnh đề, em chọn gì, và
+      khoá đúng của ý em chọn sai. Bản cũ chỉ in "a) Đúng" không kèm mệnh đề,
+      còn khung "Đáp án đúng" in nội dung mệnh đề a — học sinh bấm "Xem lại"
+      xong vẫn không biết ý nào sai và sai ra sao. Đứng TRƯỚC nhánh "Không trả
+      lời": câu bỏ trống vẫn phải hiện đủ bốn mệnh đề và khoá.
+    */
     if (question.questionType === 'true_false' && question.trueFalseDetails && attempt?.answer_key_revealed) {
       return (
-        <div className="space-y-1">
-          {question.trueFalseDetails.map((detail, idx) => (
-            <div key={idx} className="text-sm">
-              <span className="font-medium">{String.fromCharCode(97 + detail.statementIndex)}) </span>
-              <span className={detail.studentAnswer === detail.correctAnswer ? 'text-green-600' : 'text-red-600'}>
-                {detail.studentAnswer === null ? 'Chưa trả lời' : detail.studentAnswer ? 'Đúng' : 'Sai'}
-              </span>
-            </div>
-          ))}
-        </div>
+        <ol className="space-y-2">
+          {question.trueFalseDetails.map((detail) => {
+            const right = detail.studentAnswer === detail.correctAnswer
+            const picked = detail.studentAnswer === null ? 'Chưa trả lời' : detail.studentAnswer ? 'Đúng' : 'Sai'
+            return (
+              <li key={detail.statementIndex} className="flex items-start gap-2 text-sm">
+                <span className="font-medium text-slate-600 dark:text-slate-300">
+                  {String.fromCharCode(97 + detail.statementIndex)})
+                </span>
+                <div className="min-w-0 flex-1">
+                  {detail.statementContent && (
+                    <MathContent content={detail.statementContent} className="text-slate-700 dark:text-slate-200" />
+                  )}
+                  {/* Trạng thái = màu + icon + chữ, không chỉ màu (DESIGN_SYSTEM.md). */}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    <span className={`inline-flex items-center gap-1 font-medium ${right ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {right
+                        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        : <XCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                      Bạn chọn: {picked}
+                    </span>
+                    {!right && (
+                      <span className="font-medium text-blue-700 dark:text-blue-300">
+                        Đáp án: {detail.correctAnswer ? 'Đúng' : 'Sai'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
       )
+    }
+
+    if (!question.studentAnswerText) {
+      return <span className="text-slate-400 italic">Không trả lời</span>
     }
 
     return <MathContent content={question.studentAnswerText} className="text-slate-700 dark:text-slate-300" />
@@ -556,12 +588,14 @@ export default function ResultPage() {
       <div className="min-h-screen">
         <div className="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-300 dark:border-slate-700 px-4 sm:px-6 py-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
+            {/* Đề ôn tập: về danh sách ôn tập — học sinh tới đây từ nút "Xem lại"
+                ở đó, và bước tiếp theo của vòng ôn tập là "Làm lại" cũng ở đó. */}
             <button
-              onClick={() => router.push('/student')}
+              onClick={() => router.push(examMode === 'practice' ? '/student/practice' : '/student')}
               className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Về trang chủ</span>
+              <span className="hidden sm:inline">{examMode === 'practice' ? 'Về ôn tập' : 'Về trang chủ'}</span>
             </button>
           </div>
         </div>

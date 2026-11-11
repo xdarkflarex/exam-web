@@ -4,11 +4,11 @@ Sổ ghi việc của dự án. **Phần A** là việc còn phải làm, **ph�
 chủ dự án quyết, **phần C** là hồ sơ việc đã xong — giữ lại vì phần lớn bài học
 nằm trong đó.
 
-## Trạng thái kho code — rà 2026-11-09
+## Trạng thái kho code — rà 2026-11-11
 
-Đo lại cuối phiên 2026-11-09, sau khối đếm ngược kỳ thi (mục C27):
+Đo lại cuối phiên 2026-11-11, sau nút "Xem lại" ở trang ôn tập (mục C30):
 
-- Typecheck pass · test **575/575** pass · lint **68 error, 124 warning** — đúng
+- Typecheck pass · test **605/605** pass · lint **68 error, 124 warning** — đúng
   bằng các lần đo từ 2026-09-07 tới nay, tức các đợt việc gần đây không thêm lỗi
   nào. `npm run build` xong (vẫn cần biến môi trường giả, xem dưới).
 - Vẫn **chưa nối được vào Primary** trong phiên này (không có `.env`), nên mọi
@@ -1380,3 +1380,44 @@ Không cần migration: đọc bằng session người xem, RLS quyết định 
 thấy hết, giáo viên thấy phần RLS cho phép (giống `/admin/students`). 10 test
 cho phần tính.
 
+## 30. XONG 2026-11-11 — nút "Xem lại" ở trang ôn tập, và trang xem lại câu Đúng/Sai
+
+Thẻ đề ở `/student/practice` có nút **Xem lại** (viền, biểu tượng con mắt) đứng
+**trên** nút **Làm lại**, mở `/result/<lượt nộp gần nhất>` — với ôn tập, đáp án
+và lời giải mở ngay khi nộp (`get_exam_attempt_questions`, `20260722`), nên
+trang kết quả chính là trang xem lại bài. Thứ tự là có chủ ý: vòng ôn tập là
+"nộp → xem câu sai và lời giải → làm lại", không phải bấm làm lại tới khi trúng.
+
+- **Ẩn khi đang có lượt làm dở** (thẻ chỉ còn "Tiếp tục"): xem lại lúc đó là
+  lộ đáp án của chính đề đang làm, rồi điểm lượt đó — và trang Kết quả ôn tập
+  của giáo viên (C29) — không còn nói gì về em. Đây là lời nhắc, không phải ổ
+  khoá: `/student/history` vẫn liệt kê mọi lượt đã nộp. Muốn bỏ thì xoá điều
+  kiện `state !== 'in_progress'` trong `AssessmentListPage.tsx`.
+- Nhãn thấy được chỉ "Xem lại": đo trong cột 160px, "Xem lại bài làm" và "Xem
+  lại lần gần nhất" đều vỡ hai dòng. Lượt nào được mở nằm ở nhãn cho trình đọc
+  màn hình (kèm tên đề) và tooltip.
+- Trang kết quả của đề ôn tập: nút quay lại ghi **"Về ôn tập"** và về
+  `/student/practice` thay vì trang chủ học sinh.
+
+**Sửa kèm — câu Đúng/Sai trên trang xem lại in sai đáp án.** Bốn mệnh đề nằm ở
+`answers[].content`, nên khung "Đáp án đúng" (`getCorrectAnswerContent` lấy
+`is_correct` đầu tiên) in nội dung **mệnh đề a**, còn phần bài làm chỉ in
+"a) Đúng" không kèm mệnh đề. Học sinh bấm Xem lại xong vẫn không biết ý nào sai
+và đúng ra là gì. Giờ: từng ý một — mệnh đề, "Bạn chọn", và "Đáp án" của ý chọn
+sai hoặc bỏ trống; câu bỏ trống vẫn hiện đủ bốn khoá. Áp cho mọi trang dùng
+`attemptView.ts`, kể cả thi thử có `allow_review` và `/admin/attempts/<id>`
+(câu Đúng/Sai lưu rỗng giờ cũng hiện từng ý thay vì "Đáp án mẫu: mệnh đề a").
+7 test mới trong `attemptView.test.ts`.
+
+**Đã đo, trên backend giả + trình duyệt thật (27/27):** đề chưa làm không có
+nút; đề làm 3 lần trỏ đúng lượt nộp gần nhất; nộp → "Về ôn tập" → thẻ có "Xem
+lại" trỏ đúng lượt vừa nộp; trang xem lại có điểm, lời giải, đủ mệnh đề và khoá;
+làm lại dở dang → nút ẩn, chỉ còn "Tiếp tục"; nộp lượt 2 → nút trỏ lượt 2; điện
+thoại 390px không cuộn ngang; chế độ tối đọc được.
+
+Sửa kèm ở `scripts/mock-supabase.mjs` cho khớp RPC thật: có `submit_practice_attempt`,
+upsert theo khoá ghép `attempt_id,question_id`, chấm Đúng/Sai theo `order_index`
+(bản mock cũ khoá theo id đáp án nên chấm lệch), `order_index` đếm từ 0 như dữ
+liệu thật, và một đề ôn tập ba câu có nội dung để bấm thử. Hai lỗi console còn
+lại khi chạy mock là do mock thiếu bảng `homework_assignment_recipients` và phép
+nối `exams!inner` — không phải lỗi app.

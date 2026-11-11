@@ -135,14 +135,20 @@ function resolveAnswerContent(
 
 /**
  * Gets the correct answer content for a question.
- * For multiple_choice/true_false: finds the answer with is_correct = true
+ * For multiple_choice: finds the answer with is_correct = true
  * For short_answer: finds the answer with is_correct = true (final answer)
+ *
+ * Đúng/Sai trả `null`: câu này KHÔNG có một đáp án đúng — bốn mệnh đề nằm ở
+ * `answers[].content`, mỗi mệnh đề đúng hoặc sai riêng, khoá nằm ở
+ * `trueFalseDetails`. Bản cũ lấy mệnh đề `is_correct` đầu tiên, nên trang xem
+ * lại in "Đáp án đúng: <nội dung mệnh đề a>" — sai nghĩa, và học sinh không
+ * biết ý mình chọn sai đúng ra phải là gì.
  */
 function getCorrectAnswerContent(
   questionType: QuestionType,
   answers: RawAnswer[]
 ): string | null {
-  if (questionType === 'essay') return null
+  if (questionType === 'essay' || questionType === 'true_false') return null
   // All question types get correct answer from answers table
   const correctAnswer = answers.find(a => a.is_correct)
   return correctAnswer?.content ?? null
@@ -183,18 +189,23 @@ function buildStudentAnswerText(
 
 /**
  * Builds true/false details for rendering individual statement results.
+ *
+ * Dựng cả khi học sinh BỎ TRỐNG câu (mỗi ý `studentAnswer: null`): khi đáp án
+ * đã mở, câu bỏ trống là câu cần xem lại nhất — em vẫn phải thấy bốn mệnh đề
+ * và khoá của từng ý. `null` chỉ khi câu không có mệnh đề nào để hiện.
  */
 function buildTrueFalseDetails(
   studentAnswer: RawStudentAnswer | undefined,
   answers: RawAnswer[]
 ): TrueFalseDetail[] | null {
-  if (!studentAnswer?.selected_answers) return null
+  if (answers.length === 0) return null
 
+  const picks = studentAnswer?.selected_answers ?? null
   const sortedAnswers = [...answers].sort((a, b) => a.order_index - b.order_index)
-  
+
   return sortedAnswers.map((answer, index) => ({
     statementIndex: index,
-    studentAnswer: studentAnswer.selected_answers?.[String(index)] ?? null,
+    studentAnswer: picks?.[String(index)] ?? null,
     correctAnswer: answer.is_correct,
     statementContent: answer.content
   }))

@@ -130,6 +130,14 @@ const db = {
       show_results_immediately: true, allow_review: true, scoring_profile: 'custom',
     },
     {
+      id: 'exam-on-ham-so', title: 'Ôn tập Hàm số — 3 câu làm nhanh', subject: 'Toán',
+      description: 'Ba câu đủ ba dạng: trắc nghiệm, Đúng/Sai, trả lời ngắn.',
+      duration: 0, grade: 12, exam_mode: 'practice', is_published: true,
+      max_attempts: 0, class_id: null, start_time: null, end_time: null,
+      total_score: 10, passing_score: 5, created_by: 'teacher-1', created_at: daysAgo(4),
+      show_results_immediately: true, allow_review: false, scoring_profile: 'custom',
+    },
+    {
       id: 'exam-nhap', title: 'Đề nháp chưa xuất bản — KHÔNG được lộ ra ngoài', subject: 'Toán',
       description: null,
       duration: 90, grade: 12, exam_mode: 'simulation', is_published: false,
@@ -179,7 +187,11 @@ const db = {
   question_bookmarks: [],
 }
 
-/** Ngân hàng câu cho đề ngắn — đủ ba loại câu của cấu trúc 2025. */
+/**
+ * Ngân hàng câu cho đề ngắn — đủ ba loại câu của cấu trúc 2025. `order_index`
+ * đếm TỪ 0 như dữ liệu thật (`/api/admin/questions/save`): nhãn a) b) c) d)
+ * và khoá chấm Đúng/Sai đều lấy từ nó.
+ */
 const QUESTION_BANK = {
   'exam-nhanh-ham-so': [
     {
@@ -188,10 +200,10 @@ const QUESTION_BANK = {
       explanation: '$y\' = 3x^2 - 3 = 3(x-1)(x+1) > 0 \\Leftrightarrow x < -1$ hoặc $x > 1$.',
       solution: 'Xét $y\' = 3x^2 - 3$. Giải $y\' > 0$ được $x \\in (-\\infty;-1) \\cup (1;+\\infty)$.',
       answers: [
-        { id: 'a1', content: '$(-1; 1)$', is_correct: false, order_index: 1 },
-        { id: 'a2', content: '$(1; +\\infty)$', is_correct: true, order_index: 2 },
-        { id: 'a3', content: '$(-\\infty; 0)$', is_correct: false, order_index: 3 },
-        { id: 'a4', content: '$(0; 2)$', is_correct: false, order_index: 4 },
+        { id: 'a1', content: '$(-1; 1)$', is_correct: false, order_index: 0 },
+        { id: 'a2', content: '$(1; +\\infty)$', is_correct: true, order_index: 1 },
+        { id: 'a3', content: '$(-\\infty; 0)$', is_correct: false, order_index: 2 },
+        { id: 'a4', content: '$(0; 2)$', is_correct: false, order_index: 3 },
       ],
     },
     {
@@ -200,10 +212,10 @@ const QUESTION_BANK = {
       explanation: 'Tiệm cận đứng $x=1$, tiệm cận ngang $y=2$; hàm nghịch biến trên từng khoảng xác định.',
       solution: '$y\' = \\dfrac{-3}{(x-1)^2} < 0$ với mọi $x \\ne 1$.',
       answers: [
-        { id: 'b1', content: 'Đồ thị có tiệm cận đứng $x = 1$.', is_correct: true, order_index: 1 },
-        { id: 'b2', content: 'Đồ thị có tiệm cận ngang $y = 2$.', is_correct: true, order_index: 2 },
-        { id: 'b3', content: 'Hàm số đồng biến trên $(1; +\\infty)$.', is_correct: false, order_index: 3 },
-        { id: 'b4', content: 'Đồ thị đi qua điểm $(0; -1)$.', is_correct: true, order_index: 4 },
+        { id: 'b1', content: 'Đồ thị có tiệm cận đứng $x = 1$.', is_correct: true, order_index: 0 },
+        { id: 'b2', content: 'Đồ thị có tiệm cận ngang $y = 2$.', is_correct: true, order_index: 1 },
+        { id: 'b3', content: 'Hàm số đồng biến trên $(1; +\\infty)$.', is_correct: false, order_index: 2 },
+        { id: 'b4', content: 'Đồ thị đi qua điểm $(0; -1)$.', is_correct: true, order_index: 3 },
       ],
     },
     {
@@ -211,10 +223,17 @@ const QUESTION_BANK = {
       content: 'Giá trị nhỏ nhất của hàm số $y = x + \\dfrac{4}{x}$ trên khoảng $(0; +\\infty)$ bằng bao nhiêu?',
       explanation: 'Theo bất đẳng thức Cô-si: $x + \\dfrac{4}{x} \\ge 2\\sqrt{4} = 4$, dấu bằng khi $x = 2$.',
       solution: 'Cô-si cho hai số dương: giá trị nhỏ nhất là $4$ tại $x = 2$.',
-      answers: [{ id: 'c1', content: '4', is_correct: true, order_index: 1 }],
+      answers: [{ id: 'c1', content: '4', is_correct: true, order_index: 0 }],
     },
   ],
 }
+
+// Đề ôn tập dùng lại ba câu của đề ngắn, với id riêng để không trùng đáp án.
+QUESTION_BANK['exam-on-ham-so'] = QUESTION_BANK['exam-nhanh-ham-so'].map((question) => ({
+  ...question,
+  id: question.id.replace('q-', 'qp-'),
+  answers: question.answers.map((answer) => ({ ...answer, id: `p${answer.id}` })),
+}))
 
 for (const [examId, questions] of Object.entries(QUESTION_BANK)) {
   questions.forEach((question, index) => {
@@ -523,6 +542,10 @@ function rpcError(message, code = '42501') {
 }
 
 const RPC = {
+  submit_practice_attempt(user, args) {
+    return RPC.submit_exam_attempt(user, args)
+  },
+
   get_my_grade(user) {
     const profile = user && profileOf(user.id)
     const klass = profile && db.classes.find((row) => row.id === profile.class_id)
@@ -594,7 +617,7 @@ const RPC = {
     if (!attempt || attempt.student_id !== user.id) return rpcError('ATTEMPT_NOT_FOUND')
     const exam = db.exams.find((row) => row.id === attempt.exam_id)
     const submitted = ['submitted', 'graded'].includes(attempt.status)
-    const reveal = submitted && exam.allow_review
+    const reveal = submitted && (exam.exam_mode === 'practice' || exam.allow_review)
 
     const questions = questionsOfExam(exam.id).map((question) => ({
       id: question.id, content: question.content, question_type: question.question_type,
@@ -651,9 +674,11 @@ const RPC = {
         score = isCorrect ? 0.25 : 0
       } else if (question.question_type === 'true_false') {
         // Thang MOET: đúng 1 ý 0,1 · 2 ý 0,25 · 3 ý 0,5 · 4 ý 1,0.
+        // Khoá là `order_index` như RPC thật (20260806:470) — ExamRunner và
+        // PracticeRunner đều gửi đúng kiểu đó; ý bỏ trống không được tính đúng.
         const picks = sent.selected_answers || {}
         const hit = question.answers.filter((answer) =>
-          Boolean(picks[answer.id]) === Boolean(answer.is_correct)).length
+          typeof picks[answer.order_index] === 'boolean' && picks[answer.order_index] === Boolean(answer.is_correct)).length
         score = { 1: 0.1, 2: 0.25, 3: 0.5, 4: 1 }[hit] || 0
         isCorrect = hit === question.answers.length
       } else if (question.question_type === 'short_answer') {
@@ -665,6 +690,8 @@ const RPC = {
 
       if (isCorrect) correct++
       points += score
+      db.student_answers = db.student_answers.filter((row) =>
+        !(row.attempt_id === attempt.id && row.question_id === sent.question_id))
       db.student_answers.push({
         id: `sa-${randomUUID()}`, attempt_id: attempt.id, question_id: sent.question_id,
         selected_answer: sent.selected_answer ?? null, selected_answers: sent.selected_answers ?? null,
@@ -806,8 +833,11 @@ const server = http.createServer(async (req, res) => {
       // thì THAY, không thêm bản sao. Thiếu nhánh này thì lưu lần hai tạo dòng
       // trùng và trang đọc nhầm bản cũ.
       const conflict = params.get('on_conflict')
+      const keys = conflict ? conflict.split(',').map((key) => key.trim()) : []
       for (const row of rows) {
-        const existing = conflict ? db[table].findIndex((item) => item[conflict] === row[conflict]) : -1
+        const existing = keys.length
+          ? db[table].findIndex((item) => keys.every((key) => item[key] === row[key]))
+          : -1
         if (existing >= 0) db[table][existing] = { ...db[table][existing], ...row }
         else db[table].push(row)
       }

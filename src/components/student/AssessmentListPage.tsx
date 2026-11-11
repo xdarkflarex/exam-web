@@ -31,6 +31,7 @@ import {
   BookOpen,
   CheckCircle2,
   Clock,
+  Eye,
   FileText,
   Play,
   RotateCcw,
@@ -61,14 +62,30 @@ interface AssessmentItem {
   /** Chỉ chế độ ôn tập mới theo dõi bài đang làm dở. */
   inProgressAttemptId: string | null
   inProgressAnswered: number
+  /**
+   * Lượt NỘP GẦN NHẤT để xem lại — chỉ chế độ ôn tập. Ôn tập trả đáp án và lời
+   * giải ngay sau khi nộp (`get_exam_attempt_questions`), nên trang kết quả của
+   * lượt đó chính là trang "xem lại bài". `null` khi chưa nộp lần nào.
+   */
+  reviewAttemptId: string | null
 }
 
-/** `id` chỉ được đọc ở chế độ ôn tập, nơi cần mở lại bài đang làm dở. */
+/**
+ * `id` và `submit_time` chỉ được đọc ở chế độ ôn tập: `id` để mở lại bài đang
+ * làm dở hoặc xem lại bài đã nộp, `submit_time` để biết lượt nào là gần nhất.
+ */
 interface AttemptRow {
   id?: string
   exam_id: string
   score: number | null
   status: string | null
+  submit_time?: string | null
+}
+
+/** Mốc thời gian để so; thiếu hay hỏng thì xếp cuối, không làm `sort` rối vì NaN. */
+function stamp(value: string | null | undefined): number {
+  const parsed = value ? Date.parse(value) : Number.NaN
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 interface ModeConfig {
@@ -240,7 +257,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
         const { data } = config.resumable
           ? await supabase
               .from('exam_attempts')
-              .select('id, exam_id, score, status')
+              .select('id, exam_id, score, status, submit_time')
               .eq('student_id', user.id)
               .in('exam_id', examIds)
           : await supabase
@@ -274,6 +291,9 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
         const forExam = attemptRows.filter((row) => row.exam_id === exam.id)
         const submitted = forExam.filter((row) => row.status === 'submitted')
         const open = config.resumable ? forExam.find((row) => row.status === 'in_progress') : undefined
+        const latestSubmitted = config.resumable
+          ? [...submitted].sort((a, b) => stamp(b.submit_time) - stamp(a.submit_time))[0]
+          : undefined
 
         return {
           id: exam.id,
@@ -288,6 +308,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
           bestScore: submitted.length > 0 ? Math.max(...submitted.map((row) => row.score || 0)) : null,
           inProgressAttemptId: open?.id || null,
           inProgressAnswered: open?.id ? answeredCounts[open.id] || 0 : 0,
+          reviewAttemptId: latestSubmitted?.id || null,
         }
       }))
     } catch (error) {
@@ -629,7 +650,32 @@ function AchievementColumn({
         )}
       </div>
 
-      <div className="min-w-0 flex-1 sm:w-full sm:flex-none">
+      <div className="min-w-0 flex-1 space-y-2 sm:w-full sm:flex-none">
+        {/*
+          XEM LẠI đứng TRƯỚC làm lại: vòng ôn tập đúng là "nộp → xem câu sai và
+          lời giải → làm lại", không phải bấm làm lại liên tục cho tới khi trúng.
+
+          Ẩn khi đang có lượt làm dở: xem lại là lộ đáp án của chính đề đang làm
+          — tra đáp án rồi quay về nộp nốt thì điểm lượt đó (và điểm cao nhất,
+          và trang Kết quả ôn tập của giáo viên) không còn nói gì về em nữa.
+
+          Nhãn thấy được chỉ "Xem lại" — đo trong cột 160px: "Xem lại bài làm"
+          (101px) và "Xem lại lần gần nhất" (136px) đều vỡ hai dòng, chỗ cho
+          chữ chỉ 81px. Lượt nào được mở và mở ra thấy gì nằm ở nhãn cho trình
+          đọc màn hình (có tên đề — cả trang toàn nút "Xem lại") và tooltip.
+          `py-[9px]` thay `py-2.5`: bù viền 1px để cao đúng bằng nút đặc bên dưới.
+        */}
+        {config.resumable && state !== 'in_progress' && item.reviewAttemptId && (
+          <Link
+            href={`/result/${item.reviewAttemptId}`}
+            aria-label={`Xem lại ${item.attemptCount > 1 ? 'lần làm gần nhất' : 'bài làm'}: ${item.title}`}
+            title={`Xem đáp án đúng và lời giải của ${item.attemptCount > 1 ? 'lần làm gần nhất' : 'bài đã làm'}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-[9px] text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700 dark:focus:ring-offset-slate-800"
+          >
+            <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="whitespace-nowrap">Xem lại</span>
+          </Link>
+        )}
         {state === 'in_progress' && item.inProgressAttemptId ? (
           <Link
             href={`/practice/${item.inProgressAttemptId}`}
@@ -666,7 +712,7 @@ function AchievementColumn({
         {startError && (
           <p
             role="alert"
-            className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300"
+            className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300"
           >
             {startError}
           </p>
