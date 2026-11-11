@@ -236,6 +236,69 @@ for (const [examId, count] of Object.entries({
   }
 }
 
+// ──────────────────────────────────────────────── dữ liệu ôn tập mẫu
+//
+// Đủ các ca mà /admin/practice-results phải vẽ đúng: làm nhiều lần và tiến bộ,
+// lần gần nhất TỆ hơn lần tốt nhất, đang làm dở, chưa làm, và học sinh lớp
+// khác. Tên giả, email example.com — không dữ liệu học sinh thật.
+const DEMO_STUDENTS = [
+  ['Trần Thị Bình', 'class_12a1'], ['Lê Minh Chi', 'class_12a1'], ['Phạm Quốc Dũng', 'class_12a1'],
+  ['Võ Thu Giang', 'class_12a1'], ['Đỗ Ngọc Hoa', 'class_11a2'], ['Bùi Gia Khánh', 'class_11a2'],
+  ['Hồ Mai Lan', 'class_10a3'],
+].map(([fullName, classId], index) => ({
+  id: `5a1d7c3e-0000-4000-8000-1000000000${String(index + 1).padStart(2, '0')}`,
+  email: `hocsinh${index + 1}@example.com`, role: 'student', full_name: fullName, school: 'THPT Mẫu',
+  class_id: classId, grade: null, access_tier: 'full', must_change_password: false,
+  created_at: daysAgo(90), updated_at: daysAgo(5),
+}))
+db.profiles.push(...DEMO_STUDENTS)
+const [BINH, CHI, DUNG, , HOA, KHANH] = DEMO_STUDENTS.map((student) => student.id)
+
+let demoSeq = 0
+function demoAttempt(examId, studentId, correct, total, hoursAgo, status = 'submitted') {
+  demoSeq += 1
+  const started = new Date(Date.now() - hoursAgo * 3600_000)
+  const row = {
+    id: `5a1d7c3e-0000-4000-8000-2000000000${String(demoSeq).padStart(2, '0')}`,
+    exam_id: examId, student_id: studentId, status,
+    grading_status: status === 'submitted' ? 'completed' : 'not_required',
+    attempt_number: demoSeq, start_time: started.toISOString(),
+    submit_time: status === 'submitted' ? new Date(started.getTime() + 25 * 60_000).toISOString() : null,
+    score: status === 'submitted' ? Math.round((correct / total) * 1000) / 100 : null,
+    correct_answers: status === 'submitted' ? correct : null,
+    total_questions: total, created_at: started.toISOString(),
+  }
+  db.exam_attempts.push(row)
+  // Lượt dở: PracticeRunner tự lưu từng câu vào student_answers.
+  if (status === 'in_progress') {
+    for (let i = 0; i < correct; i++) {
+      db.student_answers.push({ id: `${row.id}-sa${i}`, attempt_id: row.id, question_id: `qx-${examId}-${i}` })
+    }
+  }
+}
+demoAttempt('exam-on-tich-phan', STUDENT_ID, 6, 15, 120)
+demoAttempt('exam-on-tich-phan', STUDENT_ID, 9, 15, 70)
+demoAttempt('exam-on-tich-phan', STUDENT_ID, 12, 15, 30)
+demoAttempt('exam-on-tich-phan', BINH, 10, 15, 50)
+demoAttempt('exam-on-tich-phan', CHI, 7, 15, 3, 'in_progress')
+demoAttempt('exam-on-tich-phan', DUNG, 11, 15, 60)
+demoAttempt('exam-on-tich-phan', DUNG, 9, 15, 20)
+demoAttempt('exam-on-tich-phan', HOA, 5, 15, 40)
+demoAttempt('exam-on-xac-suat', HOA, 6, 12, 90)
+demoAttempt('exam-on-xac-suat', HOA, 8, 12, 26)
+demoAttempt('exam-on-xac-suat', KHANH, 3, 12, 2, 'in_progress')
+
+// Thử phân trang: MOCK_BULK_ATTEMPTS=2500 thêm chừng ấy lượt nộp của Bình vào
+// đề Xác suất — vượt hẳn giới hạn 1000 dòng một câu truy vấn.
+for (let i = 0; i < Number(process.env.MOCK_BULK_ATTEMPTS || 0); i++) {
+  db.exam_attempts.push({
+    id: `5a1d7c3e-0000-4000-9000-${String(i).padStart(12, '0')}`,
+    exam_id: 'exam-on-xac-suat', student_id: BINH, status: 'submitted', grading_status: 'completed',
+    start_time: daysAgo(30 - (i % 30)), submit_time: daysAgo(30 - (i % 30)),
+    score: 5, correct_answers: 6, total_questions: 12, created_at: daysAgo(30),
+  })
+}
+
 // ───────────────────────────────────────────────────────────── phiên đăng nhập
 
 const users = new Map() // id → {id, email, password, user_metadata}
@@ -369,11 +432,12 @@ function queryRows(table, params, user) {
       rows = rows.filter((row) => row.is_published || row.created_by === user.id)
     }
   }
-  if (table === 'exam_attempts' && user) rows = rows.filter((row) => row.student_id === user.id)
+  const viewerRole = user ? db.profiles.find((profile) => profile.id === user.id)?.role : null
+  if (table === 'exam_attempts' && user && viewerRole === 'student') rows = rows.filter((row) => row.student_id === user.id)
   if (table === 'question_feedbacks' && user) rows = rows.filter((row) => row.student_id === user.id)
 
   for (const [key, raw] of params) {
-    if (['select', 'order', 'limit', 'offset'].includes(key)) continue
+    if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(key)) continue
     if (key === 'or') {
       const options = splitTopLevel(raw.replace(/^\(|\)$/g, ''))
       rows = rows.filter((row) => options.some((option) => matchOne(row, option)))
@@ -395,8 +459,12 @@ function queryRows(table, params, user) {
   }
 
   const total = rows.length
+  const offset = Number(params.get('offset') || 0)
   const limit = params.get('limit')
-  if (limit) rows = rows.slice(0, Number(limit))
+  if (offset || limit) rows = rows.slice(offset, limit ? offset + Number(limit) : undefined)
+  // Như `max-rows` của PostgREST trên Supabase: mỗi câu trả tối đa 1000 dòng và
+  // CẮT IM LẶNG phần còn lại. Thiếu dòng này thì mock che mất lỗi quên phân trang.
+  rows = rows.slice(0, Number(process.env.MOCK_MAX_ROWS || 1000))
 
   const select = params.get('select')
   if (select && select !== '*') {

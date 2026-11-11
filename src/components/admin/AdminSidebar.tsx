@@ -9,6 +9,7 @@ import {
   FileText, 
   HelpCircle, 
   ClipboardList,
+  ClipboardCheck,
   MessageSquare,
   Settings,
   LogOut,
@@ -83,6 +84,7 @@ const menuGroups: MenuGroup[] = [
     defaultOpen: true,
     items: [
       { label: 'Học sinh', href: '/admin/students', icon: Users },
+      { label: 'Kết quả ôn tập', href: '/admin/practice-results', icon: ClipboardCheck },
       { label: 'Lớp học', href: '/admin/classes', icon: School },
       { label: 'Thống kê', href: '/admin/analytics', icon: BarChart3 },
       { label: 'Góp ý', href: '/admin/feedback', icon: MessageSquare },

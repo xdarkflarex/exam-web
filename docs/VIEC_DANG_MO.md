@@ -556,6 +556,31 @@ deploy.
 Sau kỳ thi: khối tự ẩn sau ngày thi cuối 7 ngày. Muốn đếm cho 2028 thì sửa cả
 tiêu đề lẫn hai mốc ở cùng tab đó.
 
+## A25. Sáu trang quản trị đọc `exam_attempts` mà không phân trang
+
+Thấy khi làm trang Kết quả ôn tập (mục C29). PostgREST của Supabase trả tối đa
+**1000 dòng** mỗi câu truy vấn và **cắt im lặng** phần còn lại — không lỗi,
+không cảnh báo. Các trang sau đọc danh sách lượt làm không có `.range()`:
+
+- `src/app/admin/users/page.tsx` — cột "Lượt làm bài" ở trang Tài khoản.
+- `src/lib/analytics/admin-student-performance.ts` — `/admin/students` và hồ sơ từng em.
+- `src/app/admin/analytics/page.tsx` — Thống kê.
+- `src/app/admin/reports/page.tsx` — Xuất báo cáo.
+- `src/app/admin/exams/[examId]/page.tsx` và `src/app/admin/exams/[examId]/results/page.tsx`
+  — danh sách lượt của MỘT đề; đề ôn tập làm lại tuỳ ý là đề vượt 1000 trước.
+
+(`src/app/admin/exams/page.tsx` và `src/app/admin/page.tsx` chỉ đếm bằng
+`count: 'exact', head: true` — con số đó không bị giới hạn, không cần sửa.)
+
+Hôm nay chưa sai (tổng số lượt còn nhỏ), nhưng **ôn tập cho làm lại tuỳ ý** nên
+số lượt tăng nhanh nhất hệ thống. Vượt 1000 là các trang này đếm thiếu, và trông
+hoàn toàn bình thường.
+
+Cách sửa đã có mẫu: `fetchAll()` trong `src/lib/analytics/practice-results-data.ts`
+(đọc từng trang 1000 dòng, `order` theo khoá để các trang không chồng nhau) —
+tách nó ra `src/lib` dùng chung. Thử bằng mock: `MOCK_BULK_ATTEMPTS=2500 node
+scripts/mock-supabase.mjs` (mock cắt 1000 dòng y như Supabase).
+
 ---
 
 # Phần B — chờ chủ dự án quyết
@@ -1327,4 +1352,31 @@ có API admin cho việc đó) — nghi bị chiếm tài khoản thì xoá phi�
 
 Sửa kèm: `/change-password` từng ghi "Đây là lần đăng nhập đầu tiên" — sai với
 học sinh vừa được đặt lại. Giờ ghi "Em đang dùng mật khẩu tạm do thầy cô cấp".
+
+## 29. XONG 2026-11-11 — trang Kết quả ôn tập (`/admin/practice-results`)
+
+Menu **Học sinh → Kết quả ôn tập**. Chọn một đề ôn tập → từng em: **lần gần
+nhất đúng mấy câu** (kèm % và điểm), **chuỗi các lần** (`6 → 9 → 12` — em có
+tiến bộ qua mỗi lần làm lại không), **tốt nhất** khi nó khác lần gần nhất (em
+đang làm tệ đi so với chính mình), **đang làm dở** tới câu thứ mấy, và — khi
+chọn một lớp — **em nào chưa làm**. Bốn thẻ số liệu tính theo đúng lớp đang
+chọn. Nút "Xem bài" mở `/admin/attempts/<id>` có sẵn.
+
+**Vì sao trang riêng:** số liệu ôn tập đã có ở hai chỗ nhưng không chỗ nào trả
+lời "đề này em X đúng mấy câu" — `/admin/students/[id]` gộp mọi đề của một em,
+`/admin/analytics` gộp mọi em của một đề.
+
+**Một điều trang phải nói rõ:** `correct_answers` (`submit_practice_attempt`,
+`20260806`) chỉ đếm câu ĐÚNG HOÀN TOÀN — câu Đúng/Sai đúng 3/4 ý vẫn có điểm
+thành phần nhưng không vào số câu đúng. Thiếu dòng chú thích đó, giáo viên thấy
+"đúng 5/10 câu" mà điểm 6,5 sẽ nghĩ hệ thống chấm sai.
+
+**Phân trang qua giới hạn 1000 dòng của Supabase** — đo thật: mock cắt 1000 dòng
+như PostgREST, nạp 2.502 lượt nộp, trang đếm đủ 2.502. Không có phân trang thì
+nó đếm 1.000 và báo "chưa làm" cho những em đã làm. Sáu trang khác chưa có phân
+trang: mục A25.
+
+Không cần migration: đọc bằng session người xem, RLS quyết định phạm vi — admin
+thấy hết, giáo viên thấy phần RLS cho phép (giống `/admin/students`). 10 test
+cho phần tính.
 
