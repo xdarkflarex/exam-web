@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { generateTempPassword } from '@/lib/auth/temp-password'
 
 /**
  * POST /api/admin/create-account
@@ -36,20 +37,6 @@ interface EnrollmentData {
   parent_name: string | null
   parent_phone: string | null
   user_notes: string | null
-}
-
-function genTempPassword(): string {
-  // 4 chữ + 4 số + 1 ký tự đặc biệt → đảm bảo độ phức tạp.
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-  const lower = 'abcdefghijkmnpqrstuvwxyz'
-  const digits = '23456789'
-  const pick = (s: string) => s[Math.floor(Math.random() * s.length)]
-  const pwd =
-    pick(upper) + pick(upper) +
-    pick(lower) + pick(lower) + pick(lower) +
-    pick(digits) + pick(digits) + pick(digits) + '@'
-  // xáo trộn
-  return pwd.split('').sort(() => Math.random() - 0.5).join('')
 }
 
 /**
@@ -203,7 +190,7 @@ export async function POST(request: NextRequest) {
     // ============================================
     // TẠO AUTH USER (email đã xác nhận sẵn)
     // ============================================
-    const tempPassword = genTempPassword()
+    const tempPassword = generateTempPassword()
     const fullName = (enrollment.full_name || '').trim()
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({

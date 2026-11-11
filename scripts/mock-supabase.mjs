@@ -24,6 +24,13 @@ import http from 'node:http'
 import { randomUUID } from 'node:crypto'
 
 const PORT = Number(process.env.MOCK_PORT || 54321)
+/** Id dạng UUID như Supabase thật — `auth.admin.updateUserById` từ chối id khác. */
+const STUDENT_ID = '5a1d7c3e-0000-4000-8000-000000000001'
+const ADMIN_ID = '5a1d7c3e-0000-4000-8000-0000000000ad'
+const TEACHER_ID = '5a1d7c3e-0000-4000-8000-0000000000ee'
+const SERVICE_KEY = process.env.MOCK_SERVICE_KEY || 'service-key-mock'
+/** Mô phỏng chính sách mật khẩu của project Supabase (mặc định thật: 6 ký tự). */
+const MIN_PASSWORD_LENGTH = Number(process.env.MOCK_MIN_PASSWORD_LENGTH || 6)
 const ANON_GRADE = process.env.MOCK_ANON_GRADE === '1'
 const ANON_PRACTICE = process.env.MOCK_ANON_PRACTICE === '1'
 const DEFAULT_TIER = process.env.MOCK_ACCESS_TIER === 'full' ? 'full' : 'basic'
@@ -47,13 +54,19 @@ const db = {
   ],
   profiles: [
     {
-      id: 'student-cu', email: 'hocsinh.cu@example.com', role: 'student',
+      id: STUDENT_ID, email: 'hocsinh.cu@example.com', role: 'student',
       full_name: 'Nguyễn Văn An', school: 'THPT Bãi Cháy', class_id: 'class_12a1',
       grade: null, access_tier: DEFAULT_TIER, must_change_password: false,
       created_at: daysAgo(120), updated_at: daysAgo(3),
     },
     {
-      id: 'admin-1', email: 'admin@example.com', role: 'admin',
+      id: TEACHER_ID, email: 'giaovien@example.com', role: 'teacher',
+      full_name: 'Giáo viên Thử', school: null, class_id: null,
+      grade: null, access_tier: 'full', must_change_password: false,
+      created_at: daysAgo(300), updated_at: daysAgo(2),
+    },
+    {
+      id: ADMIN_ID, email: 'admin@example.com', role: 'admin',
       full_name: 'Quản trị viên', school: null, class_id: null,
       grade: null, access_tier: 'full', must_change_password: false,
       created_at: daysAgo(400), updated_at: daysAgo(1),
@@ -226,20 +239,28 @@ for (const [examId, count] of Object.entries({
 // ───────────────────────────────────────────────────────────── phiên đăng nhập
 
 const users = new Map() // id → {id, email, password, user_metadata}
-users.set('student-cu', {
-  id: 'student-cu', email: 'hocsinh.cu@example.com', password: 'MatKhau123!',
+users.set(STUDENT_ID, {
+  id: STUDENT_ID, email: 'hocsinh.cu@example.com', password: 'MatKhau123!',
   user_metadata: { full_name: 'Nguyễn Văn An' },
 })
-users.set('admin-1', {
-  id: 'admin-1', email: 'admin@example.com', password: 'MatKhau123!',
+users.set(TEACHER_ID, {
+  id: TEACHER_ID, email: 'giaovien@example.com', password: 'MatKhau123!',
+  user_metadata: { full_name: 'Giáo viên Thử' },
+})
+users.set(ADMIN_ID, {
+  id: ADMIN_ID, email: 'admin@example.com', password: 'MatKhau123!',
   user_metadata: { full_name: 'Quản trị viên' },
 })
 const tokens = new Map() // access_token → user id
 
+function isServiceRole(headers) {
+  return String(headers.authorization || '').replace(/^Bearer\s+/i, '') === SERVICE_KEY
+}
+
 function authUser(headers) {
   const raw = headers.authorization || ''
   const token = raw.replace(/^Bearer\s+/i, '')
-  if (!token || token === (process.env.MOCK_ANON_KEY || 'anon-key-mock')) return null
+  if (!token || token === (process.env.MOCK_ANON_KEY || 'anon-key-mock') || token === SERVICE_KEY) return null
   const id = tokens.get(token)
   return id ? users.get(id) : null
 }
@@ -644,7 +665,7 @@ const server = http.createServer(async (req, res) => {
       log('422 user_already_exists')
       return send(res, 422, { code: 'user_already_exists', msg: 'User already registered', message: 'User already registered' })
     }
-    const created = { id: `student-${randomUUID()}`, email, password: body?.password, user_metadata: body?.data || {} }
+    const created = { id: randomUUID(), email, password: body?.password, user_metadata: body?.data || {} }
     users.set(created.id, created)
     log(`200 tạo tài khoản ${email}`)
     return send(res, 200, session(created))
@@ -661,6 +682,29 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/auth/v1/logout') { log('204'); return send(res, 204) }
+
+  const adminUser = /^\/auth\/v1\/admin\/users\/([^/]+)$/.exec(url.pathname)
+  if (adminUser && req.method === 'PUT') {
+    if (!isServiceRole(req.headers)) {
+      log('403 API admin của GoTrue cần service key')
+      return send(res, 403, { code: 'not_admin', message: 'User not allowed' })
+    }
+    const target = users.get(adminUser[1])
+    if (!target) { log('404 user_not_found'); return send(res, 404, { code: 'user_not_found', message: 'User not found' }) }
+    if (typeof body?.password === 'string') {
+      if (body.password.length < MIN_PASSWORD_LENGTH) {
+        log(`422 weak_password (< ${MIN_PASSWORD_LENGTH})`)
+        return send(res, 422, {
+          code: 'weak_password',
+          message: `Password should be at least ${MIN_PASSWORD_LENGTH} characters.`,
+          weak_password: { reasons: ['length'] },
+        })
+      }
+      target.password = body.password
+    }
+    log(`200 admin đổi mật khẩu ${target.email}`)
+    return send(res, 200, userPayload(target))
+  }
 
   // ── PostgREST RPC
   if (url.pathname.startsWith('/rest/v1/rpc/')) {

@@ -1556,3 +1556,58 @@ tố), còn lý thuyết và `/learn` dùng cây **`sgk-*`**. Hai cây **không 
 `sgk-*` có 0 câu hỏi. Đó là lý do chọn chương nào ở màn bốc câu theo cây SGK cũng
 thấy trống. Chủ dự án đã chốt 2026-09-04 giữ cây cũ cho câu hỏi. Khi viết script
 đụng taxonomy, **lọc bỏ `sgk-*`** nếu đang làm việc với câu hỏi.
+
+## 14. Đặt lại mật khẩu học sinh
+
+Từ 2026-11-11 có nút ở **`/admin/users`**: biểu tượng chìa khoá trong cột "Thao
+tác", chỉ hiện ở dòng **học sinh**. Bấm → chọn kiểu mật khẩu → hộp thoại hiện
+mật khẩu mới **đúng một lần** kèm nút "Chép tin nhắn gửi học sinh".
+
+| Kiểu | Giá trị | Dùng khi |
+|---|---|---|
+| Mật khẩu mặc định | cố định, đặt ở server (`src/app/api/admin/reset-password/route.ts`) | học sinh đang ngồi cạnh, đăng nhập ngay |
+| Mật khẩu ngẫu nhiên | 9 ký tự, cùng định dạng mật khẩu tạm lúc tạo tài khoản | báo qua tin nhắn, chưa đăng nhập ngay |
+
+Cả hai kiểu đều **bật `must_change_password`**: đăng nhập xong học sinh bị
+middleware đưa thẳng sang `/change-password`, đi đâu cũng bị đưa về đó, cho tới
+khi đặt mật khẩu mới từ 8 ký tự.
+
+**Rủi ro của mật khẩu mặc định.** Giá trị cố định thì đoán được. Từ lúc đặt lại
+tới lúc học sinh đăng nhập, ai biết email của em cũng vào được **trước**, bị bắt
+đổi mật khẩu — tức là tự đặt mật khẩu của họ và giữ luôn tài khoản. Nên chỉ đặt
+lại ngay trước khi báo, hoặc dùng mật khẩu ngẫu nhiên.
+
+**Nếu Supabase từ chối** ("Supabase từ chối mật khẩu này vì chính sách mật khẩu
+của project"): project đặt chính sách mật khẩu mạnh hơn mặc định của Supabase
+(6 ký tự), nên mật khẩu mặc định không qua. Chọn mật khẩu ngẫu nhiên, hoặc nới
+ở Supabase → Authentication → Policies. Khi lỗi, cờ bắt đổi mật khẩu được trả
+về như trước — không có trạng thái nửa vời.
+
+**Giới hạn: không đăng xuất các phiên đang mở.** Supabase Auth không có API
+admin nào đăng xuất một user theo id. Đặt lại vì **nghi tài khoản bị người khác
+dùng** thì còn phải xoá phiên, nếu không người đang đăng nhập sẵn sẽ bị đưa tới
+`/change-password` và tự đặt được mật khẩu mới. Chạy trong SQL Editor, **sau**
+khi đã bấm đặt lại:
+
+```sql
+delete from auth.sessions
+where user_id = (select id from auth.users where lower(email) = lower('email-hoc-sinh@example.com'));
+```
+
+Xoá phiên là cắt refresh token; access token đang cầm trên máy kia có thể còn
+dùng được tới khi hết hạn (mặc định của Supabase là 1 giờ).
+
+**Kiểm quyền bằng session thật** — chỉ đọc, mọi phép đều phải bị từ chối nên
+không mật khẩu nào bị đổi:
+
+```bash
+node --env-file=.env scripts/reset-password-permission-check.mjs \
+  --base-url https://<domain> \
+  --student-email <hs-test> --student-password '<mk>' \
+  --admin-email <admin> --admin-password '<mk>'
+```
+
+Năm phép: chưa đăng nhập → 401; session học sinh → 403 (kể cả đầu vào rác —
+kiểm quyền phải đứng trước kiểm đầu vào); admin đặt lại chính mình → 403; admin
+đặt lại id không tồn tại → 404. Chạy thêm một lần với `--student-email` là tài
+khoản **giáo viên**: giáo viên vào được `/admin` nhưng route phải trả 403.

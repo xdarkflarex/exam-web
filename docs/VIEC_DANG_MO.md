@@ -1290,3 +1290,41 @@ nằm ở mục A24.
 policy `public_read_landing_settings` (`key LIKE 'landing.%'`). Chưa có dòng
 nào trong `site_settings` thì trang dùng mặc định — chạy ngay sau deploy.
 
+## 28. XONG 2026-11-11 — nút đặt lại mật khẩu học sinh ở /admin/users
+
+Biểu tượng chìa khoá trong cột "Thao tác", **chỉ ở dòng học sinh**. Hai kiểu mật
+khẩu: mặc định (chủ dự án chọn `123456`, giá trị chỉ nằm ở server) hoặc ngẫu
+nhiên. Cả hai đều bật `must_change_password`, nên học sinh đăng nhập xong là bị
+đưa sang `/change-password` và phải đặt mật khẩu của riêng mình (≥ 8 ký tự).
+Quy trình và rủi ro: `RUNBOOK.md` mục 14.
+
+**Bảo mật, theo `AGENTS.md` mục 4–5:**
+
+- Route `POST /api/admin/reset-password` dùng lại `requireAdmin()` (đăng nhập +
+  role `admin` exact) thay vì viết bản kiểm quyền thứ ba. Chỉ đặt lại được role
+  `student`, không bao giờ là chính mình — mở cho admin là đường chiếm tài
+  khoản: A đặt lại mật khẩu của B về giá trị A biết rồi đăng nhập thành B.
+- **Bật cờ trước, đổi mật khẩu sau**: hỏng giữa chừng thì tệ nhất là học sinh bị
+  hỏi đổi mật khẩu bằng mật khẩu cũ, chứ không bao giờ là một tài khoản mang
+  `123456` mà không bị bắt đổi. Đổi mật khẩu hỏng thì cờ được trả về như cũ.
+- Mật khẩu mặc định **không nằm trong bundle client**: client chỉ gửi `mode`.
+  Mật khẩu chỉ đi trong một response `no-store` tới admin vừa bấm, không log.
+- Mật khẩu ngẫu nhiên giờ sinh bằng `crypto.getRandomValues` + Fisher–Yates.
+  Bản cũ trong route tạo tài khoản dùng `Math.random()` và xáo bằng `sort` —
+  gom về `src/lib/auth/temp-password.ts`, cả hai route dùng chung, định dạng
+  giữ nguyên.
+
+**Đã đo, trên backend giả + trình duyệt thật:** chưa đăng nhập 401; session học
+sinh 403 (kể cả đầu vào rác); session **giáo viên** 403; admin tự đặt lại 403;
+admin nhắm tài khoản giáo viên 403; id không tồn tại 404 — và log của mock xác
+nhận không lần nào trong số đó đổi được mật khẩu. Nhánh cho qua: học sinh đăng
+nhập bằng mật khẩu mới, đi đâu cũng bị đưa về `/change-password`. Giả lập
+project đòi mật khẩu ≥ 8 ký tự: `123456` bị từ chối kèm câu hướng dẫn, cờ trả về
+`false`; mật khẩu ngẫu nhiên qua.
+
+**Còn nợ, đã ghi ở RUNBOOK:** nút không đăng xuất phiên đang mở (Supabase không
+có API admin cho việc đó) — nghi bị chiếm tài khoản thì xoá phiên bằng SQL.
+
+Sửa kèm: `/change-password` từng ghi "Đây là lần đăng nhập đầu tiên" — sai với
+học sinh vừa được đặt lại. Giờ ghi "Em đang dùng mật khẩu tạm do thầy cô cấp".
+

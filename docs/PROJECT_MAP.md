@@ -68,6 +68,7 @@ docs/                  tài liệu chuẩn
 | Exam | `src/app/exam/**`, `src/components/ExamRunner.tsx`, `src/lib/exam/questions.ts`, `src/lib/exam/draft.ts` |
 | Trang chủ (khối đề) | `src/app/page.tsx`, `src/lib/landing/exam-catalog.ts`, `src/components/landing/ExamFilterChips.tsx` |
 | Trang chủ (đếm ngược kỳ thi) | `src/lib/landing/exam-countdown.ts`, `src/components/landing/ExamCountdown.tsx`; sửa ngày ở `/admin/landing` → tab "Đếm ngược" (`site_settings['landing.exam_countdown']`) |
+| Đặt lại mật khẩu học sinh | `/admin/users` (nút chìa khoá), `src/components/admin/ResetPasswordModal.tsx`, `src/app/api/admin/reset-password/route.ts`, luật ở `src/lib/auth/password-reset.ts`, mật khẩu tạm ở `src/lib/auth/temp-password.ts`; quy trình ở `RUNBOOK.md` mục 14 |
 | Pilot tự luận | `docs/ESSAY_GRADING.md`, `src/app/admin/questions/essay/new/page.tsx`, `src/components/admin/EssayGradingPanel.tsx`, `src/lib/essay-grading/prompt.ts` |
 | Practice | `src/app/practice/**`, `src/components/PracticeRunner.tsx` |
 | Homework | `src/app/homework/**`, `src/components/HomeworkRunner.tsx`, `src/lib/homework/actions.ts` |

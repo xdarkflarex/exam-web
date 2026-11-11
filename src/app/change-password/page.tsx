@@ -79,7 +79,7 @@ export default function ChangePasswordPage() {
           </div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">Đổi mật khẩu</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Đây là lần đăng nhập đầu tiên. Vui lòng đặt mật khẩu mới để bảo mật tài khoản.
+            Em đang dùng mật khẩu tạm do thầy cô cấp. Đặt mật khẩu của riêng em để bảo mật tài khoản.
           </p>
         </div>
 

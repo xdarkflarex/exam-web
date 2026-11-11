@@ -6,9 +6,10 @@ import { classOptionLabel, describeClassId, type ClassOption } from '@/lib/class
 import { 
   Users, Search, Filter, UserCheck, UserX, Shield, GraduationCap,
   Mail, Calendar, MoreVertical, ChevronDown, Eye, Trash2, RefreshCw, AlertCircle,
-  Pencil, X, Save, Loader2, CheckCircle, School, Clock, Hash
+  Pencil, X, Save, Loader2, CheckCircle, School, Clock, Hash, KeyRound
 } from 'lucide-react'
 import { AdminHeader } from '@/components/admin'
+import ResetPasswordModal from '@/components/admin/ResetPasswordModal'
 import { logger } from '@/lib/logger'
 
 interface UserProfile {
@@ -39,6 +40,8 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>('')
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  /** Học sinh đang được đặt lại mật khẩu; `null` = hộp thoại đóng. */
+  const [resetTarget, setResetTarget] = useState<UserProfile | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -311,7 +314,19 @@ export default function AdminUsersPage() {
                         {formatDate(user.created_at)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      {/* Chỉ học sinh: server cũng chặn mọi vai trò khác, nút
+                          ẩn chỉ để không mời bấm vào một cửa đã khoá. */}
+                      {user.role === 'student' && (
+                        <button
+                          onClick={() => setResetTarget(user)}
+                          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                          title="Đặt lại mật khẩu"
+                          aria-label={`Đặt lại mật khẩu cho ${user.full_name || user.email || 'học sinh'}`}
+                        >
+                          <KeyRound className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleViewDetail(user)}
                         className="p-2 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
@@ -328,6 +343,10 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {resetTarget && (
+        <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />
+      )}
 
       {/* Detail Modal */}
       {showDetailModal && selectedUser && (
