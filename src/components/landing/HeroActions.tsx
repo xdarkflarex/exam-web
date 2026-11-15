@@ -5,9 +5,9 @@ import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
 /**
  * Nhóm nút hành động của hero.
  *
- * Tách ra khỏi `src/app/page.tsx` vì hero có HAI biến thể (có ảnh nền và không),
- * và logic dưới đây phải giống hệt nhau ở cả hai. Trước đây nó bị chép hai lần
- * nên hai bên lệch nhau lúc nào không biết.
+ * Tách ra khỏi `src/app/page.tsx` vì hero có HAI biến thể (có ảnh nền và bảng
+ * xanh), và logic dưới đây phải giống hệt nhau ở cả hai. Trước đây nó bị chép
+ * hai lần nên hai bên lệch nhau lúc nào không biết.
  *
  * Hero biết người dùng đã đăng nhập hay chưa: `page.tsx` truyền `isAuthenticated`
  * xuống, nên học sinh đang có session không bị mời làm lại đúng việc vừa xong.
@@ -24,47 +24,45 @@ import ScrollToEnrollButton from '@/components/ScrollToEnrollButton'
  *   3. Bắt đầu ngay — viền, tạo tài khoản miễn phí.
  *
  * Ba nút cùng nổi thì không còn nút nào nổi, nên đừng tô đặc nốt nút thứ ba.
+ *
+ * KHÔNG CÒN PROP `variant` (2026-11-15). Hero không ảnh giờ là bảng xanh, tức
+ * cả hai biến thể đều là NỀN TỐI — ảnh có lớp phủ đen, bảng thì xanh sẫm. Hai
+ * bộ màu trước đây vì thế thành một: nút teal dùng tông SÁNG với chữ tối
+ * (teal-300 trên bảng `--mm-board` đạt ~7,5:1 so với nền, chữ teal-950 trên nút
+ * ~9:1), thay cho teal-600 chữ trắng vốn chìm hẳn vào mặt bảng cùng sắc.
  */
 interface HeroActionsProps {
   isAuthenticated: boolean
   /** Nhãn do admin cấu hình, chỉ dùng ở nhánh chưa đăng nhập. */
   ctaPrimary: string
   ctaSecondary: string
-  /** `slide` là hero có ảnh nền — chữ luôn trắng, không theo token. */
-  variant: 'slide' | 'plain'
 }
 
 /** Cỡ và hình dáng dùng chung cho cả ba nút, để hàng nút không so le. */
 const BUTTON_BASE =
-  'group inline-flex w-full items-center justify-center gap-2 rounded-xl px-7 py-4 text-lg font-semibold ' +
-  'transition-all duration-200 hover:scale-105 active:scale-95 font-baloo sm:w-auto'
+  'group inline-flex w-full items-center justify-center gap-2 rounded-2xl px-7 py-4 text-lg font-semibold ' +
+  'transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 font-baloo sm:w-auto ' +
+  'focus:outline-none focus-visible:ring-4 focus-visible:ring-white/60'
+
+/** Nút teal trên nền tối: tông sáng, chữ tối. */
+const SOLID_TEAL = 'bg-teal-300 text-teal-950 shadow-lg shadow-black/25 hover:bg-teal-200'
 
 export default function HeroActions({
   isAuthenticated,
   ctaPrimary,
   ctaSecondary,
-  variant,
 }: HeroActionsProps) {
-  const onImage = variant === 'slide'
-
   if (isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-        <Link
-          href="/student"
-          className={`${BUTTON_BASE} bg-teal-600 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400`}
-        >
+        <Link href="/student" className={`${BUTTON_BASE} ${SOLID_TEAL}`}>
           <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
           Vào học tiếp
           <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
         </Link>
         <Link
           href="#exams"
-          className={`text-base font-semibold underline-offset-4 transition-colors hover:underline ${
-            onImage
-              ? 'text-white/90 hover:text-white'
-              : 'text-slate-600 hover:text-teal-700 dark:text-slate-300 dark:hover:text-teal-300'
-          }`}
+          className="rounded text-base font-semibold text-white/90 underline-offset-4 transition-colors hover:text-white hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
           Xem đề thi có sẵn
         </Link>
@@ -72,25 +70,21 @@ export default function HeroActions({
     )
   }
 
-  /* Nút thứ ba dùng viền. Trên ảnh nền thì viền trắng + nền kính mờ mới đọc
-     được; trên nền thường thì viền teal trên nền trang. */
-  const outlined = onImage
-    ? 'border-2 border-white/80 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20'
-    : 'border-2 border-teal-600 bg-white/80 text-teal-700 hover:bg-teal-50 dark:border-teal-400 dark:bg-slate-900/60 dark:text-teal-300 dark:hover:bg-slate-800'
-
   return (
     <div className="flex flex-col flex-wrap items-center justify-center gap-3 sm:flex-row sm:gap-4">
-      <ScrollToEnrollButton variant={onImage ? 'hero-slide' : 'hero-plain'} />
+      <ScrollToEnrollButton />
 
-      <Link
-        href="/login"
-        className={`${BUTTON_BASE} bg-teal-600 text-white shadow-lg shadow-teal-600/25 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400`}
-      >
+      <Link href="/login" className={`${BUTTON_BASE} ${SOLID_TEAL}`}>
         <LogIn className="h-5 w-5" aria-hidden="true" />
         {ctaPrimary}
       </Link>
 
-      <Link href="/signup" className={`${BUTTON_BASE} ${outlined}`}>
+      {/* Nút thứ ba dùng viền: viền phấn trắng + nền kính mờ, đọc được cả trên
+          ảnh lẫn trên bảng. */}
+      <Link
+        href="/signup"
+        className={`${BUTTON_BASE} border-2 border-white/75 bg-white/10 text-white hover:bg-white/20`}
+      >
         <Sparkles className="h-5 w-5" aria-hidden="true" />
         {ctaSecondary}
       </Link>

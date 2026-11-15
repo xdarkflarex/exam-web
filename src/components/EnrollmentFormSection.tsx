@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, Phone, Mail, User, Users, GraduationCap, CheckCircle, AlertCircle, Loader2, ArrowRight, MessageSquare } from 'lucide-react'
+import { Phone, Mail, User, Users, GraduationCap, CheckCircle, AlertCircle, Loader2, ArrowRight, MessageSquare } from 'lucide-react'
+import SectionHeading from '@/components/landing/SectionHeading'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 const CLASSES = ['Toán 10', 'Toán 11', 'Toán 12', 'Tin học'] as const
@@ -120,31 +121,21 @@ export default function EnrollmentFormSection({
     */
     <section
       id="enrollment-form"
-      className={`py-20 relative overflow-hidden ${surfaceClass(surface)}`}
+      className={`scroll-mt-20 py-16 sm:py-20 relative overflow-hidden ${surfaceClass(surface)}`}
     >
       {/* Decorative bg element */}
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '28px 28px' }} />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-        {/* Section header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-sm font-medium mb-5">
-            <UserPlus className="w-4 h-4" />
-            Đăng ký học
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
-            {title}
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
-            {subtitle}
-          </p>
-        </div>
+        <SectionHeading kicker="Đăng ký học" title={title} subtitle={subtitle || undefined} className="mb-10" />
 
         {/* Form card */}
-        <div
-          className="bento-tile-lead bento-rail p-8 sm:p-10 pl-9 sm:pl-12"
-          style={{ '--rail': '#14b8a6' } as React.CSSProperties}
-        >
+        {/* Tấm form là một TỜ PHIẾU: giấy ô li, mép thước ở cạnh trên. Dải
+            teal bên trái của bản trước nhường chỗ cho mép thước — hai thứ đó
+            đều vẽ bằng `::before` nên không đứng chung một phần tử được (xem
+            `.ruler-edge` trong `globals.css`), và nút gửi teal ở cuối form đã
+            đủ để nói "đây là vùng hành động". */}
+        <div className="bento-tile-lead paper-grid ruler-edge overflow-hidden p-6 pt-10 sm:p-10 sm:pt-12">
 
           {/* Success state */}
           {status === 'success' && (

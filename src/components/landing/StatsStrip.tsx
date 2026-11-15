@@ -77,7 +77,7 @@ export default function StatsStrip({ stats, surface = 'plain' }: StatsStripProps
     <section className={`py-10 sm:py-12 ${surfaceClass(surface)}`} aria-label="Số liệu nền tảng">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollRevealClient>
-        <div className="bento-tile-lead overflow-hidden flex flex-col lg:flex-row">
+        <div className="bento-tile-lead paper-grid overflow-hidden flex flex-col lg:flex-row">
           {/* Ô dẫn dắt: dải teal mỏng bên trái thay cho một khung riêng. */}
           <div
             className="bento-rail flex items-center gap-5 p-6 sm:p-8 lg:w-[38%] lg:shrink-0"

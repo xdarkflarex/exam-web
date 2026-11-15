@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ZoomIn, X } from 'lucide-react'
 import ImageCarousel, { CarouselSlide } from './ImageCarousel'
+import SectionHeading from '@/components/landing/SectionHeading'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 interface EnrollmentCarouselProps {
@@ -27,16 +28,7 @@ export default function EnrollmentCarousel({
   return (
     <section className={`py-16 sm:py-20 ${surfaceClass(surface)}`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Heading */}
-        <div className="text-center mb-10">
-          <p className="text-sm font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-2">Tuyển sinh</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
-            {title}
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            {subtitle}
-          </p>
-        </div>
+        <SectionHeading kicker="Tuyển sinh" title={title} subtitle={subtitle || undefined} className="mb-10" />
 
         {/* Banner Carousel */}
         <div className="relative rounded-2xl overflow-hidden shadow-xl border border-slate-300 dark:border-slate-700 bg-slate-900 dark:bg-slate-950 group/carousel">

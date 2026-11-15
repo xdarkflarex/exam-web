@@ -15,6 +15,16 @@ import MinhMathLogo from '@/components/MinhMathLogo'
  * bấm vào sẽ được middleware đẩy sang `/login`. Đây là hành vi có chủ đích, không phải lỗi.
  * `#benefits` neo xuống section trong trang.
  */
+/*
+  MỘT TẦNG (2026-11-15). Bản trước xếp hai tầng dính liền — 64px thương hiệu +
+  48px điều hướng — tức 112px màn hình bị chiếm suốt lúc cuộn, trên laptop
+  768px chiều cao là gần 15%. Ba mục điều hướng giờ đứng cùng hàng với thương
+  hiệu từ `lg`; dưới `lg` chúng nằm trong menu mở bằng nút ba gạch, như cũ.
+
+  Ô tìm kiếm co giãn (`flex-1`) nên là thứ nhường chỗ đầu tiên khi hẹp. Bề
+  ngang đã tính ở 1024px cho cả hai trạng thái của `AuthHeaderClient` (chưa và
+  đã đăng nhập): phần cố định ~770px trong khung 960px, ô tìm kiếm còn ~190px.
+*/
 const NAV_ITEMS = [
   { label: 'Kiến thức', href: '/learn' },
   { label: 'Luyện đề', href: '/practice' },
@@ -107,9 +117,8 @@ export default function LandingHeader({
         scrolled ? 'shadow-lg shadow-slate-900/10 dark:shadow-black/40' : 'shadow-sm'
       }`}
     >
-      {/* Tầng 1 — thương hiệu, tìm kiếm, liên hệ, tài khoản */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3 sm:gap-6 h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-3 lg:gap-5 h-16">
           <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
             <MinhMathLogo size={40} />
             <span className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 font-baloo">
@@ -117,13 +126,32 @@ export default function LandingHeader({
             </span>
           </Link>
 
-          <div className="hidden md:block flex-1 max-w-2xl">{searchForm(false)}</div>
+          {/* Điều hướng — cùng hàng với thương hiệu từ lg trở lên. Vạch chân của
+              mục đang mở dùng lại `.nav-underline` (chọn theo aria-current). */}
+          <nav aria-label="Điều hướng chính" className="hidden lg:flex items-center gap-1 shrink-0">
+            {NAV_ITEMS.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isActive(item.href) ? 'page' : undefined}
+                className={`nav-underline px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                  isActive(item.href)
+                    ? 'text-teal-600 dark:text-teal-400 bg-teal-100/70 dark:bg-teal-900/30'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="hidden md:block flex-1 min-w-0 lg:max-w-md lg:ml-auto">{searchForm(false)}</div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0 shrink-0">
             {hotline && (
               <a
                 href={`tel:${hotline.replace(/\s/g, '')}`}
-                className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-all duration-200"
+                className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-all duration-200"
               >
                 <Phone className="w-4 h-4" />
                 {hotline}
@@ -137,7 +165,7 @@ export default function LandingHeader({
               aria-label={menuOpen ? 'Đóng menu' : 'Mở menu'}
               aria-expanded={menuOpen}
               aria-controls="landing-mobile-menu"
-              className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 transition-all duration-200 active:scale-90"
+              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 transition-all duration-200 active:scale-90"
             >
               {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -145,36 +173,15 @@ export default function LandingHeader({
         </div>
       </div>
 
-      {/* Tầng 2 — điều hướng, chỉ hiện từ md trở lên */}
-      <div className="hidden md:block border-t border-slate-300/40 dark:border-slate-700/40">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav aria-label="Điều hướng chính" className="flex items-center justify-center gap-1 h-12">
-            {NAV_ITEMS.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive(item.href) ? 'page' : undefined}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                  isActive(item.href)
-                    ? 'text-teal-600 dark:text-teal-400 bg-teal-100/70 dark:bg-teal-900/30'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </div>
-
-      {/* Menu mobile — gộp tìm kiếm và điều hướng */}
+      {/* Menu thu gọn (dưới lg) — điều hướng, và thêm ô tìm kiếm khi dưới md vì
+          lúc đó thanh trên không còn chỗ cho nó. */}
       {menuOpen && (
         <div
           id="landing-mobile-menu"
-          className="md:hidden border-t border-slate-300/40 dark:border-slate-700/40 slide-in-up"
+          className="lg:hidden border-t border-slate-300/40 dark:border-slate-700/40 slide-in-up"
         >
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 space-y-3">
-            {searchForm(true)}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-3">
+            <div className="md:hidden">{searchForm(true)}</div>
             <nav aria-label="Điều hướng chính" className="flex flex-col gap-1">
               {NAV_ITEMS.map(item => (
                 <Link

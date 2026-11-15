@@ -10,6 +10,7 @@ import {
   Lock,
 } from 'lucide-react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
+import SectionHeading from './SectionHeading'
 import { surfaceClass, type SectionSurface } from './sectionSurface'
 
 /**
@@ -30,6 +31,11 @@ import { surfaceClass, type SectionSurface } from './sectionSurface'
  *
  * Sáu mục là hằng số trong file này (không phải dữ liệu động), nên lưới được
  * xếp vừa khít sáu ô — không có ô trống ở hàng cuối.
+ *
+ * KÝ HIỆU NỀN (2026-11-15). Mỗi ô mang một ký hiệu toán cỡ lớn, rất nhạt, ở góc
+ * (`.glyph-mark` trong `globals.css`): f(x) cho đề thi, π cho kiến thức, ∫ cho
+ * luyện đề, Δ cho tiến độ (độ biến thiên), ≥ cho bảng xếp hạng. Nó thuần trang
+ * trí — `aria-hidden`, và nhãn chữ vẫn là thứ duy nhất nói ô này dẫn đi đâu.
  */
 type Span = 'lead' | 'tile' | 'wide'
 
@@ -41,6 +47,8 @@ const ITEMS: readonly {
   span: Span
   /** Chỉ ô dẫn dắt và ô dải mới có mô tả; ô nhỏ chỉ cần nhãn. */
   description?: string
+  /** Ký hiệu toán làm hình nền ô; ô dải không có. */
+  glyph?: string
 }[] = [
   {
     label: 'Đề thi thử',
@@ -49,11 +57,12 @@ const ITEMS: readonly {
     needAuth: false,
     span: 'lead',
     description: 'Đề bám cấu trúc thi tốt nghiệp, chấm ngay sau khi nộp và xem lại từng câu.',
+    glyph: 'f(x)',
   },
-  { label: 'Kiến thức', href: '/learn', Icon: GraduationCap, needAuth: true, span: 'tile' },
-  { label: 'Luyện đề', href: '/student/practice', Icon: ClipboardList, needAuth: true, span: 'tile' },
-  { label: 'Tiến độ', href: '/student/analytics', Icon: BarChart3, needAuth: true, span: 'tile' },
-  { label: 'Bảng xếp hạng', href: '/leaderboard', Icon: Trophy, needAuth: true, span: 'tile' },
+  { label: 'Kiến thức', href: '/learn', Icon: GraduationCap, needAuth: true, span: 'tile', glyph: 'π' },
+  { label: 'Luyện đề', href: '/student/practice', Icon: ClipboardList, needAuth: true, span: 'tile', glyph: '∫' },
+  { label: 'Tiến độ', href: '/student/analytics', Icon: BarChart3, needAuth: true, span: 'tile', glyph: 'Δ' },
+  { label: 'Bảng xếp hạng', href: '/leaderboard', Icon: Trophy, needAuth: true, span: 'tile', glyph: '≥' },
   {
     label: 'Bài viết',
     href: '/#posts',
@@ -96,19 +105,14 @@ export default function QuickAccessGrid({
   surface = 'plain',
 }: QuickAccessGridProps) {
   return (
-    <section className={`py-16 ${surfaceClass(surface)}`} aria-label="Truy cập nhanh">
+    <section className={`py-16 sm:py-20 ${surfaceClass(surface)}`} aria-label="Truy cập nhanh">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollRevealClient>
-          <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
-              {title}
-            </h2>
-            <p className="text-slate-600 dark:text-slate-400">{subtitle}</p>
-          </div>
+          <SectionHeading kicker="Lối vào nhanh" title={title} subtitle={subtitle} className="mb-10" />
         </ScrollRevealClient>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {ITEMS.map(({ label, href, Icon, needAuth, span, description }, index) => {
+          {ITEMS.map(({ label, href, Icon, needAuth, span, description, glyph }, index) => {
             const showHint = needAuth && !isAuthenticated
 
             if (span === 'lead') {
@@ -116,17 +120,22 @@ export default function QuickAccessGrid({
                 <ScrollRevealClient key={href} className={SPAN_CLASS.lead}>
                   <Link
                     href={href}
-                    className="group bento-tile-lead flex h-full flex-col justify-between gap-6 p-6 sm:p-7"
+                    className="group relative flex h-full flex-col justify-between gap-6 overflow-hidden bento-tile-lead paper-grid ruler-edge p-6 pt-9 sm:p-7 sm:pt-10"
                   >
-                    <span className="w-14 h-14 rounded-2xl bg-teal-600 dark:bg-teal-500 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-                      <Icon className="w-7 h-7 text-white" aria-hidden="true" />
+                    {glyph && (
+                      <span aria-hidden="true" className="glyph-mark -bottom-3 right-4 text-[6.5rem] sm:text-[8.5rem]">
+                        {glyph}
+                      </span>
+                    )}
+                    <span className="relative w-14 h-14 rounded-2xl bg-teal-600 dark:bg-teal-500 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                      <Icon className="w-7 h-7 text-white dark:text-teal-950" aria-hidden="true" />
                     </span>
-                    <span className="block">
+                    <span className="relative block">
                       <span className="block text-xl sm:text-2xl font-bold font-baloo text-slate-800 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors">
                         {label}
                       </span>
                       {description && (
-                        <span className="mt-2 block text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        <span className="mt-2 block max-w-sm text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                           {description}
                         </span>
                       )}
@@ -172,15 +181,20 @@ export default function QuickAccessGrid({
               <ScrollRevealClient key={href} className={SPAN_CLASS.tile} delay={index * 50}>
                 <Link
                   href={href}
-                  className="group bento-tile flex h-full flex-col gap-2 p-4 sm:p-5"
+                  className="group relative flex h-full min-h-[7.5rem] flex-col gap-2 overflow-hidden bento-tile p-4 sm:p-5"
                 >
-                  <span className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-teal-600 dark:group-hover:bg-teal-500">
+                  {glyph && (
+                    <span aria-hidden="true" className="glyph-mark -top-1 right-3 text-[4.5rem] sm:text-[5.25rem]">
+                      {glyph}
+                    </span>
+                  )}
+                  <span className="relative w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-teal-600 dark:group-hover:bg-teal-500">
                     <Icon
-                      className="w-[18px] h-[18px] text-teal-600 dark:text-teal-400 transition-colors duration-300 group-hover:text-white"
+                      className="w-[18px] h-[18px] text-teal-600 dark:text-teal-400 transition-colors duration-300 group-hover:text-white dark:group-hover:text-teal-950"
                       aria-hidden="true"
                     />
                   </span>
-                  <span className="mt-auto block text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors">
+                  <span className="relative mt-auto block text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors">
                     {label}
                   </span>
                   {showHint && <AuthHint />}

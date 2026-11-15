@@ -100,10 +100,14 @@ export default function EnrollmentFloatingButton() {
       {/* Floating button — góc phải dưới */}
       <button
         onClick={() => setOpen(true)}
-        className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 dark:from-teal-500 dark:to-teal-400 dark:hover:from-teal-400 dark:hover:to-teal-300 text-white font-semibold shadow-2xl shadow-teal-600/30 hover:shadow-teal-600/50 transition-all duration-300 hover:scale-105 active:scale-95 ${pulse ? 'animate-bounce' : ''}`}
+        /* Nền teal ĐẶC thay cho dải `from-teal-600 to-teal-500`: chữ trắng ở đầu
+           sáng của dải chỉ đạt 2,4:1, và trang chủ chỉ giữ một bề mặt gradient
+           (nút kêu gọi cuối trang). Cặp `bg-teal-600`/`dark:bg-teal-500` +
+           `text-white` đã nằm trong hai khối sửa tương phản của `globals.css`. */
+        className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 text-white font-baloo font-semibold shadow-2xl shadow-teal-900/30 transition-all duration-300 hover:scale-105 active:scale-95 ${pulse ? 'animate-bounce' : ''}`}
         aria-label="Đăng ký học"
       >
-        <UserPlus className="w-5 h-5" />
+        <UserPlus className="w-5 h-5" aria-hidden="true" />
         <span className="hidden sm:inline">Đăng ký học</span>
         <span className="sm:hidden">Đăng ký</span>
       </button>

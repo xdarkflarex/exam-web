@@ -26,7 +26,7 @@
 
 import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CalendarClock } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
 import {
   countdownParts,
@@ -119,13 +119,12 @@ export default function ExamCountdown({ config, surface = 'plain' }: ExamCountdo
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollRevealClient>
-          <div className="bento-tile-lead overflow-hidden flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-center lg:gap-10">
+          {/* Tấm này là một trang vở: giấy ô li + mép thước ở cạnh trên. Đệm
+              trên dày hơn ba cạnh còn lại để chữ không chạm vạch thước. */}
+          <div className="bento-tile-lead paper-grid ruler-edge overflow-hidden flex flex-col gap-6 p-6 pt-9 sm:p-8 sm:pt-11 lg:flex-row lg:items-center lg:gap-10">
             {/* Trái: kỳ thi nào, ngày nào, chắc chắn tới đâu. */}
             <div className="min-w-0 lg:w-[36%] lg:shrink-0">
-              <p className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
-                <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                Đếm ngược
-              </p>
+              <p className="kicker mb-2">Đếm ngược</p>
               <h2
                 id="exam-countdown-title"
                 className="font-baloo text-2xl font-bold leading-snug text-slate-800 dark:text-slate-100 sm:text-3xl"
@@ -154,7 +153,7 @@ export default function ExamCountdown({ config, surface = 'plain' }: ExamCountdo
                         className={`flex min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-3 sm:py-4 ${
                           lead
                             ? 'border-teal-500/40 bg-teal-50 dark:border-teal-400/30 dark:bg-teal-900/20'
-                            : 'border-slate-300 bg-white/60 dark:border-slate-600 dark:bg-slate-800/60'
+                            : 'border-slate-300 bg-[var(--background-raised)] dark:border-slate-600 dark:bg-slate-800/80'
                         }`}
                       >
                         <span

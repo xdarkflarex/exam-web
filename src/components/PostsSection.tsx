@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import ScrollRevealClient from '@/components/ScrollRevealClient'
 import PostModal from '@/components/PostModal'
+import SectionHeading from '@/components/landing/SectionHeading'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
 
 interface PostItem {
@@ -75,7 +76,19 @@ function PostCard({
           />
         </div>
       )}
-      <div className={`min-w-0 flex-1 ${featured ? 'p-6' : 'p-4'}`}>
+      {/* Bài nổi bật KHÔNG có ảnh bìa: thẻ cao bằng cả ba bài bên phải nên chỉ
+          có chữ thì nửa dưới trống trơn, trông như ảnh tải hỏng. Lấp bằng một
+          mảng giấy ô li với ký hiệu ∑ — thuần trang trí (`aria-hidden`), không
+          giả làm ảnh của bài, và nằm SAU phần chữ để thứ tự đọc không đổi. */}
+      {featured && !post.cover_image && (
+        <div
+          aria-hidden="true"
+          className="paper-grid relative order-last min-h-28 flex-1 overflow-hidden border-t border-dashed border-slate-300 dark:border-slate-600"
+        >
+          <span className="glyph-mark bottom-0 right-6 text-[9rem]">∑</span>
+        </div>
+      )}
+      <div className={`min-w-0 ${featured ? 'p-6' : 'flex-1 p-4'}`}>
         {post.category && (
           <span className="mb-2 inline-block rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
             {post.category}
@@ -119,13 +132,14 @@ export default function PostsSection({ posts, surface = 'plain' }: PostsSectionP
 
   return (
     <>
-      <section id="posts" className={`scroll-mt-32 py-16 ${surfaceClass(surface)}`}>
+      <section id="posts" className={`scroll-mt-20 py-16 sm:py-20 ${surfaceClass(surface)}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollRevealClient>
-            <div className="text-center mb-12">
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">Bài viết mới nhất</h2>
-              <p className="text-slate-600 dark:text-slate-400">Tin tức, hướng dẫn và kiến thức bổ ích</p>
-            </div>
+            <SectionHeading
+              kicker="Góc đọc thêm"
+              title="Bài viết mới nhất"
+              subtitle="Tin tức, hướng dẫn và kiến thức bổ ích"
+            />
           </ScrollRevealClient>
           {/*
             Bài đầu chiếm nửa trái, các bài còn lại xếp dọc bên phải.

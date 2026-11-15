@@ -84,7 +84,12 @@ export default function AuthHeaderClient() {
         </Link>
         <Link
           href="/signup"
-          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400 rounded-xl shadow-md shadow-teal-600/20 dark:shadow-teal-500/15 hover:shadow-lg hover:shadow-teal-600/30 dark:hover:shadow-teal-400/25 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
+          /* Nền teal ĐẶC, không còn dải `from-teal-600 to-teal-500`: chữ trắng ở
+             đầu sáng của dải chỉ đạt 2,4:1, và trang chủ chỉ được một bề mặt
+             gradient (nút kêu gọi cuối trang). Cặp `bg-teal-600` /
+             `dark:bg-teal-500` + `text-white` nằm sẵn trong hai khối sửa tương
+             phản ở đầu `globals.css`. */
+          className="btn-action flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 rounded-xl shadow-md shadow-teal-600/20 dark:shadow-teal-500/15"
         >
           <UserPlus className="w-4 h-4" aria-hidden="true" />
           <span className="sr-only sm:not-sr-only sm:inline">Đăng ký</span>
@@ -97,12 +102,15 @@ export default function AuthHeaderClient() {
     <div className="flex items-center gap-2">
       {/* Avatar + Name */}
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-200/60 dark:bg-slate-700/60">
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 dark:from-teal-400 dark:to-teal-600 flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-xs font-bold">
+        <div className="w-7 h-7 rounded-full bg-teal-600 dark:bg-teal-500 flex items-center justify-center flex-shrink-0">
+          <span className="text-white dark:text-teal-950 text-xs font-bold">
             {user.name.charAt(0).toUpperCase()}
           </span>
         </div>
-        <span className="hidden sm:inline text-sm font-medium text-slate-700 dark:text-slate-200 max-w-[120px] truncate">
+        {/* Tên chỉ hiện từ `xl`: header trang chủ giờ là MỘT tầng, và ở 1024px
+            cụm này phải nhường chỗ cho điều hướng + ô tìm kiếm. Chữ cái đầu
+            trong vòng tròn vẫn cho biết đang đăng nhập bằng tài khoản nào. */}
+        <span className="hidden xl:inline text-sm font-medium text-slate-700 dark:text-slate-200 max-w-[120px] truncate">
           {user.name}
         </span>
       </div>
@@ -110,10 +118,12 @@ export default function AuthHeaderClient() {
       {/* Dashboard button */}
       <Link
         href={dashboardHref}
-        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400 rounded-xl shadow-md shadow-teal-600/20 hover:shadow-lg hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
+        className="btn-action flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 rounded-xl shadow-md shadow-teal-600/20 dark:shadow-teal-500/15"
       >
-        <LayoutDashboard className="w-4 h-4" />
-        <span className="hidden sm:inline">Dashboard</span>
+        <LayoutDashboard className="w-4 h-4" aria-hidden="true" />
+        {/* `sr-only` chứ không `hidden`: dưới `sm` đây là link chỉ còn icon, và
+            `hidden` gỡ luôn tên của nó khỏi cây trợ năng. */}
+        <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
       </Link>
 
       {/* Sign out */}
@@ -122,8 +132,8 @@ export default function AuthHeaderClient() {
         className="flex items-center gap-1 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200"
         title="Đăng xuất"
       >
-        <LogOut className="w-4 h-4" />
-        <span className="hidden lg:inline">Đăng xuất</span>
+        <LogOut className="w-4 h-4" aria-hidden="true" />
+        <span className="sr-only xl:not-sr-only xl:inline">Đăng xuất</span>
       </button>
     </div>
   )

@@ -19,6 +19,7 @@ import PostsSection from '@/components/PostsSection'
 import EnrollmentFormSection from '@/components/EnrollmentFormSection'
 import EnrollmentFloatingButton from '@/components/EnrollmentFloatingButton'
 import HeroActions from '@/components/landing/HeroActions'
+import SectionHeading from '@/components/landing/SectionHeading'
 import HeroParallax from '@/components/landing/HeroParallax'
 import MathConstellation from '@/components/motion/MathConstellation'
 import { surfaceClass, type SectionSurface } from '@/components/landing/sectionSurface'
@@ -354,10 +355,10 @@ async function getKnowledgeTopics(count: number = 12) {
  * ở đó màu phải mang nghĩa và phải đi kèm icon/chữ.
  */
 const BENEFIT_TONES = [
-  { tile: 'bg-teal-100 dark:bg-teal-900/30', icon: 'text-teal-700 dark:text-teal-300', rule: 'bg-teal-500' },
-  { tile: 'bg-indigo-100 dark:bg-indigo-900/30', icon: 'text-indigo-700 dark:text-indigo-300', rule: 'bg-indigo-500' },
-  { tile: 'bg-amber-100 dark:bg-amber-900/30', icon: 'text-amber-700 dark:text-amber-300', rule: 'bg-amber-500' },
-  { tile: 'bg-emerald-100 dark:bg-emerald-900/30', icon: 'text-emerald-700 dark:text-emerald-300', rule: 'bg-emerald-500' },
+  { node: 'border-teal-500 text-teal-700 dark:text-teal-300', icon: 'text-teal-700 dark:text-teal-300' },
+  { node: 'border-indigo-500 text-indigo-700 dark:text-indigo-300', icon: 'text-indigo-700 dark:text-indigo-300' },
+  { node: 'border-amber-500 text-amber-700 dark:text-amber-300', icon: 'text-amber-700 dark:text-amber-300' },
+  { node: 'border-emerald-500 text-emerald-700 dark:text-emerald-300', icon: 'text-emerald-700 dark:text-emerald-300' },
 ] as const
 
 /**
@@ -521,8 +522,8 @@ export default async function LandingPage({
     nhau nhận cùng một nền — nên `willRender` phải lặp lại đúng điều kiện ẩn của
     từng section bên dưới.
 
-    Hero luôn `plain`: nó đã có `.hero-gradient` riêng, chồng thêm nền xen kẽ chỉ
-    làm bẩn.
+    Hero luôn `plain`: nó là một tấm bảng xanh có khung riêng, chồng thêm nền
+    xen kẽ quanh nó chỉ làm bẩn.
   */
   const willRender = (id: string): boolean => {
     switch (id) {
@@ -637,43 +638,80 @@ export default async function LandingPage({
                       isAuthenticated={isAuthenticated}
                       ctaPrimary={content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
                       ctaSecondary={content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
-                      variant="slide"
                     />
                   </div>
                 </ImageCarousel>
               </section>
             ) : (
-              <section key="hero" className="relative overflow-hidden hero-gradient py-20 sm:py-28">
-                {/* Trang trí: chòm mô hình toán nối với tình huống thực tế +
-                    quầng sáng mờ. `MathConstellation` tự aria-hidden và
-                    pointer-events-none; chuyển động bị tắt bởi
-                    prefers-reduced-motion. Chỉ ở biến thể `plain` — biến thể
-                    `slide` đã có ảnh nền, vẽ thêm dưới ảnh chỉ tốn pin. */}
-                <HeroParallax className="absolute inset-0 pointer-events-none overflow-hidden">
-                  <MathConstellation className="absolute inset-0" />
-                  <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-teal-400/15 dark:bg-teal-500/10 blur-3xl" />
-                  <div className="absolute -bottom-32 -left-24 w-96 h-96 rounded-full bg-amber-400/10 blur-3xl" />
-                </HeroParallax>
-                <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium mb-6 slide-in-up">
-                    <span className="flex w-2 h-2 rounded-full bg-teal-500 animate-pulse" aria-hidden="true" />
-                    <MinhMathLogo size={22} />
-                    {content.hero?.badge || DEFAULT_CONTENT.hero.badge}
+              /*
+                HERO KHÔNG ẢNH = MỘT TẤM BẢNG XANH TREO TRÊN TRANG.
+
+                Bản trước là nền gradient rất nhạt với chòm mô hình toán mờ tới
+                mức gần như không ai thấy. Giờ cả khối là bảng lớp học
+                (`.board`): chòm mô hình được vẽ bằng phấn nên nổi hẳn lên mà
+                không phải đổi một nét hình nào — `globals.css` chỉ đổi token
+                `--mc-*` khi `.mc-root` nằm trong `.board`.
+
+                Bảng nằm GỌN trong một khung bo góc, cách mép trang một khoảng
+                nhỏ, thay vì tràn hết bề ngang: nó phải đọc ra là một tấm bảng,
+                và đầu trang `/learn` đã dùng đúng hình này từ trước.
+
+                Chiều cao và đệm dọc (`py-20 sm:py-28`) giữ nguyên vì vị trí
+                sáu hình của `MathConstellation` được đo theo đúng khung đó.
+                Tiêu đề bị chặn ở 52rem: từ `xl` hai mép bảng là chỗ của các
+                hình (mỗi bên ~17%), tiêu đề do admin nhập dài hơn mặc định sẽ
+                xuống dòng thay vì đè lên hình.
+              */
+              <section key="hero" className="px-3 pt-3 pb-6 sm:px-4 sm:pt-4 sm:pb-8 lg:px-6">
+                <div className="board board-ledge relative mx-auto max-w-[88rem] overflow-hidden rounded-[1.75rem] py-20 sm:rounded-[2rem] sm:py-28">
+                  {/* Trang trí: chòm mô hình toán nối với tình huống thực tế.
+                      `MathConstellation` tự aria-hidden và pointer-events-none;
+                      chuyển động bị tắt bởi prefers-reduced-motion. Chỉ ở biến
+                      thể không ảnh — biến thể `slide` đã có ảnh nền, vẽ thêm
+                      dưới ảnh chỉ tốn pin. */}
+                  <HeroParallax className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <MathConstellation className="absolute inset-0" />
+                  </HeroParallax>
+                  <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <div className="chalk-dim inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 bg-white/10 text-sm font-medium mb-6 slide-in-up">
+                      <span className="flex w-2 h-2 rounded-full bg-teal-300 animate-pulse" aria-hidden="true" />
+                      <MinhMathLogo size={22} />
+                      {content.hero?.badge || DEFAULT_CONTENT.hero.badge}
+                    </div>
+                    <h1 className="mx-auto max-w-[52rem] text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] font-baloo slide-in-up" style={{animationDelay: '0.1s'}}>
+                      {content.hero?.title || DEFAULT_CONTENT.hero.title}
+                    </h1>
+                    {/* Nét phấn vàng gạch chân tiêu đề, vẽ ra một lần. Thuần
+                        trang trí; `preserveAspectRatio="none"` để nét giãn
+                        theo bề ngang mà không dày lên (non-scaling-stroke). */}
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 300 12"
+                      preserveAspectRatio="none"
+                      className="mx-auto mt-2 mb-6 h-3 w-44 sm:w-72"
+                    >
+                      <path
+                        className="chalk-stroke"
+                        pathLength={100}
+                        vectorEffect="non-scaling-stroke"
+                        d="M4 8C52 2 104 11 152 6s96-3 144 1"
+                      />
+                    </svg>
+                    <p className="chalk-dim text-lg sm:text-xl max-w-2xl mx-auto mb-10 slide-in-up" style={{animationDelay: '0.2s'}}>
+                      {content.hero?.subtitle || DEFAULT_CONTENT.hero.subtitle}
+                    </p>
+                    <div className="slide-in-up" style={{animationDelay: '0.3s'}}>
+                      <HeroActions
+                        isAuthenticated={isAuthenticated}
+                        ctaPrimary={content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
+                        ctaSecondary={content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
+                      />
+                    </div>
                   </div>
-                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-6 font-baloo slide-in-up" style={{animationDelay: '0.1s'}}>
-                    {content.hero?.title || DEFAULT_CONTENT.hero.title}
-                  </h1>
-                  <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-10 slide-in-up" style={{animationDelay: '0.2s'}}>
-                    {content.hero?.subtitle || DEFAULT_CONTENT.hero.subtitle}
-                  </p>
-                  <div className="slide-in-up" style={{animationDelay: '0.3s'}}>
-                    <HeroActions
-                      isAuthenticated={isAuthenticated}
-                      ctaPrimary={content.hero?.cta_primary || DEFAULT_CONTENT.hero.cta_primary}
-                      ctaSecondary={content.hero?.cta_secondary || DEFAULT_CONTENT.hero.cta_secondary}
-                      variant="plain"
-                    />
-                  </div>
+                  {/* Hai viên phấn trên khay — trắng và vàng, đúng hai màu phấn
+                      đang vẽ trên bảng. */}
+                  <span aria-hidden="true" className="absolute bottom-[9px] left-[11%] z-10 h-[5px] w-9 rounded-full bg-slate-100 shadow-sm shadow-black/40" />
+                  <span aria-hidden="true" className="absolute bottom-[9px] left-[calc(11%+2.75rem)] z-10 h-[5px] w-6 rounded-full bg-amber-200 shadow-sm shadow-black/40" />
                 </div>
               </section>
             )
@@ -713,18 +751,16 @@ export default async function LandingPage({
               <section
                 key="exams"
                 id="exams"
-                className={`scroll-mt-32 py-16 ${surfaceClass(sectionSurface('exams'))}`}
+                className={`scroll-mt-20 py-16 sm:py-20 ${surfaceClass(sectionSurface('exams'))}`}
               >
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ScrollRevealClient>
-                    <div className="text-center mb-12">
-                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
-                        {content.exams_section?.title || DEFAULT_CONTENT.exams_section.title}
-                      </h2>
-                      <p className="text-slate-600 dark:text-slate-400">
-                        {content.exams_section?.subtitle || DEFAULT_CONTENT.exams_section.subtitle}
-                      </p>
-                    </div>
+                    <SectionHeading
+                      kicker="Luyện đề"
+                      title={content.exams_section?.title || DEFAULT_CONTENT.exams_section.title}
+                      subtitle={content.exams_section?.subtitle || DEFAULT_CONTENT.exams_section.subtitle}
+                      className="mb-8"
+                    />
                   </ScrollRevealClient>
 
                   {/* Phân loại đề: hàng chip tự ẩn khi không có gì để chọn. */}
@@ -767,53 +803,54 @@ export default async function LandingPage({
                       <ScrollRevealClient className={examLeadSpan}>
                         <Link
                           href={isAuthenticated ? `/exam/prepare/${exams[0].id}` : '/login'}
-                          className={`group relative flex h-full flex-col justify-between overflow-hidden bento-tile-lead p-6 sm:p-8 ${
+                          className={`group flex h-full flex-col justify-between overflow-hidden bento-tile-lead paper-grid ruler-edge p-6 pt-9 sm:p-8 sm:pt-11 ${
                             examLeadIsWide ? 'lg:flex-row lg:items-center lg:gap-12' : ''
                           }`}
                         >
-                          {/* Hoạ tiết giấy kẻ ô: card đề phải gợi cảm giác TỜ ĐỀ THI
-                              chứ không phải card sản phẩm. Tương phản ~2% nên không
-                              cạnh tranh với chữ đặt trên nó. */}
-                          <span
-                            className="paper-grid absolute inset-0 pointer-events-none"
-                            aria-hidden="true"
-                          />
-                          <div className={`relative ${examLeadIsWide ? 'lg:flex-1' : ''}`}>
-                            <div className="mb-4 flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 dark:bg-teal-500 px-3 py-1 text-xs font-bold text-white">
-                                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                                Đề mới nhất
-                              </span>
+                          {/* Ô dẫn dắt là một TỜ ĐỀ THI, không phải card sản phẩm:
+                              giấy kẻ ô (`.paper-grid`, tương phản rất thấp nên
+                              không tranh với chữ), mép thước chạy dọc cạnh trên,
+                              và một dòng đầu đề như trên đề thi thật — loại đề
+                              bên trái, môn bên phải, gạch đôi bên dưới. */}
+                          <div className={examLeadIsWide ? 'lg:flex-1' : ''}>
+                            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b-[3px] border-double border-slate-300 pb-3 dark:border-slate-600">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 dark:bg-teal-500 px-3 py-1 text-xs font-bold text-white">
+                                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                                  Đề mới nhất
+                                </span>
+                                {/* Lớp và loại đề — hai câu hỏi đầu tiên của học
+                                    sinh khi nhìn một đề lạ. Nhãn lớp chỉ hiện khi
+                                    ĐỌC ĐƯỢC cột `grade`; không đọc được thì không
+                                    đoán. */}
+                                {examBadges(exams[0]).grade && (
+                                  <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                    {examBadges(exams[0]).grade}
+                                  </span>
+                                )}
+                                <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  {examBadges(exams[0]).mode}
+                                </span>
+                              </div>
                               {exams[0].subject && (
-                                <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                  {exams[0].subject}
+                                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                  Môn{' '}
+                                  <span className="text-slate-700 dark:text-slate-200">{exams[0].subject}</span>
                                 </span>
                               )}
-                              {/* Lớp và loại đề — hai câu hỏi đầu tiên của học
-                                  sinh khi nhìn một đề lạ. Nhãn lớp chỉ hiện khi
-                                  ĐỌC ĐƯỢC cột `grade`; không đọc được thì không
-                                  đoán. */}
-                              {examBadges(exams[0]).grade && (
-                                <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                  {examBadges(exams[0]).grade}
-                                </span>
-                              )}
-                              <span className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                {examBadges(exams[0]).mode}
-                              </span>
                             </div>
                             <h3 className="font-baloo text-2xl sm:text-3xl font-bold leading-snug text-slate-800 dark:text-slate-100 line-clamp-3 transition-colors group-hover:text-teal-700 dark:group-hover:text-teal-300">
                               {exams[0].title}
                             </h3>
                           </div>
-                          <div className={`relative mt-8 ${examLeadIsWide ? 'lg:mt-0 lg:shrink-0' : ''}`}>
+                          <div className={`mt-8 ${examLeadIsWide ? 'lg:mt-0 lg:shrink-0' : ''}`}>
                             {/* Chỉ hiện dữ liệu thật đang có trong bảng `exams`. */}
                             <div className="mb-6 flex flex-wrap gap-x-10 gap-y-4">
                               <div>
                                 <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                   Thời gian làm bài
                                 </div>
-                                <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                                <div className="mt-1 flex items-center gap-2 font-baloo text-xl font-bold text-slate-800 dark:text-slate-100">
                                   <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" aria-hidden="true" />
                                   {exams[0].duration > 0 ? `${exams[0].duration} phút` : 'Không bấm giờ'}
                                 </div>
@@ -823,7 +860,7 @@ export default async function LandingPage({
                                   <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Số câu
                                   </div>
-                                  <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                                  <div className="mt-1 flex items-center gap-2 font-baloo text-xl font-bold text-slate-800 dark:text-slate-100">
                                     <ListOrdered className="w-4 h-4 text-teal-600 dark:text-teal-400" aria-hidden="true" />
                                     {exams[0].question_count} câu
                                   </div>
@@ -985,69 +1022,103 @@ export default async function LandingPage({
               />
             )
 
-          case 'benefits':
+          case 'benefits': {
+            const benefitList: { icon: string; title: string; description: string }[] =
+              content.benefits || DEFAULT_CONTENT.benefits
             return (
               <section
                 key="benefits"
                 id="benefits"
-                className={`scroll-mt-32 py-20 ${surfaceClass(sectionSurface('benefits'))}`}
+                className={`scroll-mt-20 py-16 sm:py-20 ${surfaceClass(sectionSurface('benefits'))}`}
               >
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ScrollRevealClient>
-                    <div className="text-center mb-12">
-                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 font-baloo">
-                        {content.benefits_section?.title || DEFAULT_CONTENT.benefits_section.title}
-                      </h2>
-                      <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
-                        {content.benefits_section?.subtitle || DEFAULT_CONTENT.benefits_section.subtitle}
-                      </p>
-                    </div>
+                    <SectionHeading
+                      kicker="Lợi ích"
+                      title={content.benefits_section?.title || DEFAULT_CONTENT.benefits_section.title}
+                      subtitle={content.benefits_section?.subtitle || DEFAULT_CONTENT.benefits_section.subtitle}
+                    />
                   </ScrollRevealClient>
                   {/*
-                    Lợi ích KHÔNG dùng khung card.
+                    Lợi ích nằm trên MỘT TRỤC SỐ, không dùng khung card.
 
-                    Trước đây khối này dùng đúng công thức của card đề thi bên
-                    trên (`bg-slate-200` + viền + `rounded-2xl` + ô icon teal
-                    `w-12 h-12`), nên cuộn một mạch qua trang chủ là gặp 11 khối
-                    gần như y hệt nhau. Đổi sang danh sách có số thứ tự lớn và
-                    không viền để nó là một LOẠI ĐỐI TƯỢNG khác hẳn về hình,
-                    không chỉ khác nội dung.
+                    Khối này từng dùng đúng công thức của card đề thi bên trên,
+                    rồi đổi sang danh sách đánh số lớn không viền để nó là một
+                    LOẠI ĐỐI TƯỢNG khác hẳn về hình. Bản này giữ ý đó và cho con
+                    số một chỗ đứng có nghĩa: mỗi lợi ích là một điểm 1, 2, 3, 4
+                    trên trục, nối nhau bằng một đoạn thẳng, điểm cuối kết bằng
+                    mũi tên như mọi trục số trong vở.
 
-                    Màu icon xoay vòng qua bảng màu đã có trong DESIGN_SYSTEM.md
-                    thay vì teal cho cả bốn. Đây là trang trí trên trang giới
-                    thiệu, không mang nghĩa trạng thái — teal vẫn là màu duy nhất
-                    của hành động, mọi nút CTA giữ nguyên teal.
+                    Đoạn nối chỉ vẽ từ `lg`, nơi lưới có ĐÚNG 4 cột: `index % 4`
+                    cho biết điểm nào đứng cuối hàng. Số lợi ích do admin cấu
+                    hình nên có thể là 3, 5 hay 6 — hàng thứ hai tự có trục
+                    riêng, không có đoạn nào chạy ra ngoài lưới.
+
+                    Màu xoay vòng qua bảng màu đã có trong DESIGN_SYSTEM.md. Đây
+                    là trang trí trên trang giới thiệu, không mang nghĩa trạng
+                    thái — teal vẫn là màu duy nhất của hành động.
                   */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
-                    {(content.benefits || DEFAULT_CONTENT.benefits).map((benefit: any, index: number) => {
+                  <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
+                    {benefitList.map((benefit, index) => {
                       const tone = BENEFIT_TONES[index % BENEFIT_TONES.length]
+                      const isLast = index === benefitList.length - 1
+                      const endsRow = index % 4 === 3
                       return (
-                        <ScrollRevealClient key={index} delay={index * 100}>
-                          <div className="group relative h-full pt-2">
-                            <span
-                              aria-hidden="true"
-                              className="absolute -top-3 right-1 text-6xl font-bold leading-none text-slate-300/50 dark:text-slate-700/50 select-none font-baloo"
-                            >
-                              {String(index + 1).padStart(2, '0')}
-                            </span>
-                            <div className={`relative w-12 h-12 rounded-2xl ${tone.tile} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}>
-                              <BenefitIcon icon={benefit.icon} className={`w-6 h-6 ${tone.icon}`} />
+                        <li key={index}>
+                          <ScrollRevealClient delay={index * 100}>
+                            <div className="group relative flex h-full gap-4 sm:block">
+                              {/* Điện thoại (một cột): trục DỌC nối các điểm,
+                                  chữ nằm bên phải điểm — đỡ một nửa chiều cao so
+                                  với xếp chồng. `-bottom-10` bằng đúng khoảng
+                                  cách hàng `gap-y-10`. */}
+                              {!isLast && (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute -bottom-10 left-6 top-12 w-px bg-slate-300 dark:bg-slate-600 sm:hidden"
+                                />
+                              )}
+                              {!isLast && !endsRow && (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute left-14 -right-8 top-6 hidden h-px bg-slate-300 dark:bg-slate-600 lg:block"
+                                />
+                              )}
+                              {isLast && (
+                                <svg
+                                  aria-hidden="true"
+                                  viewBox="0 0 48 12"
+                                  className="absolute left-14 top-[18px] hidden h-3 w-12 fill-none stroke-slate-300 dark:stroke-slate-600 lg:block"
+                                  strokeWidth="1"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M0 6H46M40 1.5 46 6l-6 4.5" />
+                                </svg>
+                              )}
+                              <span
+                                className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 bg-[var(--background-card)] font-baloo text-xl font-bold tabular-nums transition-transform duration-300 group-hover:scale-110 ${tone.node}`}
+                              >
+                                {index + 1}
+                              </span>
+                              <div className="min-w-0 pt-2.5 sm:pt-0">
+                                <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-800 dark:text-slate-100 sm:mt-5">
+                                  <BenefitIcon icon={benefit.icon} className={`w-5 h-5 shrink-0 ${tone.icon}`} />
+                                  {benefit.title}
+                                </h3>
+                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                                  {benefit.description}
+                                </p>
+                              </div>
                             </div>
-                            <h3 className="relative text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
-                              {benefit.title}
-                            </h3>
-                            <p className="relative text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                              {benefit.description}
-                            </p>
-                            <span className={`relative mt-4 block h-0.5 w-10 rounded-full ${tone.rule} transition-all duration-300 group-hover:w-16`} />
-                          </div>
-                        </ScrollRevealClient>
+                          </ScrollRevealClient>
+                        </li>
                       )
                     })}
-                  </div>
+                  </ol>
                 </div>
               </section>
             )
+          }
 
           case 'videos':
             return videos.length > 0 ? (
@@ -1073,34 +1144,43 @@ export default async function LandingPage({
           case 'cta':
             return (
               /*
-                Khối CTA giữ NGUYÊN nút gradient: theo
-                `docs/DESIGN_OVERHAUL_2026-08-09.md` mục 2.3, mỗi trang chỉ được
-                MỘT bề mặt gradient và nó thuộc về hành động quan trọng nhất.
-                Gradient nền của `EnrollmentFormSection` đã bị gỡ chính vì lý do
-                này, không phải vì nó xấu.
+                Khối kêu gọi là tấm bảng xanh THỨ HAI của trang, khép lại với
+                tấm ở hero: mở đầu bằng bảng, kết thúc bằng bảng.
+
+                Nút ở đây vẫn là bề mặt gradient DUY NHẤT của trang
+                (`docs/DESIGN_OVERHAUL_2026-08-09.md` mục 2.3) — gradient nền
+                của `EnrollmentFormSection` và của hai nút ở header đã bị gỡ
+                chính vì lý do này. Dải teal-300 → teal-200 với chữ teal-950:
+                trên mặt bảng sẫm, nút SÁNG mới là nút nổi; và chữ tối trên
+                teal sáng đạt chuẩn ở CẢ HAI ĐẦU dải (>= 9:1), điều mà dải
+                teal-600 → teal-500 chữ trắng trước đây không đạt (2,4:1 ở đầu
+                sáng).
               */
               <section
                 key="cta"
-                className={`py-20 relative overflow-hidden ${surfaceClass(sectionSurface('cta'))}`}
+                className={`px-3 py-16 sm:px-4 sm:py-20 lg:px-6 ${surfaceClass(sectionSurface('cta'))}`}
               >
-                <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]" style={{backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px'}} />
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
-                  <ScrollRevealClient>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-sm font-medium mb-5">
-                      <Sparkles className="w-4 h-4" />
-                      {content.cta?.badge || DEFAULT_CONTENT.cta.badge}
-                    </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4 font-baloo">
-                      {content.cta?.title || DEFAULT_CONTENT.cta.title}
-                    </h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-8">
-                      {content.cta?.subtitle || DEFAULT_CONTENT.cta.subtitle}
-                    </p>
-                    <Link href="/signup" className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 dark:from-teal-500 dark:to-teal-400 dark:hover:from-teal-400 dark:hover:to-teal-300 text-white font-semibold text-lg shadow-lg shadow-teal-600/25 dark:shadow-teal-500/20 hover:shadow-xl hover:shadow-teal-600/30 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]">
-                      {content.cta?.button || DEFAULT_CONTENT.cta.button}
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
-                    </Link>
-                  </ScrollRevealClient>
+                <div className="board ruler-edge mx-auto max-w-5xl overflow-hidden rounded-[1.75rem] px-6 py-14 text-center sm:rounded-[2rem] sm:px-10 sm:py-16">
+                  <span aria-hidden="true" className="glyph-mark -left-3 top-8 text-[8rem] sm:left-8 sm:text-[10rem]">π</span>
+                  <span aria-hidden="true" className="glyph-mark -right-2 bottom-2 text-[8rem] sm:right-8 sm:text-[10rem]">∑</span>
+                  <div className="relative mx-auto max-w-2xl">
+                    <ScrollRevealClient>
+                      <div className="chalk-dim inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/10 text-sm font-medium mb-5">
+                        <Sparkles className="w-4 h-4" aria-hidden="true" />
+                        {content.cta?.badge || DEFAULT_CONTENT.cta.badge}
+                      </div>
+                      <h2 className="font-baloo text-3xl sm:text-4xl font-bold leading-tight mb-4">
+                        {content.cta?.title || DEFAULT_CONTENT.cta.title}
+                      </h2>
+                      <p className="chalk-dim mb-8">
+                        {content.cta?.subtitle || DEFAULT_CONTENT.cta.subtitle}
+                      </p>
+                      <Link href="/signup" className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-teal-300 to-teal-200 text-teal-950 font-baloo font-semibold text-lg shadow-lg shadow-black/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/60">
+                        {content.cta?.button || DEFAULT_CONTENT.cta.button}
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" aria-hidden="true" />
+                      </Link>
+                    </ScrollRevealClient>
+                  </div>
                 </div>
               </section>
             )

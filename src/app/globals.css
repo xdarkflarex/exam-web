@@ -766,14 +766,237 @@ html.dark .soft-shadow {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Nền gradient toả từ góc trên phải cho hero. Light mode giữ độ chói thấp
-   (không dùng #fff thuần), dark mode chuyển sang tông slate-900. */
-.hero-gradient {
-  background: radial-gradient(circle at top right, #e2f1ef 0%, var(--background) 62%);
+/* =============================================
+   LỚP HỌC TOÁN — VỞ Ô LI & BẢNG XANH (2026-11-15)
+   =============================================
+
+   Đợt phục dựng giao diện trang chủ và khu học sinh. KHÔNG thêm hệ màu hay
+   font mới: vẫn teal/slate, Inter + Baloo 2. Thứ thêm vào là CHẤT LIỆU — mọi
+   mô-típ dưới đây lấy từ chính lớp học Toán, nối tiếp hướng "giấy kẻ ô và mực"
+   đã chốt ở docs/STUDENT_SKILL_TREE_REDESIGN.md mục 7.2:
+
+     .paper-grid   giấy ô li hai cấp (xem khối GIẤY KẺ Ô phía dưới)
+     .ruler-edge   mép thước: vạch chia chạy dọc cạnh trên của một khối
+     .board        bảng xanh + phấn, cho MỘT vùng nhấn mạnh mỗi trang
+     .kicker       nhãn nhỏ trên tiêu đề, mở đầu bằng một khúc trục số
+     .glyph-mark   ký hiệu toán cỡ lớn, rất nhạt, nằm ở góc ô
+     .toc-dots     hàng chấm dẫn của trang mục lục sách giáo khoa
+
+   Vì sao bảng XANH chứ không phải bảng đen: lớp học ở Việt Nam dùng bảng xanh
+   chống loá, và xanh ấy trùng luôn tông teal của thương hiệu — nên bề mặt tối
+   này không cần một màu mới nào. `/learn` đã có sẵn một đầu trang tối kẻ ô từ
+   trước; giờ nó, hero trang chủ và khối kêu gọi cuối trang dùng chung một lớp.
+
+   Token mang tiền tố `--mm-`: tránh namespace theme của Tailwind v4, xem khối
+   TOKEN CHUYỂN ĐỘNG ở đầu file.
+   ============================================= */
+
+:root {
+  --mm-grid-minor: rgb(15 23 42 / 0.035);
+  --mm-grid-major: rgb(13 148 136 / 0.11);
+  --mm-tick: rgb(51 65 85 / 0.36);
+  --mm-board: #10403d;
+  --mm-board-edge: #0a2c2a;
+  --mm-board-line: rgb(236 253 245 / 0.055);
+  --mm-chalk: #f3f8f6;
+  --mm-chalk-dim: rgb(243 248 246 / 0.8);
+  --mm-chalk-teal: #7ee9d8;
+  --mm-chalk-yellow: #fde58a;
 }
 
-html.dark .hero-gradient {
-  background: radial-gradient(circle at top right, rgba(13, 148, 136, 0.12) 0%, var(--background) 62%);
+/* Dark mode: bảng lùi thêm một bậc để vẫn tách khỏi nền trang slate-900 mà
+   không thành mảng sáng nhất màn hình lúc học khuya. */
+html.dark {
+  --mm-grid-minor: rgb(226 232 240 / 0.04);
+  --mm-grid-major: rgb(45 212 191 / 0.1);
+  --mm-tick: rgb(203 213 225 / 0.34);
+  --mm-board: #0e3835;
+  --mm-board-edge: #072120;
+}
+
+/* ── Bảng xanh ──
+
+   Hai `radial-gradient` đầu là VỆT PHẤN và BÓNG GÓC — cùng một sắc với nền
+   bảng, chỉ khác độ sáng, để mặt bảng không phẳng lì như một ô màu. Đây không
+   phải "bề mặt gradient" theo nghĩa của NT3 (dải chuyển giữa hai màu dành cho
+   hành động chính); nút hành động của trang vẫn là chỗ duy nhất có dải màu.
+
+   Chữ phấn trắng trên nền này đạt 11,5:1; `--mm-chalk-dim` (trắng 80%) vẫn
+   trên 8:1 — dùng được cho cả chữ nhỏ. */
+.board {
+  position: relative;
+  isolation: isolate;
+  color: var(--mm-chalk);
+  background-color: var(--mm-board);
+  background-image:
+    radial-gradient(70% 55% at 14% 6%, rgb(255 255 255 / 0.07), transparent 70%),
+    radial-gradient(65% 55% at 90% 100%, rgb(0 0 0 / 0.22), transparent 70%),
+    linear-gradient(to right, var(--mm-board-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--mm-board-line) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.07),
+    0 28px 56px -28px rgb(15 23 42 / 0.5);
+}
+
+.chalk-dim {
+  color: var(--mm-chalk-dim);
+}
+
+.chalk-teal {
+  color: var(--mm-chalk-teal);
+}
+
+.chalk-yellow {
+  color: var(--mm-chalk-yellow);
+}
+
+/* Khay phấn: một gờ chạy dọc cạnh dưới bảng, SÁNG hơn mặt bảng một bậc vì nó
+   nhô ra và hứng sáng từ trên; bóng đổ vào trong ở mép dưới cho nó có bề dày.
+   Viên phấn là phần tử thật trong JSX (cần bo tròn), gờ thì chỉ cần một dải. */
+.board-ledge::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 12px;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--mm-board) 82%, white);
+  border-top: 1px solid rgb(255 255 255 / 0.22);
+  box-shadow: inset 0 -5px 6px -2px rgb(0 0 0 / 0.4);
+}
+
+/* Chòm kiến thức đặt trên bảng thì vẽ bằng phấn: trắng cho nét, xanh ngọc cho
+   phần nhấn, vàng cho điểm chuyển động. Chỉ đổi token `--mc-*`, không đụng
+   hình hay nhịp chuyển động. Phải lặp lại dưới `html.dark` vì quy tắc
+   `html.dark .mc-root` có độ ưu tiên cao hơn `.board .mc-root`. */
+.board .mc-root,
+html.dark .board .mc-root {
+  --mc-ink: rgb(243 248 246 / 0.5);
+  --mc-soft: rgb(243 248 246 / 0.22);
+  --mc-cell: rgb(126 233 216 / 0.1);
+  --mc-cell-edge: rgb(126 233 216 / 0.42);
+  --mc-accent: rgb(126 233 216 / 0.85);
+  --mc-warm: rgb(253 229 138 / 0.9);
+}
+
+/* Nét phấn gạch chân tiêu đề: vẽ ra một lần rồi đứng yên. `both` giữ khung
+   hình cuối, nên lưới giảm chuyển động (0,01ms) cho ra nét đã vẽ xong chứ
+   không phải một tiêu đề thiếu gạch chân. Cần `pathLength="100"` trên path. */
+@keyframes chalk-draw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+.chalk-stroke {
+  fill: none;
+  stroke: var(--mm-chalk-yellow);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: chalk-draw 0.9s var(--mm-ease-out) 0.4s both;
+}
+
+/* ── Mép thước ──
+
+   Vạch dài cách nhau 80px, vạch ngắn 16px — trùng bước với `.paper-grid`, nên
+   đặt cả hai lên cùng một phần tử thì vạch thước rơi đúng lên đường kẻ ô.
+
+   Dùng `::before`, tức KHÔNG đi cùng `.bento-rail` (dải màu bên trái cũng vẽ
+   bằng `::before`) trên cùng một phần tử: cái viết sau sẽ đè cái viết trước. */
+.ruler-edge {
+  position: relative;
+}
+
+.ruler-edge::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 9px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--mm-tick) 1px, transparent 1px),
+    linear-gradient(to right, var(--mm-tick) 1px, transparent 1px);
+  background-size: 80px 9px, 16px 5px;
+  background-repeat: repeat-x;
+}
+
+.board.ruler-edge::before {
+  --mm-tick: rgb(243 248 246 / 0.38);
+}
+
+/* ── Nhãn trên tiêu đề ──
+
+   Ô vuông nhỏ trước chữ là một khúc trục số có hai vạch chia, vẽ bằng ba dải
+   màu `currentColor` — nên tự đổi theo màu chữ ở cả hai chế độ và cả trên
+   bảng. `--accent` trên nền trang đạt 5,2:1 (light) và 9,6:1 (dark). */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.kicker::before {
+  content: '';
+  flex: none;
+  width: 22px;
+  height: 9px;
+  opacity: 0.75;
+  background:
+    linear-gradient(currentColor, currentColor) 0 50% / 100% 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) 5px 0 / 1.5px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) 15px 0 / 1.5px 100% no-repeat;
+}
+
+.board .kicker {
+  color: var(--mm-chalk-teal);
+}
+
+/* ── Ký hiệu toán làm hình nền ô ──
+
+   Chữ nghiêng có chân như trong sách giáo khoa, lấy font có chân của HỆ ĐIỀU
+   HÀNH — không tải thêm font thứ ba. Độ đậm 10% của `--accent`: nó là hoạ
+   tiết, không phải nội dung, nên luôn đi kèm `aria-hidden` ở JSX. */
+.glyph-mark {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  color: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.board .glyph-mark {
+  color: rgb(243 248 246 / 0.07);
+}
+
+/* Ô có ký hiệu nền là ô bấm được: ký hiệu đậm lên một chút khi rê chuột. */
+.group:hover > .glyph-mark {
+  color: color-mix(in srgb, var(--accent) 17%, transparent);
+}
+
+/* ── Chấm dẫn của mục lục ──
+
+   Hàng chấm nối tên mục với mũi tên ở mép phải. `margin-top` đẩy nó xuống
+   ngang chân chữ: trong một hàng `items-center`, phần tử cao 2px có lề trên
+   0,7em sẽ nằm thấp hơn tâm hàng 0,35em — đúng chỗ đường chân chữ. */
+.toc-dots {
+  flex: 1 1 1.5rem;
+  min-width: 1.5rem;
+  height: 0;
+  margin-top: 0.7em;
+  border-bottom: 2px dotted var(--border-strong);
 }
 
 /* =============================================
@@ -1158,17 +1381,28 @@ html.dark .bento-hover:hover {
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
+/* Bóng hai lớp: một nét sát mép để ô tách khỏi nền, một quầng rộng và thấp để
+   ô có độ nổi. Quầng dùng spread ÂM nên nó chỉ lộ ra ở cạnh dưới — ô nằm sát
+   nhau trong lưới không đổ bóng chồng lên nhau thành vệt xám. */
 .bento-tile {
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 12px 24px -18px rgb(15 23 42 / 0.18);
+}
+
+html.dark .bento-tile {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
 }
 
 .bento-tile-lead {
-  border-radius: 1.25rem;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.07);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 28px 48px -28px rgb(15 23 42 / 0.22);
 }
 
 html.dark .bento-tile-lead {
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.5);
 }
 
 /* Ô phụ cố ý KHÔNG có shadow và nền chìm bằng nền trang: nó phải lùi lại phía
@@ -1226,22 +1460,27 @@ html.dark .bento-tile-interactive:hover {
    môn học thay vì hiệu ứng chung chung. Dùng `repeating-linear-gradient` chứ
    không dùng ảnh: không thêm request, co giãn theo mọi DPI.
 
-   Chỉ dùng cho vùng hero. Độ tương phản cố ý rất thấp (~2% ở light, ~4% ở dark)
-   — hoạ tiết nền không được cạnh tranh với chữ đặt trên nó, và nền hero vẫn
-   phải giữ mức chói thấp mà `--background` đã đặt ra.
+   Chỉ dùng cho vùng hero và đầu trang. Độ tương phản cố ý rất thấp — hoạ tiết
+   nền không được cạnh tranh với chữ đặt trên nó, và nền vẫn phải giữ mức chói
+   thấp mà `--background` đã đặt ra.
+
+   HAI CẤP ĐƯỜNG KẺ (2026-11-15), như giấy ô li thật: ô nhỏ 16px bằng mực xám
+   rất nhạt, và cứ năm ô một đường đậm hơn pha sắc teal. Bản một cấp trước đó
+   (ô 28px đều nhau) đọc ra là "lưới" chung chung; thêm cấp thứ hai thì mắt
+   nhận ngay ra tờ giấy kẻ ô của vở Toán. Màu lấy từ `--mm-grid-*` nên không
+   cần viết lại quy tắc cho dark mode.
+
+   80 = 5 × 16, và cả bốn lớp cùng bắt đầu ở mép trái trên, nên đường đậm luôn
+   nằm chồng đúng lên một đường nhạt. `.ruler-edge` dùng cùng hai bước này.
    ============================================= */
 
 .paper-grid {
   background-image:
-    repeating-linear-gradient(to right, rgba(15, 23, 42, 0.045) 0 1px, transparent 1px 100%),
-    repeating-linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 0 1px, transparent 1px 100%);
-  background-size: 28px 28px;
-}
-
-html.dark .paper-grid {
-  background-image:
-    repeating-linear-gradient(to right, rgba(226, 232, 240, 0.05) 0 1px, transparent 1px 100%),
-    repeating-linear-gradient(to bottom, rgba(226, 232, 240, 0.05) 0 1px, transparent 1px 100%);
+    linear-gradient(to right, var(--mm-grid-major) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--mm-grid-major) 1px, transparent 1px),
+    linear-gradient(to right, var(--mm-grid-minor) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--mm-grid-minor) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
 }
 
 /* =============================================

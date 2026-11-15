@@ -65,8 +65,11 @@ export default function LandingFooter({
     : 'sm:grid-cols-3 lg:grid-cols-3'
 
   return (
-    <footer className="border-t border-slate-300/60 dark:border-slate-700/60 bg-slate-200/40 dark:bg-slate-800/40">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    /* Mép thước chạy dọc cạnh trên: footer là "lề dưới" của trang vở, và vạch
+       chia thay cho một đường viền trơn. Đệm trên dày hơn để chữ không chạm
+       vạch. */
+    <footer className="ruler-edge border-t border-slate-300/60 dark:border-slate-700/60 bg-slate-200/40 dark:bg-slate-800/40">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-10">
         <div className={`grid grid-cols-1 ${gridCols} gap-8 lg:gap-10`}>
           {/* Cột 1 — thương hiệu */}
           <div className="lg:col-span-1">
@@ -111,7 +114,7 @@ export default function LandingFooter({
 
           {/* Cột 2 — khám phá */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-4">
+            <h3 className="kicker mb-4">
               Khám phá
             </h3>
             <ul className="space-y-2.5">
@@ -130,7 +133,7 @@ export default function LandingFooter({
 
           {/* Cột 3 — tài khoản */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-4">
+            <h3 className="kicker mb-4">
               Tài khoản
             </h3>
             <ul className="space-y-2.5">
@@ -150,7 +153,7 @@ export default function LandingFooter({
           {/* Cột 4 — liên hệ; chỉ render khi admin đã nhập ít nhất một trường */}
           {hasContact && (
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-4">
+              <h3 className="kicker mb-4">
                 Liên hệ
               </h3>
               <ul className="space-y-3">
