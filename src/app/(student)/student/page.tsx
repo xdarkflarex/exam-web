@@ -644,10 +644,8 @@ export default function StudentPage() {
           <section aria-labelledby="continue-heading" className="mb-6 animate-dash-in-1">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                  Ưu tiên trước
-                </p>
-                <h2 id="continue-heading" className="text-lg font-bold text-slate-800 dark:text-white">
+                <p className="kicker text-amber-700 dark:text-amber-300">Ưu tiên trước</p>
+                <h2 id="continue-heading" className="mt-1 font-baloo text-xl font-bold text-slate-800 dark:text-white">
                   Tiếp tục việc đang làm
                 </h2>
               </div>
@@ -713,7 +711,7 @@ export default function StudentPage() {
                       )}
                       className={`btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
                         isSimulation
-                          ? 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500'
+                          ? 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400'
                           : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
                       }`}
                     >
@@ -746,10 +744,8 @@ export default function StudentPage() {
           <section aria-labelledby="todo-heading">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-teal-600 dark:text-teal-400">
-                  Việc cần làm
-                </p>
-                <h2 id="todo-heading" className="text-lg font-bold text-slate-800 dark:text-white">
+                <p className="kicker">Việc cần làm</p>
+                <h2 id="todo-heading" className="mt-1 font-baloo text-xl font-bold text-slate-800 dark:text-white">
                   Còn hạn và có thể bắt đầu
                 </h2>
               </div>
@@ -769,11 +765,18 @@ export default function StudentPage() {
               ))}
 
               {examsToStart.map((exam) => (
+                /*
+                  Thẻ việc-cần-làm xếp NGANG từ `sm`: nội dung bên trái, nút bên
+                  phải. Bản trước mỗi thẻ kết bằng một nút rộng hết khung, nên
+                  năm việc là năm thanh teal chồng nhau — thứ nặng nhất trang
+                  lại là thứ lặp lại nhiều nhất. Dưới `sm` vẫn xếp dọc với nút
+                  rộng hết khung để ngón tay dễ chạm.
+                */
                 <article
                   key={exam.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-teal-700"
+                  className="bento-tile p-4 sm:flex sm:items-center sm:gap-4"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
                       <BookOpen className="h-5 w-5" />
                     </div>
@@ -798,16 +801,16 @@ export default function StudentPage() {
                   <button
                     type="button"
                     onClick={() => router.push(`/exam/prepare/${exam.id}`)}
-                    className="btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
+                    className="btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:bg-teal-500 dark:hover:bg-teal-400 dark:focus:ring-offset-slate-800 sm:mt-0 sm:w-auto sm:shrink-0"
                   >
-                    <Play className="h-4 w-4" />
+                    <Play className="h-4 w-4" aria-hidden="true" />
                     Xem và bắt đầu
                   </button>
                 </article>
               ))}
 
               {!hasDueWork && (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-8 text-center dark:border-slate-700 dark:bg-slate-800/60">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-[var(--background-card)] p-8 text-center dark:border-slate-600">
                   <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-teal-500" />
                   <h3 className="font-semibold text-slate-800 dark:text-white">Không có việc mới đang chờ</h3>
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -840,13 +843,11 @@ export default function StudentPage() {
           <aside className="space-y-6">
             <section
               aria-labelledby="updates-heading"
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
+              className="bento-tile overflow-hidden"
             >
               <div className="border-b border-slate-200 p-4 dark:border-slate-700">
-                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-                  Cập nhật
-                </p>
-                <h2 id="updates-heading" className="mt-0.5 font-bold text-slate-800 dark:text-white">
+                <p className="kicker text-indigo-700 dark:text-indigo-300">Cập nhật</p>
+                <h2 id="updates-heading" className="mt-1 font-baloo text-lg font-bold text-slate-800 dark:text-white">
                   Phản hồi và trạng thái
                 </h2>
               </div>
@@ -959,14 +960,14 @@ function HomeworkCard({ task, mode }: {
 
   return (
     <article
-      className={`rounded-2xl border transition-colors ${
+      className={
         isContinue
-          ? 'bento-rail py-4 pl-6 pr-4 border-amber-200 bg-amber-50/80 hover:border-amber-300 dark:border-amber-800 dark:bg-amber-950/30 dark:hover:border-amber-700'
-          : 'p-4 border-slate-200 bg-slate-50 hover:border-teal-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-teal-700'
-      }`}
+          ? 'bento-rail rounded-2xl border py-4 pl-6 pr-4 border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/30'
+          : 'bento-tile p-4 sm:flex sm:items-center sm:gap-4'
+      }
       style={isContinue ? ({ '--rail': '#f59e0b' } as React.CSSProperties) : undefined}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
         {!isContinue && (
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
             <ClipboardList className="h-5 w-5" />
@@ -1018,11 +1019,11 @@ function HomeworkCard({ task, mode }: {
         href={`/homework/prepare/${task.assignmentId}`}
         className={`btn-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
           isContinue
-            ? 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'
-            : 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500'
+            ? 'bg-amber-700 hover:bg-amber-800 focus:ring-amber-500'
+            : 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400 sm:mt-0 sm:w-auto sm:shrink-0 sm:px-5'
         }`}
       >
-        <Play className="h-4 w-4" />
+        <Play className="h-4 w-4" aria-hidden="true" />
         {isContinue ? 'Làm tiếp' : 'Bắt đầu'}
       </Link>
     </article>

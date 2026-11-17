@@ -126,6 +126,12 @@ export default function StudentSidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /* Chữ cái đầu của TÊN GỌI. Họ tên tiếng Việt viết họ trước, tên sau cùng
+     ("Nguyễn Văn An" -> "A"), nên lấy từ CUỐI chứ không lấy ký tự đầu chuỗi —
+     lấy ký tự đầu thì nửa lớp cùng mang chữ "N" của họ Nguyễn. `null` khi chưa
+     tải xong tên: lúc đó hiện icon người, không hiện một chữ cái đoán bừa. */
+  const initial = userInfo?.name?.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || null
+
   const visibleItems = menuItems.filter(item =>
     item.feature === null || hasFeatureAccess(accessTier, item.feature, flags)
   )
@@ -153,7 +159,7 @@ export default function StudentSidebar() {
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-40 flex items-center justify-between px-4">
+      <div className="ruler-edge lg:hidden fixed top-0 left-0 right-0 h-14 bg-[var(--background-card)] border-b border-slate-200 dark:border-slate-700 z-40 flex items-center justify-between px-4">
         <button
           onClick={() => setIsOpen(true)}
           aria-label="Mở menu"
@@ -161,7 +167,10 @@ export default function StudentSidebar() {
         >
           <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300" />
         </button>
-        <span className="font-semibold text-slate-800 dark:text-white">Luyện Thi THPT</span>
+        <span className="flex items-center gap-2 font-baloo text-base font-bold text-slate-800 dark:text-white">
+          <MinhMathLogo size={26} />
+          Luyện Thi THPT
+        </span>
         {/*
           `aria-label` TĨNH, và cả hai icon luôn có trong DOM — CSS quyết định
           cái nào hiện. Bản cũ đọc giá trị `theme` của JS nên phải nuôi state
@@ -203,7 +212,10 @@ export default function StudentSidebar() {
         Đổi sang ngang còn trả lại toàn bộ 256px chiều ngang cho nội dung — đáng
         kể với bảng lịch sử và biểu đồ phân tích.
       */}
-      <header className="fixed inset-x-0 top-0 z-40 hidden h-16 border-b border-slate-200 bg-[var(--background-card)] lg:block dark:border-slate-700">
+      {/* `.ruler-edge`: vạch chia của một cây thước chạy dọc mép trên màn hình —
+          cùng mô-típ với đầu các trang bên dưới và footer trang chủ. Vạch chỉ
+          cao 9px, các mục điều hướng bắt đầu từ ~14px nên không chạm nhau. */}
+      <header className="ruler-edge fixed inset-x-0 top-0 z-40 hidden h-16 border-b border-slate-200 bg-[var(--background-card)] lg:block dark:border-slate-700">
         <div className="mx-auto flex h-full max-w-7xl items-center gap-6 px-6">
           <Link href="/student" className="flex shrink-0 items-center gap-2.5">
             <MinhMathLogo size={32} />
@@ -257,8 +269,12 @@ export default function StudentSidebar() {
             </button>
 
             <span className="mx-1 flex items-center gap-2 rounded-xl bg-slate-100 py-1.5 pl-1.5 pr-3 dark:bg-slate-700/60">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40">
-                <User className="h-4 w-4 text-teal-700 dark:text-teal-300" aria-hidden="true" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 font-baloo text-sm font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
+                {initial ? (
+                  <span aria-hidden="true">{initial}</span>
+                ) : (
+                  <User className="h-4 w-4 text-teal-700 dark:text-teal-300" aria-hidden="true" />
+                )}
               </span>
               {/* Tên là thứ rộng nhất và ít cấp thiết nhất trong cụm này. Dưới
                   `xl` thì giấu chữ, giữ lại avatar — nhường chỗ cho điều hướng,
@@ -297,7 +313,7 @@ export default function StudentSidebar() {
 
       {/* Ngăn kéo — giờ CHỈ dùng cho mobile. Desktop đã có thanh ngang ở trên. */}
       <aside className={`
-        fixed top-0 left-0 h-full w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-50
+        fixed top-0 left-0 h-full w-64 bg-[var(--background-card)] border-r border-slate-200 dark:border-slate-700 z-50
         transform transition-transform duration-300 ease-in-out lg:hidden
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
@@ -306,7 +322,7 @@ export default function StudentSidebar() {
           <div className="flex items-center gap-3">
             <MinhMathLogo size={36} />
             <div>
-              <h1 className="font-bold text-slate-800 dark:text-white text-sm">Luyện Thi THPT</h1>
+              <h1 className="font-baloo font-bold text-slate-800 dark:text-white text-base leading-tight">Luyện Thi THPT</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">Toán học</p>
             </div>
           </div>
@@ -322,8 +338,12 @@ export default function StudentSidebar() {
         {/* User Info */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            <div className="w-10 h-10 shrink-0 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center font-baloo text-lg font-bold text-teal-800 dark:text-teal-200">
+              {initial ? (
+                <span aria-hidden="true">{initial}</span>
+              ) : (
+                <User className="w-5 h-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-slate-800 dark:text-white text-sm truncate">
@@ -417,7 +437,7 @@ export default function StudentSidebar() {
           Chiều cao tổng thay đổi theo máy, nên padding dưới của layout cũng
           phải cộng cùng biến này (xem `src/app/(student)/layout.tsx`).
         */
-        className="fixed bottom-0 left-0 right-0 z-40 flex min-h-16 items-stretch border-t border-slate-200 bg-white px-1 pb-[env(safe-area-inset-bottom,0px)] dark:border-slate-700 dark:bg-slate-800 lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 flex min-h-16 items-stretch border-t border-slate-200 bg-[var(--background-card)] px-1 pb-[env(safe-area-inset-bottom,0px)] dark:border-slate-700 lg:hidden"
       >
         {bottomItems.map((item) => {
           const Icon = item.icon
@@ -428,15 +448,25 @@ export default function StudentSidebar() {
               href={item.href}
               aria-current={active ? 'page' : undefined}
               className={`
-                flex flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors
+                flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 transition-colors
                 ${active
-                  ? 'text-teal-600 dark:text-teal-400'
+                  ? 'text-teal-700 dark:text-teal-300'
                   : 'text-slate-500 dark:text-slate-400'
                 }
               `}
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              <span className="w-full truncate text-center text-[10px] font-medium">{item.label}</span>
+              {/* Mục đang mở: icon nằm trong một "viên thuốc" teal nhạt. Màu chữ
+                  một mình không đủ — trạng thái phải đọc được bằng HÌNH, không
+                  chỉ bằng màu (DESIGN_SYSTEM.md). Viên thuốc luôn có mặt và chỉ
+                  đổi nền, nên chiều cao thanh không nhảy khi đổi mục. */}
+              <span
+                className={`flex h-7 w-14 items-center justify-center rounded-full transition-colors ${
+                  active ? 'bg-teal-100 dark:bg-teal-900/50' : ''
+                }`}
+              >
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              </span>
+              <span className={`w-full truncate text-center text-[10px] ${active ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
             </Link>
           )
         })}
@@ -446,9 +476,11 @@ export default function StudentSidebar() {
           type="button"
           onClick={() => setIsOpen(true)}
           aria-label="Mở toàn bộ menu"
-          className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-slate-500 transition-colors dark:text-slate-400"
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-slate-500 transition-colors dark:text-slate-400"
         >
-          <Menu className="h-5 w-5 shrink-0" />
+          <span className="flex h-7 w-14 items-center justify-center">
+            <Menu className="h-5 w-5 shrink-0" aria-hidden="true" />
+          </span>
           <span className="w-full truncate text-center text-[10px] font-medium">Thêm</span>
         </button>
       </nav>

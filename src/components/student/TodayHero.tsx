@@ -16,6 +16,11 @@
  *
  * Đây là bề mặt gradient DUY NHẤT của trang (mục 7.2: mỗi trang tối đa một, dành
  * cho hành động quan trọng nhất). Đừng thêm gradient thứ hai vào `/student`.
+ *
+ * PHỤC DỰNG 2026-11-15: khối này là TRANG ĐẦU của cuốn vở — giấy ô li hai cấp
+ * (`.paper-grid`), mép thước ở cạnh trên (`.ruler-edge`), ngày viết như dòng
+ * "Thứ…, ngày…" đầu trang (`.kicker`), tên bằng Baloo 2. Không thêm số liệu hay
+ * yếu tố thành tựu nào; ba ràng buộc ở trên giữ nguyên.
  */
 
 'use client'
@@ -38,12 +43,28 @@ interface Props {
   chips: { label: string; value: number; className: string }[]
 }
 
-/** Tông của CTA. Khớp với `recommendedAction.tone` đã có ở student-capability. */
-const CTA_GRADIENT: Record<StudentCapabilitySummary['recommendedAction']['tone'], string> = {
-  rose: 'from-rose-600 to-rose-500 dark:from-rose-500 dark:to-rose-400',
-  amber: 'from-amber-600 to-amber-500 dark:from-amber-500 dark:to-amber-400',
-  teal: 'from-teal-600 to-teal-500 dark:from-teal-500 dark:to-teal-400',
-  slate: 'from-slate-600 to-slate-500 dark:from-slate-500 dark:to-slate-400',
+/**
+ * Tông của CTA. Khớp với `recommendedAction.tone` đã có ở student-capability.
+ *
+ * Mỗi tông mang CẢ MÀU CHỮ, vì chữ phải đạt 4,5:1 trên cả hai đầu dải màu —
+ * dòng mô tả `text-xs` trải gần hết bề ngang nút. Bản trước để chữ trắng trên
+ * đầu sáng -500/-400: amber chỉ 1,7:1, teal 1,9:1, rose 2,9:1.
+ *
+ * Bốn cặp dưới đây lấy đúng số đo của nhánh `claude/design-system-extraction`
+ * (chưa gộp) để hai nhánh không ra hai bộ màu cho cùng một nút: rose và teal
+ * dùng dải -800 → -700 chữ trắng, slate -700 → -600 chữ trắng, còn amber theo
+ * quy ước sẵn có của dự án (xem `.bg-amber-500.text-white` trong globals.css)
+ * là amber sáng đi với chữ amber-950, không bao giờ chữ trắng. Cùng một cặp cho
+ * light và dark: các nền này đứng được trên cả hai.
+ */
+const CTA_STYLE: Record<
+  StudentCapabilitySummary['recommendedAction']['tone'],
+  { surface: string; detail: string }
+> = {
+  rose: { surface: 'from-rose-800 to-rose-700 text-white', detail: 'text-white/90' },
+  amber: { surface: 'from-amber-500 to-amber-400 text-amber-950', detail: 'text-amber-950/80' },
+  teal: { surface: 'from-teal-800 to-teal-700 text-white', detail: 'text-white/90' },
+  slate: { surface: 'from-slate-700 to-slate-600 text-white', detail: 'text-white/90' },
 }
 
 /**
@@ -83,16 +104,16 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
   const action = summary?.recommendedAction
 
   return (
-    <header className="animate-dash-in mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-[var(--background-card)] dark:border-slate-700">
-      <div className="paper-grid relative">
+    <header className="animate-dash-in bento-tile-lead paper-grid ruler-edge mb-6 overflow-hidden">
+      <div className="relative">
         {/* Lớp nền: hai mô hình toán trôi rất chậm, lùi sau số liệu. Nằm TRƯỚC
             nội dung trong DOM và nội dung có `relative`, nên luôn bị đè lên. */}
         <MathConstellation variant="dashboard" className="absolute inset-0" />
-        <div className="relative flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="relative flex flex-col gap-6 p-5 pt-8 sm:p-6 sm:pt-9 lg:flex-row lg:items-start lg:justify-between">
           {/* Trái: hôm nay là ngày nào, bạn là ai, và việc gấp nhất là gì */}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-teal-700 dark:text-teal-400">{dateLabel}</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
+            <p className="kicker">{dateLabel}</p>
+            <h1 className="mt-2 font-baloo text-3xl font-bold leading-tight text-slate-800 dark:text-white sm:text-4xl">
               Hôm nay, {userName}
             </h1>
 
@@ -103,7 +124,7 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
                     key={chip.label}
                     className={`inline-flex items-baseline gap-2 rounded-xl border px-3 py-2 ${chip.className}`}
                   >
-                    <dd className="text-lg font-bold leading-none tabular-nums">{chip.value}</dd>
+                    <dd className="font-baloo text-xl font-bold leading-none tabular-nums">{chip.value}</dd>
                     <dt className="text-xs font-medium">{chip.label}</dt>
                   </div>
                 ))}
@@ -113,11 +134,11 @@ export default function TodayHero({ userName, now, summary, chips }: Props) {
             {action ? (
               <Link
                 href={action.href}
-                className={`group mt-5 inline-flex max-w-full items-center gap-3 rounded-xl bg-gradient-to-r ${CTA_GRADIENT[action.tone]} px-5 py-3 text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900`}
+                className={`group mt-5 inline-flex max-w-full items-center gap-3 rounded-2xl bg-gradient-to-r ${CTA_STYLE[action.tone].surface} px-5 py-3 shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 dark:focus:ring-offset-slate-900`}
               >
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{action.label}</span>
-                  <span className="block truncate text-xs text-white/85">{action.detail}</span>
+                  <span className="block font-baloo text-base font-bold leading-tight">{action.label}</span>
+                  <span className={`block truncate text-xs ${CTA_STYLE[action.tone].detail}`}>{action.detail}</span>
                 </span>
                 <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
               </Link>

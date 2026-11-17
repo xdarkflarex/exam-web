@@ -905,9 +905,18 @@ html.dark .board .mc-root {
    đặt cả hai lên cùng một phần tử thì vạch thước rơi đúng lên đường kẻ ô.
 
    Dùng `::before`, tức KHÔNG đi cùng `.bento-rail` (dải màu bên trái cũng vẽ
-   bằng `::before`) trên cùng một phần tử: cái viết sau sẽ đè cái viết trước. */
-.ruler-edge {
-  position: relative;
+   bằng `::before`) trên cùng một phần tử: cái viết sau sẽ đè cái viết trước.
+
+   `position: relative` nằm trong `@layer components`, KHÔNG viết trần như phần
+   còn lại của file. Quy tắc ngoài `@layer` thắng mọi utility của Tailwind v4
+   bất kể độ ưu tiên, nên viết trần thì `.ruler-edge` sẽ đè `fixed` của thanh
+   điều hướng học sinh — thanh dính biến thành một khối trôi theo trang. Đặt
+   trong layer thì nó chỉ là giá trị mặc định: phần tử nào đã có `fixed`,
+   `sticky` hay `absolute` thì giữ nguyên cái của nó. */
+@layer components {
+  .ruler-edge {
+    position: relative;
+  }
 }
 
 .ruler-edge::before {
@@ -932,17 +941,24 @@ html.dark .board .mc-root {
 
    Ô vuông nhỏ trước chữ là một khúc trục số có hai vạch chia, vẽ bằng ba dải
    màu `currentColor` — nên tự đổi theo màu chữ ở cả hai chế độ và cả trên
-   bảng. `--accent` trên nền trang đạt 5,2:1 (light) và 9,6:1 (dark). */
-.kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
+   bảng. `--accent` trên nền trang đạt 5,2:1 (light) và 9,6:1 (dark).
+
+   Nằm trong `@layer components` (cùng lý do với `.ruler-edge`): màu teal ở đây
+   là MẶC ĐỊNH, và trang "Hôm nay" cần đổi nó theo nghĩa của từng khối — amber
+   cho việc đang dở, indigo cho phản hồi — bằng utility `text-*` thông thường.
+   Viết trần thì không utility nào đè được. */
+@layer components {
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
 }
 
 .kicker::before {

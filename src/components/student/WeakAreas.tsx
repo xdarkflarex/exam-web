@@ -39,7 +39,7 @@ export default function WeakAreas({ stats, limit = 3 }: Props) {
     <section aria-labelledby="weak-areas-heading" className="animate-dash-in-1 mb-6">
       <div className="mb-3 flex items-center gap-2">
         <LifeBuoy className="h-4 w-4 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-        <h2 id="weak-areas-heading" className="text-lg font-bold text-slate-800 dark:text-white">
+        <h2 id="weak-areas-heading" className="font-baloo text-xl font-bold text-slate-800 dark:text-white">
           Mảng cần củng cố
         </h2>
       </div>
