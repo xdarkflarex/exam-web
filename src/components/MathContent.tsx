@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm'
 import dynamic from 'next/dynamic'
 import { normalizeLatexTablesForMarkdown } from '@/lib/theories/latex-normalize'
 import { hasHtmlMarkup, hasMarkdownSyntax } from '@/lib/markdown/content-kind'
+import { protectMathForMarkdown } from '@/lib/markdown/protect-math'
 
 // Lazy load TikzRenderer (heavy dependency)
 const TikzRenderer = dynamic(() => import('./TikzRenderer'), {
@@ -135,7 +136,7 @@ export default function MathContent({ content, className = '', format = 'auto' }
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {normalizedContent}
+            {protectMathForMarkdown(normalizedContent)}
           </ReactMarkdown>
         </div>
       ) : hasHtml ? (
