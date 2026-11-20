@@ -104,7 +104,9 @@ CHẤT LIỆU lấy từ chính lớp học, nối tiếp hướng "giấy kẻ 
 
 | Class / component | Là gì | Dùng ở |
 |---|---|---|
-| `.paper-grid` | Giấy ô li hai cấp: ô 16px, cứ năm ô một đường đậm pha teal | Đầu trang, ô dẫn dắt, form |
+| `.paper-grid` | Giấy ô li hai cấp: ô 16px, cứ năm ô một đường đậm pha teal | Đầu trang, ô dẫn dắt, form; khối lời giải ở trang kết quả (cùng `.notebook-margin`) |
+| `.notebook-margin` | Đường kẻ lề đỏ của vở ô li, chạy dọc bên trái | Khối "Giải thích / Lời giải" ở `/result` |
+| `.pen-stroke` | Nét bút khoanh, vẽ ra một lần rồi đứng yên; màu theo `currentColor` | Vòng khoanh điểm trong `result/ScoreBox` |
 | `.ruler-edge` | Vạch thước (80px / 16px) dọc cạnh trên | Thanh điều hướng, đầu trang, footer |
 | `.board` (+ `.board-ledge`) | Bảng xanh + phấn, có khay phấn | Hero trang chủ, khối kêu gọi cuối trang, đầu `/learn` |
 | `.chalk-dim`, `.chalk-teal`, `.chalk-yellow`, `.chalk-stroke` | Chữ và nét phấn trên bảng | Chỉ bên trong `.board` |
@@ -113,6 +115,7 @@ CHẤT LIỆU lấy từ chính lớp học, nối tiếp hướng "giấy kẻ 
 | `.toc-dots` | Hàng chấm dẫn của trang mục lục | Chuyên mục kiến thức |
 | `landing/SectionHeading` | Nhãn + tiêu đề + trục số + mô tả | Mọi section trang chủ |
 | `student/PageHero` | Đầu trang dùng chung: icon/ảnh, nhãn, tiêu đề, cột phải | Bài tập, Ôn tập, Thi thử, Lịch sử, Phân tích, Công cụ, Cài đặt |
+| `result/ScoreBox` | Ô "Điểm" như trên bài kiểm tra giấy: bằng số (khoanh bút) + bằng chữ | Phiếu kết quả `/result` |
 
 Quy tắc, mỗi cái đến từ một lỗi thật trong đợt này:
 
@@ -138,6 +141,19 @@ Quy tắc, mỗi cái đến từ một lỗi thật trong đợt này:
   `SectionHeading`, và cả số thứ tự trong mục lục (`<ol>` đã nói thứ tự; để số
   lọt vào tên link thì trình đọc màn hình đọc "không một Hàm số…"). Không đặt
   `.glyph-mark` sau vòng tiến độ — nó lộ qua lòng vòng.
+- **Trang kết quả và trang chuẩn bị thi (2026-11-20).** Phòng chờ thi là một
+  `.board`; phiếu kết quả là giấy kẻ ô có ô "Điểm". Thứ tự ba nhánh của ô điểm
+  (chờ chấm tự luận → chưa công bố → đã công bố) là chính sách, nằm trong
+  `ScoreBox`. Chip trạng thái của thẻ từng câu lấy từ `cellState` — cùng nguồn
+  với bản đồ câu — nên chưa công bố đáp án thì không thẻ nào có màu đúng/sai,
+  và thẻ chưa công bố không có dải `.bento-rail`. Vòng khoanh điểm đi theo tông
+  của điểm, không dùng mực đỏ: trong app này đỏ là "sai".
+- **`.notebook-margin` viết trần, ngoài `@layer`** — ngược với `.ruler-edge`:
+  `padding-left` của nó là chỗ cho đường lề, nên phải thắng `p-*` đặt cùng phần
+  tử. Đệm ba cạnh còn lại để utility quyết (`py-3 pr-4`).
+- **Ô bản đồ câu là chữ 14px, cần 4,5:1**: light dùng nền -700 + chữ trắng,
+  dark dùng nền sáng (emerald-500, rose-400) + chữ -950. Chữ trắng trên
+  emerald-500/600 không đạt.
 - **Sửa `globals.css` lúc dev server đang tắt thì khởi động lại có thể nhận CSS
   cũ** (gặp hai lần trong đợt này: class mới không có trong CSS trả về, dù biên
   dịch trực tiếp thì có). Xoá `.next` rồi chạy lại `next dev`.

@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import type { AttemptQuestionView } from '@/lib/attempts/attemptView'
 import {
   CELL_STATE_TEXT as STATE_TEXT,
@@ -38,15 +39,19 @@ const PART_ORDER = ['multiple_choice', 'true_false', 'short_answer', 'essay'] as
 
 /**
  * Lớp CSS của ô. Mỗi trạng thái khác cả nền lẫn viền lẫn hình, không chỉ màu.
- * Thang 600/700 cho nền đặc để chữ trắng đạt tương phản ở light mode — cùng lý
- * do đã ghi ở khối "SỬA TƯƠNG PHẢN" trong `globals.css`.
+ *
+ * Số trong ô là chữ 14px — không phải "chữ lớn" — nên cần 4,5:1. Light mode:
+ * nền -700 + chữ trắng (emerald-700 5,5:1; rose-700 6,2:1; bản -600 cũ của
+ * emerald chỉ 3,8:1). Dark mode: nền sáng hơn + chữ -950 (emerald-500 6,0:1;
+ * rose-400 5,8:1) — chữ trắng trên emerald-500 chỉ 2,5:1.
  */
 const STATE_CLASS: Record<CellState, string> = {
-  correct: 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500',
+  correct:
+    'bg-emerald-700 text-white border-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:border-emerald-500',
   wrong:
-    'bg-rose-600 text-white border-rose-600 border-b-[3px] border-b-rose-900 dark:bg-rose-500 dark:border-rose-500 dark:border-b-rose-800',
+    'bg-rose-700 text-white border-rose-700 border-b-[3px] border-b-rose-950 dark:bg-rose-400 dark:text-rose-950 dark:border-rose-400 dark:border-b-rose-700',
   unanswered:
-    'border-dashed border-slate-400 text-slate-500 dark:border-slate-500 dark:text-slate-400',
+    'border-dashed border-slate-400 text-slate-600 dark:border-slate-500 dark:text-slate-400',
   pending: 'border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-300',
   hidden: 'border-slate-400 text-slate-600 dark:border-slate-500 dark:text-slate-300',
 }
@@ -60,6 +65,7 @@ interface Props {
 }
 
 export default function ResultQuestionMap({ questions, revealed, onJump }: Props) {
+  const headingId = useId()
   if (questions.length === 0) return null
 
   // Số thứ tự phải tính TRƯỚC khi nhóm: nhãn "Câu 13" của học sinh là vị trí
@@ -83,7 +89,13 @@ export default function ResultQuestionMap({ questions, revealed, onJump }: Props
   if (hasPending) legend.push('pending')
 
   return (
-    <section aria-label="Bản đồ câu hỏi" className="space-y-4">
+    <section aria-labelledby={headingId} className="space-y-4">
+      <div>
+        <h2 id={headingId} className="kicker">
+          Bản đồ câu hỏi
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Bấm vào ô số để tới câu đó.</p>
+      </div>
       {groups.map((group) => (
         <div key={group.type}>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

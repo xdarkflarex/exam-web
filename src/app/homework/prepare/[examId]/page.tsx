@@ -63,15 +63,22 @@ export default function HomeworkPreparePage() {
     }
   }
 
+  /*
+    Màn chờ giữa danh sách bài tập và phòng làm bài: trang này chỉ tìm lượt làm
+    rồi chuyển đi. Nền KHÔNG đặt bằng utility — `globals.css` đã đặt
+    `--background` cho `html, body` (DESIGN_TODO.md mục 0, bất biến 2); bản
+    trước phủ `bg-slate-100` lên trên. Thẻ lỗi dùng cùng bề mặt "trang vở" với
+    các trang học sinh khác thay cho `bg-white` + bóng đậm.
+  */
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Lỗi</h1>
-          <p className="text-slate-500 dark:text-slate-400 mb-4">{error}</p>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bento-tile-lead paper-grid ruler-edge w-full max-w-md px-8 pb-8 pt-10 text-center">
+          <h1 className="font-baloo text-2xl font-bold text-slate-800 dark:text-white mb-2">Lỗi</h1>
+          <p className="text-slate-600 dark:text-slate-300 mb-5">{error}</p>
           <button
             onClick={() => router.push('/student/homework')}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            className="btn-action px-5 py-2.5 rounded-xl bg-teal-600 font-semibold text-white hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400"
           >
             Quay lại
           </button>
@@ -81,9 +88,9 @@ export default function HomeworkPreparePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="flex flex-col items-center gap-3" role="status" aria-live="polite">
+        <Loader2 className="w-8 h-8 animate-spin text-teal-600 dark:text-teal-400" aria-hidden="true" />
         <p className="text-slate-500 dark:text-slate-400">Đang mở bài tập...</p>
       </div>
     </div>

@@ -73,6 +73,7 @@ docs/                  tài liệu chuẩn
 | Kết quả ôn tập theo đề | `/admin/practice-results`; tính ở `src/lib/analytics/practice-results.ts` (có test), đọc ở `practice-results-data.ts` (phân trang qua giới hạn 1000 dòng) |
 | Pilot tự luận | `docs/ESSAY_GRADING.md`, `src/app/admin/questions/essay/new/page.tsx`, `src/components/admin/EssayGradingPanel.tsx`, `src/lib/essay-grading/prompt.ts` |
 | Practice | `src/app/practice/**`, `src/components/PracticeRunner.tsx`; danh sách `/student/practice` ở `src/components/student/AssessmentListPage.tsx` (nút "Xem lại" → `/result/<lượt nộp gần nhất>`); trang xem lại `src/app/result/[attemptId]/page.tsx`, dựng từ `src/lib/attempts/attemptView.ts` (có test) |
+| Trang kết quả (phiếu điểm) | `src/app/result/[attemptId]/page.tsx`; ô điểm ba nhánh `src/components/result/ScoreBox.tsx` (điểm bằng chữ: `src/lib/attempts/score-words.ts`, có test); bản đồ câu `src/components/result/ResultQuestionMap.tsx` + `src/lib/attempts/resultCellState.ts` (có test — chip trạng thái của thẻ từng câu cũng lấy từ đây) |
 | Homework | `src/app/homework/**`, `src/components/HomeworkRunner.tsx`, `src/lib/homework/actions.ts` |
 | Knowledge | `src/app/learn/page.tsx`, `src/components/theories/LearningPath.tsx`, `src/types/skill-tree.ts`, `src/lib/theories/actions.ts` |
 | Analytics | `src/lib/analytics/student-capability.ts`, admin/student analytics pages |

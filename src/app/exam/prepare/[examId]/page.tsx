@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { 
-  ArrowLeft, 
-  Play, 
-  Clock, 
-  FileText, 
+import {
+  ArrowLeft,
+  Play,
+  Clock,
   AlertTriangle,
   CheckCircle,
   BookOpen,
-  Timer
+  Timer,
+  ClipboardList,
 } from 'lucide-react'
 import { useLoading } from '@/contexts/LoadingContext'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -250,10 +250,17 @@ export default function ExamPreparePage() {
     maxAttempts !== null &&
     maxAttempts > 0
 
+  /*
+    Nền trang KHÔNG đặt bằng utility: `globals.css` đã có
+    `html, body { background-color: var(--background) }` (DESIGN_TODO.md mục 0,
+    bất biến 2). Bản trước phủ `bg-slate-50` rồi `bg-gradient-to-br` lên trên —
+    một dải màu cho cả trang, tức tiêu luôn suất gradient duy nhất của trang vào
+    chỗ không phải hành động.
+  */
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center" role="status" aria-live="polite">
           <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-500 dark:text-slate-400">Đang tải thông tin đề thi...</p>
         </div>
@@ -263,13 +270,13 @@ export default function ExamPreparePage() {
 
   if (!exam) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">Không tìm thấy đề thi</p>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bento-tile-lead paper-grid ruler-edge w-full max-w-md px-6 pb-8 pt-10 text-center">
+          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" aria-hidden="true" />
+          <p className="font-baloo text-xl font-bold text-slate-800 dark:text-white">Không tìm thấy đề thi</p>
           <button
             onClick={() => router.push('/student/exams')}
-            className="mt-4 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+            className="btn-action mt-5 rounded-xl bg-teal-600 px-5 py-2.5 font-semibold text-white hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400"
           >
             Quay lại danh sách
           </button>
@@ -278,87 +285,151 @@ export default function ExamPreparePage() {
     )
   }
 
+  /*
+    Nút "Bắt đầu thi" có HAI hình, chọn bằng điều kiện chứ không bằng biến thể
+    `disabled:`. Trong dark mode, khối sửa tương phản của `globals.css` ép chữ
+    của cặp `dark:bg-teal-500` + `text-white` sang teal-950 bằng một quy tắc
+    ngoài `@layer` — nó thắng cả `dark:disabled:text-*`, nên nút "Hết lượt thi"
+    xám sẽ mang chữ teal-950 gần như vô hình. Hết lượt thì dùng hẳn bộ màu xám.
+  */
+  const startButtonClass = outOfAttempts
+    ? 'cursor-not-allowed bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+    : 'btn-action bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-400 disabled:cursor-wait disabled:opacity-80'
+
+  /* Ô lượt thi: chỉ vẽ khi đề có giới hạn lượt và số đó đủ nhỏ để đếm bằng mắt.
+     Đề không giới hạn (`max_attempts <= 0`) thì không có gì để đếm. */
+  const attemptSlots =
+    maxAttempts !== null && maxAttempts > 0 && maxAttempts <= 10 ? maxAttempts : 0
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-3xl">
         {/* Back Button */}
         <button
           onClick={() => router.push('/student/exams')}
-          className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 mb-6 transition-colors"
+          className="mb-5 inline-flex items-center gap-2 rounded-lg text-slate-600 transition-colors hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:text-slate-400 dark:hover:text-teal-300"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5" aria-hidden="true" />
           <span>Quay lại danh sách đề</span>
         </button>
 
-        {/* Main Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in-up">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-6 text-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-sm opacity-80">{exam.subject}</span>
-                <h1 className="text-xl font-bold">{exam.title}</h1>
-              </div>
-            </div>
-          </div>
+        {/*
+          BẢNG PHÒNG THI. Trước giờ thi, giám thị ghi lên bảng môn thi, thời
+          gian làm bài và số câu — ba thứ học sinh cần biết trước khi bấm bắt
+          đầu. Trang này dựng đúng tấm bảng đó bằng `.board` (cùng lớp với hero
+          trang chủ), thay cho dải gradient teal → emerald có chữ trắng chỉ đạt
+          ~2,4:1 ở đầu sáng.
 
-          {/* Content */}
-          <div className="p-4 sm:p-6">
-            {/* Description */}
+          Chỉ hiện dữ liệu `get_exam_preparation` trả về; không bịa cấu trúc ba
+          phần hay số trang vì payload không có những thứ đó.
+        */}
+        <section
+          aria-labelledby="exam-title"
+          className="board board-ledge ruler-edge animate-dash-in overflow-hidden rounded-[1.75rem] px-5 pb-11 pt-9 sm:rounded-[2rem] sm:px-9 sm:pb-12 sm:pt-11"
+        >
+          <span aria-hidden="true" className="glyph-mark -bottom-2 right-3 text-[7.5rem] sm:right-8 sm:text-[10rem]">
+            ∫
+          </span>
+          <div className="relative">
+            <p className="kicker">Phòng chờ thi</p>
+            <h1 id="exam-title" className="mt-2 font-baloo text-3xl font-bold leading-tight sm:text-4xl">
+              {exam.title}
+            </h1>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 300 12"
+              preserveAspectRatio="none"
+              className="mt-2 h-3 w-40 sm:w-60"
+            >
+              <path
+                className="chalk-stroke"
+                pathLength={100}
+                vectorEffect="non-scaling-stroke"
+                d="M4 8C52 2 104 11 152 6s96-3 144 1"
+              />
+            </svg>
             {exam.description && (
-              <p className="text-slate-600 dark:text-slate-400 mb-6">
-                {exam.description}
-              </p>
+              <p className="chalk-dim mt-3 max-w-prose">{exam.description}</p>
             )}
 
-            {/* Exam Info Grid */}
-            <div className="grid grid-cols-2 gap-4 mb-6 animate-list-stagger">
-              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm">Thời gian</span>
-                </div>
-                <p className="text-xl font-bold text-slate-800 dark:text-white">
+            <dl className="mt-7 grid grid-cols-1 gap-x-6 gap-y-4 border-t border-dashed border-white/25 pt-5 sm:grid-cols-3">
+              <div>
+                <dt className="chalk-dim flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+                  <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                  Môn thi
+                </dt>
+                <dd className="mt-1 font-baloo text-2xl font-bold">{exam.subject}</dd>
+              </div>
+              <div>
+                <dt className="chalk-dim flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  Thời gian
+                </dt>
+                <dd className="chalk-yellow mt-1 font-baloo text-2xl font-bold">
                   {exam.duration > 0 ? `${exam.duration} phút` : 'Không giới hạn'}
-                </p>
+                </dd>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                  <BookOpen className="w-4 h-4" />
-                  <span className="text-sm">Số câu hỏi</span>
-                </div>
-                <p className="text-xl font-bold text-slate-800 dark:text-white">
-                  {exam.question_count} câu
-                </p>
+              <div>
+                <dt className="chalk-dim flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+                  <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
+                  Số câu hỏi
+                </dt>
+                <dd className="mt-1 font-baloo text-2xl font-bold">{exam.question_count} câu</dd>
               </div>
-            </div>
+            </dl>
+          </div>
+          {/* Hai viên phấn trên khay — thuần trang trí. */}
+          <span aria-hidden="true" className="absolute bottom-[9px] left-[12%] z-10 h-[5px] w-9 rounded-full bg-slate-100 shadow-sm shadow-black/40" />
+          <span aria-hidden="true" className="absolute bottom-[9px] left-[calc(12%+2.75rem)] z-10 h-[5px] w-6 rounded-full bg-amber-200 shadow-sm shadow-black/40" />
+        </section>
 
+        {/* Phiếu chuẩn bị: lượt đã làm, cảnh báo, lưu ý và nút bắt đầu. */}
+        <div className="bento-tile-lead animate-dash-in-1 mt-5 space-y-5 p-5 sm:p-7">
             {/* Attempt History */}
             {attemptCount > 0 && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <span className="font-medium text-green-800 dark:text-green-300">
-                    Đã hoàn thành {attemptCount} lần
-                    {maxAttempts !== null && maxAttempts > 0 ? ` / ${maxAttempts} lượt` : ''}
-                  </span>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                      <span className="font-medium text-emerald-900 dark:text-emerald-200">
+                        Đã hoàn thành {attemptCount} lần
+                        {maxAttempts !== null && maxAttempts > 0 ? ` / ${maxAttempts} lượt` : ''}
+                      </span>
+                    </div>
+                    {/* Mỗi lượt một ô: ô đặc là lượt đã dùng, ô viền đứt là lượt
+                        còn lại. Có chữ "Đã hoàn thành…" ngay trên nên ô chỉ là
+                        hình minh hoạ — `aria-hidden`. */}
+                    {attemptSlots > 0 && (
+                      <div aria-hidden="true" className="mt-2 flex flex-wrap gap-1.5 pl-7">
+                        {Array.from({ length: attemptSlots }, (_, index) => (
+                          <span
+                            key={index}
+                            className={`h-3 w-6 rounded-full ${
+                              index < attemptCount
+                                ? 'bg-emerald-600 dark:bg-emerald-500'
+                                : 'border border-dashed border-emerald-500/70 dark:border-emerald-400/60'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {bestScore !== null && (
+                    <p className="text-sm text-emerald-800 dark:text-emerald-300">
+                      Điểm cao nhất:{' '}
+                      <span className="font-baloo text-2xl font-bold tabular-nums">{bestScore.toFixed(1)}</span>/10
+                    </p>
+                  )}
                 </div>
-                {bestScore !== null && (
-                  <p className="text-sm text-green-700 dark:text-green-400">
-                    Điểm cao nhất: <span className="font-bold">{bestScore.toFixed(1)}</span>/10
-                  </p>
-                )}
               </div>
             )}
 
             {/* Hết lượt thi */}
             {outOfAttempts && !existingAttempt && (
-              <div className="bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-xl p-4 mb-6">
+              <div className="rounded-2xl border border-slate-300 bg-slate-100/80 p-4 dark:border-slate-600 dark:bg-slate-800/60">
                 <div className="flex items-center gap-2 mb-1">
-                  <AlertTriangle className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <AlertTriangle className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
                   <span className="font-medium text-slate-800 dark:text-slate-200">
                     Bạn không còn lượt thi
                   </span>
@@ -374,10 +445,10 @@ export default function ExamPreparePage() {
             {startError && (
               <div
                 role="alert"
-                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6"
+                className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
               >
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
                   <p className="text-sm text-red-700 dark:text-red-300">{startError}</p>
                 </div>
               </div>
@@ -385,105 +456,112 @@ export default function ExamPreparePage() {
 
             {/* Existing Attempt Warning */}
             {existingAttempt && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Timer className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  <span className="font-medium text-amber-800 dark:text-amber-300">
-                    Bạn đang có bài thi dở dang
-                  </span>
+              <div
+                className="bento-rail rounded-2xl border border-amber-200 bg-amber-50/80 py-4 pl-6 pr-4 dark:border-amber-800 dark:bg-amber-950/30"
+                style={{ '--rail': '#f59e0b' } as React.CSSProperties}
+              >
+                <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-5 h-5 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+                    <span className="font-medium text-amber-900 dark:text-amber-200">
+                      Bạn đang có bài thi dở dang
+                    </span>
+                  </div>
+                  <p className="text-sm text-amber-800 dark:text-amber-300">
+                    {existingAttempt.remaining_seconds < 0
+                      ? 'Bạn có thể tiếp tục làm bất cứ lúc nào.'
+                      : <>Thời gian còn lại: <span className="font-baloo text-2xl font-bold tabular-nums">{formatTime(existingAttempt.remaining_seconds)}</span></>}
+                  </p>
                 </div>
-                <p className="text-sm text-amber-700 dark:text-amber-400 mb-4">
-                  {existingAttempt.remaining_seconds < 0
-                    ? 'Bạn có thể tiếp tục làm bất cứ lúc nào.'
-                    : <>Thời gian còn lại: <span className="font-bold">{formatTime(existingAttempt.remaining_seconds)}</span></>}
-                </p>
-                <div className="flex gap-3">
+                {/* "Tiếp tục" là việc nên làm nên là nút đặc; "Nộp bài dở dang"
+                    không hoàn tác được nên là nút viền — vẫn đỏ, vẫn hỏi lại
+                    bằng hộp xác nhận, chỉ không còn to ngang nút chính. Chữ
+                    trắng trên red-500 cũ chỉ đạt 3,9:1. */}
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={handleContinueExam}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium btn-action"
+                    className="btn-action flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 font-semibold text-white hover:bg-amber-400"
                   >
-                    <Play className="w-4 h-4" />
+                    <Play className="w-4 h-4" aria-hidden="true" />
                     Tiếp tục thi
                   </button>
                   <button
                     onClick={() => setShowCancelModal(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium btn-action"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-300 bg-[var(--background-raised)] px-4 py-3 font-semibold text-red-700 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-slate-900/60 dark:text-red-300 dark:hover:bg-red-950/40"
                   >
-                    <AlertTriangle className="w-4 h-4" />
+                    <AlertTriangle className="w-4 h-4" aria-hidden="true" />
                     Nộp bài dở dang
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Rules */}
-            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-6">
-              <h3 className="font-semibold text-slate-800 dark:text-white mb-3">
-                📋 Lưu ý trước khi thi
-              </h3>
-              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400 animate-list-stagger">
-                <li className="flex items-start gap-2">
-                  <span className="text-teal-500 mt-0.5">•</span>
-                  Đảm bảo kết nối internet ổn định trong suốt bài thi
-                </li>
-                {exam.duration > 0 ? (
-                  <>
-                    <li className="flex items-start gap-2">
-                      <span className="text-teal-500 mt-0.5">•</span>
-                      Thời gian sẽ bắt đầu tính ngay khi bạn bấm “Bắt đầu thi”
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-teal-500 mt-0.5">•</span>
-                      Bài thi sẽ tự động nộp khi hết thời gian
-                    </li>
-                  </>
-                ) : (
-                  <li className="flex items-start gap-2">
-                    <span className="text-teal-500 mt-0.5">•</span>
-                    Không giới hạn thời gian — bạn làm thoải mái và nộp khi hoàn thành
+            {/*
+              Lưu ý trước khi thi — đánh số như quy chế phòng thi, thay cho emoji
+              📋 và dấu chấm teal. Nội dung từng dòng giữ nguyên, kể cả nhánh
+              theo `duration` (đề không giới hạn thời gian có lưu ý khác).
+            */}
+            <section aria-labelledby="exam-rules">
+              <h2 id="exam-rules" className="kicker mb-3">
+                Lưu ý trước khi thi
+              </h2>
+              <ol className="animate-list-stagger space-y-2.5 text-sm text-slate-700 dark:text-slate-300">
+                {[
+                  'Đảm bảo kết nối internet ổn định trong suốt bài thi',
+                  ...(exam.duration > 0
+                    ? [
+                        'Thời gian sẽ bắt đầu tính ngay khi bạn bấm “Bắt đầu thi”',
+                        'Bài thi sẽ tự động nộp khi hết thời gian',
+                      ]
+                    : ['Không giới hạn thời gian — bạn làm thoải mái và nộp khi hoàn thành']),
+                  'Bạn có thể quay lại tiếp tục nếu thoát giữa chừng (thời gian vẫn tiếp tục chạy)',
+                ].map((rule, index) => (
+                  <li key={rule} className="flex items-start gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-teal-600/60 font-baloo text-xs font-bold text-teal-700 dark:border-teal-400/60 dark:text-teal-300"
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="pt-0.5">{rule}</span>
                   </li>
-                )}
-                <li className="flex items-start gap-2">
-                  <span className="text-teal-500 mt-0.5">•</span>
-                  Bạn có thể quay lại tiếp tục nếu thoát giữa chừng (thời gian vẫn tiếp tục chạy)
-                </li>
-              </ul>
-            </div>
+                ))}
+              </ol>
+            </section>
 
             {/* Action Buttons */}
             {!existingAttempt && (
-              <div className="flex gap-4">
+              <div className="flex flex-col-reverse gap-3 border-t border-dashed border-slate-300 pt-5 dark:border-slate-600 sm:flex-row sm:gap-4">
                 <button
                   onClick={() => router.push('/student/exams')}
-                  className="flex-1 px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="flex-1 rounded-xl border border-slate-300 bg-[var(--background-raised)] px-6 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
                   Quay lại
                 </button>
                 <button
                   onClick={handleStartExam}
                   disabled={starting || outOfAttempts}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-slate-300 dark:disabled:bg-slate-600 disabled:cursor-not-allowed disabled:text-slate-500 dark:disabled:text-slate-400 text-white rounded-xl font-semibold btn-action"
+                  className={`flex flex-[1.4] items-center justify-center gap-2 rounded-xl px-6 py-3 font-baloo text-lg font-semibold ${startButtonClass}`}
                 >
                   {starting ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />
                       Đang chuẩn bị...
                     </>
                   ) : outOfAttempts ? (
                     <>
-                      <AlertTriangle className="w-5 h-5" />
+                      <AlertTriangle className="w-5 h-5" aria-hidden="true" />
                       Hết lượt thi
                     </>
                   ) : (
                     <>
-                      <Play className="w-5 h-5" />
+                      <Play className="w-5 h-5" aria-hidden="true" />
                       Bắt đầu thi
                     </>
                   )}
                 </button>
               </div>
             )}
-          </div>
         </div>
       </div>
 

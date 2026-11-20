@@ -899,6 +899,50 @@ html.dark .board .mc-root {
   animation: chalk-draw 0.9s var(--mm-ease-out) 0.4s both;
 }
 
+/* Nét bút khoanh điểm trên phiếu kết quả — cùng nhịp vẽ với `.chalk-stroke`,
+   nhưng màu lấy `currentColor` để đi theo tông của điểm (emerald / amber /
+   rose), không phải mực đỏ cố định: trong app này đỏ là màu của "sai", và một
+   bài 9 điểm khoanh đỏ sẽ đọc thành bài hỏng. */
+.pen-stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: chalk-draw 1s var(--mm-ease-out) 0.3s both;
+}
+
+/* ── Lề vở ô li ──
+
+   Vở ô li có một đường kẻ lề đỏ chạy dọc bên trái; dùng cho khối lời giải ở
+   trang kết quả, đặt chung với `.paper-grid`. Đường lề là trang trí thuần — nó
+   có mặt ở cả câu đúng lẫn câu sai, nên không mang nghĩa "sai" (trạng thái của
+   câu nằm ở nhãn Đúng/Sai có icon và chữ). Dùng `::after` để không đụng
+   `::before` của `.ruler-edge` / `.bento-rail` nếu sau này có ai đặt chung.
+
+   Cố ý viết NGOÀI `@layer`: `padding-left` là chỗ của đường lề, nên nó phải
+   thắng `p-*` đặt cùng phần tử — đệm ba cạnh còn lại vẫn do utility quyết. */
+.notebook-margin {
+  position: relative;
+  padding-left: 1.75rem;
+}
+
+.notebook-margin::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0.875rem;
+  width: 1.5px;
+  pointer-events: none;
+  background-color: rgb(244 63 94 / 0.42);
+}
+
+html.dark .notebook-margin::after {
+  background-color: rgb(251 113 133 / 0.32);
+}
+
 /* ── Mép thước ──
 
    Vạch dài cách nhau 80px, vạch ngắn 16px — trùng bước với `.paper-grid`, nên
@@ -1476,7 +1520,9 @@ html.dark .bento-tile-interactive:hover {
    môn học thay vì hiệu ứng chung chung. Dùng `repeating-linear-gradient` chứ
    không dùng ảnh: không thêm request, co giãn theo mọi DPI.
 
-   Chỉ dùng cho vùng hero và đầu trang. Độ tương phản cố ý rất thấp — hoạ tiết
+   Chỉ dùng cho vùng hero và đầu trang — ngoại lệ duy nhất là khối lời giải ở
+   trang kết quả, nơi nó đi cùng `.notebook-margin` thành một mảnh vở ô li.
+   Độ tương phản cố ý rất thấp — hoạ tiết
    nền không được cạnh tranh với chữ đặt trên nó, và nền vẫn phải giữ mức chói
    thấp mà `--background` đã đặt ra.
 
