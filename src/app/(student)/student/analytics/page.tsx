@@ -31,13 +31,13 @@ import {
   ClipboardList,
   Loader2,
   LockKeyhole,
-  Sparkles,
   Target,
   TrendingUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ProgressRing, { type RingTone } from '@/components/viz/ProgressRing'
 import RadarChart, { type RadarAxis } from '@/components/viz/RadarChart'
+import PageHero from '@/components/student/PageHero'
 import { MIN_EVIDENCE } from '@/lib/analytics/knowledge-mastery'
 import { MASTERY_BAR_TONE, MASTERY_CHIP_TONE } from '@/lib/analytics/mastery-tone'
 import {
@@ -103,7 +103,7 @@ export default function StudentAnalyticsPage() {
 
   if (error || !summary) {
     return (
-      <main className="mx-auto max-w-4xl p-4 pt-16 lg:p-6">
+      <main className="mx-auto max-w-4xl p-4 lg:p-6">
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
           {error || 'Không có dữ liệu để hiển thị.'}
         </div>
@@ -112,11 +112,22 @@ export default function StudentAnalyticsPage() {
   }
 
   const advanced = summary.student.canViewAdvancedAnalytics
+  /*
+    Mỗi tông mang CẢ MÀU CHỮ. Chữ phụ cỡ `text-sm` có độ trong suốt phải đạt
+    4,5:1 trên cả hai đầu dải màu; bản trước (`from-teal-600 to-cyan-600`,
+    `from-amber-600 to-orange-500`…) chữ trắng ở đầu sáng chỉ 2,3–2,9:1.
+
+    Cùng bộ màu với nút việc-nên-làm ở `TodayHero` — cùng một
+    `recommendedAction` thì cùng một bộ màu — và cùng số đo với nhánh
+    `claude/design-system-extraction` (chưa gộp): rose/teal dùng dải -800 →
+    -700 chữ trắng, slate -700 → -600, amber sáng đi với chữ amber-950. Vòng
+    focus của nút "Mở ngay" đổi theo tông: vòng trắng không thấy trên amber.
+  */
   const recommendedTone = {
-    teal: 'from-teal-600 to-cyan-600',
-    amber: 'from-amber-600 to-orange-500',
-    rose: 'from-rose-600 to-red-500',
-    slate: 'from-slate-700 to-slate-900',
+    teal: { surface: 'from-teal-800 to-teal-700 text-white', label: 'text-white/80', detail: 'text-white/90', ring: 'focus:ring-white' },
+    amber: { surface: 'from-amber-500 to-amber-400 text-amber-950', label: 'text-amber-950/80', detail: 'text-amber-950/85', ring: 'focus:ring-amber-950' },
+    rose: { surface: 'from-rose-800 to-rose-700 text-white', label: 'text-white/80', detail: 'text-white/90', ring: 'focus:ring-white' },
+    slate: { surface: 'from-slate-700 to-slate-600 text-white', label: 'text-white/80', detail: 'text-white/90', ring: 'focus:ring-white' },
   }[summary.recommendedAction.tone]
 
   // Ba giá trị dưới đây phân biệt "chưa có" với "bằng 0". `percent()` trong
@@ -125,81 +136,74 @@ export default function StudentAnalyticsPage() {
   const completion = summary.totals.assigned > 0 ? summary.totals.completionRate : null
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-4 pt-16 lg:p-6">
-      <header className="animate-dash-in bento-tile-lead overflow-hidden">
-        <div className="paper-grid p-5 sm:p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                {advanced ? 'Phân tích nâng cao' : 'Tổng quan học tập'}
-              </div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">Hồ sơ năng lực</h1>
-              <p className="mt-2 max-w-prose text-slate-600 dark:text-slate-300">
-                Theo dõi bài được giao, độ chính xác và các mảng cần củng cố.
-              </p>
-              <p className="mt-3">
-                <span className="rounded-full border border-slate-200 bg-[var(--background-card)] px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                  {advanced ? 'Gói nâng cao' : 'Gói cơ bản'}
-                </span>
+    <main className="mx-auto max-w-6xl space-y-6 p-4 lg:p-6">
+      <PageHero
+        icon={TrendingUp}
+        kicker={advanced ? 'Phân tích nâng cao' : 'Tổng quan học tập'}
+        title="Hồ sơ năng lực"
+        description="Theo dõi bài được giao, độ chính xác và các mảng cần củng cố."
+        className=""
+        aside={
+          <div className="flex items-start gap-6 sm:gap-8">
+            <div className="text-center">
+              <ProgressRing
+                value={accuracy}
+                size={96}
+                tone={accuracyTone(accuracy)}
+                caption="đúng"
+                ariaLabel={
+                  accuracy === null
+                    ? 'Chưa trả lời câu nào nên chưa tính được độ chính xác'
+                    : `Độ chính xác ${accuracy}%, trên ${summary.totals.answered} câu đã trả lời`
+                }
+              />
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {accuracy === null
+                  ? 'Chưa có câu trả lời'
+                  : `${summary.totals.correct}/${summary.totals.answered} câu đúng`}
               </p>
             </div>
 
-            <div className="flex shrink-0 items-start gap-6 sm:gap-8">
-              <div className="text-center">
-                <ProgressRing
-                  value={accuracy}
-                  size={96}
-                  tone={accuracyTone(accuracy)}
-                  caption="đúng"
-                  ariaLabel={
-                    accuracy === null
-                      ? 'Chưa trả lời câu nào nên chưa tính được độ chính xác'
-                      : `Độ chính xác ${accuracy}%, trên ${summary.totals.answered} câu đã trả lời`
-                  }
-                />
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {accuracy === null
-                    ? 'Chưa có câu trả lời'
-                    : `${summary.totals.correct}/${summary.totals.answered} câu đúng`}
-                </p>
-              </div>
-
-              <div className="text-center">
-                <ProgressRing
-                  value={completion}
-                  size={96}
-                  tone="teal"
-                  caption="đã nộp"
-                  ariaLabel={
-                    completion === null
-                      ? 'Chưa được giao bài nào nên chưa có tỷ lệ hoàn thành'
-                      : `Đã nộp ${summary.totals.submitted} trên ${summary.totals.assigned} bài được giao`
-                  }
-                />
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {completion === null
-                    ? 'Chưa có bài được giao'
-                    : `${summary.totals.submitted}/${summary.totals.assigned} bài`}
-                </p>
-              </div>
+            <div className="text-center">
+              <ProgressRing
+                value={completion}
+                size={96}
+                tone="teal"
+                caption="đã nộp"
+                ariaLabel={
+                  completion === null
+                    ? 'Chưa được giao bài nào nên chưa có tỷ lệ hoàn thành'
+                    : `Đã nộp ${summary.totals.submitted} trên ${summary.totals.assigned} bài được giao`
+                }
+              />
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {completion === null
+                  ? 'Chưa có bài được giao'
+                  : `${summary.totals.submitted}/${summary.totals.assigned} bài`}
+              </p>
             </div>
           </div>
-        </div>
-      </header>
+        }
+      >
+        <p className="mt-3">
+          <span className="rounded-full border border-slate-300 bg-[var(--background-raised)] px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {advanced ? 'Gói nâng cao' : 'Gói cơ bản'}
+          </span>
+        </p>
+      </PageHero>
 
       {/* Bề mặt gradient DUY NHẤT của trang, dành cho hành động quan trọng nhất
           (docs/DESIGN_OVERHAUL_2026-08-09.md mục 2.3). Đừng thêm cái thứ hai. */}
-      <section className={`animate-dash-in-1 overflow-hidden rounded-2xl bg-gradient-to-r ${recommendedTone} p-5 text-white shadow-lg`}>
+      <section className={`animate-dash-in-1 overflow-hidden rounded-2xl bg-gradient-to-r ${recommendedTone.surface} p-5 shadow-lg`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm text-white/80">Việc nên làm tiếp theo</p>
-            <h2 className="mt-1 text-xl font-semibold">{summary.recommendedAction.label}</h2>
-            <p className="mt-1 text-sm text-white/85">{summary.recommendedAction.detail}</p>
+            <p className={`text-sm ${recommendedTone.label}`}>Việc nên làm tiếp theo</p>
+            <h2 className="mt-1 font-baloo text-2xl font-bold leading-tight">{summary.recommendedAction.label}</h2>
+            <p className={`mt-1 text-sm ${recommendedTone.detail}`}>{summary.recommendedAction.detail}</p>
           </div>
           <Link
             href={summary.recommendedAction.href}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition-transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent"
+            className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition-transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 ${recommendedTone.ring} focus:ring-offset-2 focus:ring-offset-transparent`}
           >
             Mở ngay
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -257,7 +261,7 @@ export default function StudentAnalyticsPage() {
                   aria-pressed={active}
                   className={`inline-flex min-w-fit items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                     active
-                      ? 'bg-teal-600 text-white shadow-sm'
+                      ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-500'
                       : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
@@ -300,7 +304,7 @@ function BasicView({ summary }: { summary: StudentCapabilitySummary }) {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
       <section className="bento-tile p-5">
-        <h2 className="font-bold text-slate-800 dark:text-white">Tiến độ bài được giao</h2>
+        <h2 className="font-baloo text-lg font-bold text-slate-800 dark:text-white">Tiến độ bài được giao</h2>
         {completion === null ? (
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Chưa có bài nào được giao cho bạn. Khi giáo viên giao bài, tiến độ sẽ hiện ở đây.
@@ -331,7 +335,7 @@ function BasicView({ summary }: { summary: StudentCapabilitySummary }) {
       <section className="bento-tile-quiet p-5">
         <div className="mb-3 flex items-center gap-2">
           <LockKeyhole className="h-5 w-5 text-slate-400" aria-hidden="true" />
-          <h2 className="font-bold text-slate-800 dark:text-white">Phân tích nâng cao</h2>
+          <h2 className="font-baloo text-lg font-bold text-slate-800 dark:text-white">Phân tích nâng cao</h2>
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-300">
           Tài khoản cơ bản xem được tiến độ và kết quả chính. Phân tích chi tiết theo kiến thức,
@@ -340,7 +344,7 @@ function BasicView({ summary }: { summary: StudentCapabilitySummary }) {
       </section>
 
       <section className="bento-tile p-5 lg:col-span-2">
-        <h2 className="mb-4 flex items-center gap-2 font-bold text-slate-800 dark:text-white">
+        <h2 className="mb-4 flex items-center gap-2 font-baloo text-lg font-bold text-slate-800 dark:text-white">
           <CalendarClock className="h-5 w-5 text-amber-500" aria-hidden="true" />
           Bài đang chờ
         </h2>
@@ -411,7 +415,7 @@ function KnowledgeRadar({ stats }: { stats: CapabilityStat[] }) {
 
   return (
     <section className="bento-tile p-5">
-      <h2 className="font-bold text-slate-800 dark:text-white">Phân tích theo năng lực</h2>
+      <h2 className="font-baloo text-lg font-bold text-slate-800 dark:text-white">Phân tích theo năng lực</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
         Mỗi trục là một chuyên đề em đã làm. Càng ra xa tâm thì tỉ lệ đúng càng cao.
       </p>
@@ -441,7 +445,7 @@ function StatList({
 }) {
   return (
     <section className="bento-tile p-5">
-      <h2 className="font-bold text-slate-800 dark:text-white">{title}</h2>
+      <h2 className="font-baloo text-lg font-bold text-slate-800 dark:text-white">{title}</h2>
       <div className="mt-4 space-y-3">
         {items.map((item) => (
           <div key={item.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
@@ -486,7 +490,7 @@ function StatList({
 function HomeworkList({ items, compact = false }: { items: HomeworkCapabilityItem[]; compact?: boolean }) {
   return (
     <section className="bento-tile p-5">
-      <h2 className="font-bold text-slate-800 dark:text-white">Bài được giao</h2>
+      <h2 className="font-baloo text-lg font-bold text-slate-800 dark:text-white">Bài được giao</h2>
       <div className="mt-4 space-y-3">
         {items.map((item) => <HomeworkRow key={item.assignmentId} item={item} />)}
         {!items.length && (

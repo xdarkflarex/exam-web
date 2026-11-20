@@ -7,7 +7,6 @@ import gsap from 'gsap'
 import {
   ArrowRight,
   BookOpen,
-  BrainCircuit,
   ClipboardList,
   Loader2,
   LockKeyhole,
@@ -440,25 +439,16 @@ function LearnPageContent() {
   return (
     <MathProvider>
       <div className="space-y-5">
-        <header className="soft-shadow relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 p-5 text-white sm:p-7">
-          {/* Hoạ tiết giấy kẻ ô — chất liệu lấy từ chính môn học (mục 7.2). Vẽ
-              bằng gradient nên không thêm request ảnh nào. Đây là bề mặt gradient
-              DUY NHẤT của trang. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(to right, rgba(226,232,240,0.06) 0 1px, transparent 1px 100%), repeating-linear-gradient(to bottom, rgba(226,232,240,0.06) 0 1px, transparent 1px 100%)',
-              backgroundSize: '28px 28px',
-            }}
-          />
+        {/* Đầu trang là một tấm BẢNG XANH — cùng lớp `.board` với hero trang chủ
+            (xem khối "LỚP HỌC TOÁN" trong globals.css). Trước đây khối này tự
+            dựng một nền tối kẻ ô riêng bằng style nội tuyến; giờ ô kẻ, vệt phấn
+            và mép thước đến từ một chỗ, nên hai tấm bảng không thể lệch nhau.
+            Đệm trên dày hơn để chữ không chạm vạch thước. */}
+        <header className="board ruler-edge overflow-hidden rounded-3xl p-5 pt-8 sm:p-7 sm:pt-10">
+          <span aria-hidden="true" className="glyph-mark -bottom-6 right-6 text-[9rem] sm:text-[11rem]">∑</span>
           <div className="relative">
-            <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-300">
-              <BrainCircuit className="h-5 w-5" aria-hidden="true" />
-              Lộ trình Toán học
-            </p>
-            <h1 className="font-baloo text-2xl font-bold sm:text-3xl">Tri thức và bài tập</h1>
+            <p className="kicker mb-2">Lộ trình Toán học</p>
+            <h1 className="font-baloo text-3xl font-bold leading-tight sm:text-4xl">Tri thức và bài tập</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-300">
               Đọc lý thuyết và làm bài tập được giao trong cùng một chỗ. Màu trên lộ trình là tỷ lệ trả lời
               <span className="font-semibold text-white"> đúng</span>, không phải số câu đã làm.

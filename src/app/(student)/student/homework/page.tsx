@@ -29,6 +29,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { getStudentHomeworkAssignments } from '@/lib/homework/actions'
 import ProgressRing from '@/components/viz/ProgressRing'
+import PageHero from '@/components/student/PageHero'
 
 interface HomeworkItem {
   assignmentId: string
@@ -128,48 +129,41 @@ export default function StudentHomeworkPage() {
   return (
     <main className="min-h-screen p-4 lg:p-6">
       <div className="mx-auto max-w-4xl">
-        <header className="animate-dash-in bento-tile-lead mb-6 overflow-hidden">
-          <div className="paper-grid p-5 sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
-                  <ClipboardList className="h-7 w-7 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
-                  Bài tập về nhà
-                </h1>
-                <p className="mt-2 max-w-prose text-slate-600 dark:text-slate-300">
-                  Các bài giáo viên đã giao riêng cho bạn.
-                </p>
-              </div>
+        <PageHero
+          icon={ClipboardList}
+          kicker="Giáo viên giao"
+          title="Bài tập về nhà"
+          description="Các bài giáo viên đã giao riêng cho bạn."
+          glyph="√"
+          aside={
+            /* Chip 0 bị loại thay vì hiện "0 quá hạn" mỗi ngày. */
+            <dl className="flex flex-wrap gap-2">
+              {overdueCount > 0 && (
+                <SummaryChip
+                  value={overdueCount}
+                  label="quá hạn"
+                  className="border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"
+                />
+              )}
+              {waitingCount > 0 && (
+                <SummaryChip
+                  value={waitingCount}
+                  label="đang chờ"
+                  className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                />
+              )}
+              {doneCount > 0 && (
+                <SummaryChip
+                  value={doneCount}
+                  label="đã nộp"
+                  className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
+                />
+              )}
+            </dl>
+          }
+        />
 
-              {/* Chip 0 bị loại thay vì hiện "0 quá hạn" mỗi ngày. */}
-              <dl className="flex flex-wrap gap-2">
-                {overdueCount > 0 && (
-                  <SummaryChip
-                    value={overdueCount}
-                    label="quá hạn"
-                    className="border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"
-                  />
-                )}
-                {waitingCount > 0 && (
-                  <SummaryChip
-                    value={waitingCount}
-                    label="đang chờ"
-                    className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-                  />
-                )}
-                {doneCount > 0 && (
-                  <SummaryChip
-                    value={doneCount}
-                    label="đã nộp"
-                    className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
-                  />
-                )}
-              </dl>
-            </div>
-          </div>
-        </header>
-
-        <div className="space-y-3">
+        <div className="animate-list-stagger space-y-3">
           {items.map(item => (
             <HomeworkCard key={item.assignmentId} item={item} state={stateOf(item)} />
           ))}
@@ -183,7 +177,7 @@ export default function StudentHomeworkPage() {
               </p>
               <Link
                 href="/student/practice"
-                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:bg-teal-500 dark:hover:bg-teal-400 dark:focus:ring-offset-slate-800"
               >
                 Tự ôn tập trong lúc chờ
               </Link>
@@ -279,7 +273,7 @@ function HomeworkCard({ item, state }: { item: HomeworkItem; state: ItemState })
                 aria-valuemax={100}
                 aria-label={`Đã trả lời ${item.answeredCount} trên ${item.totalQuestions} câu`}
               >
-                <div className="h-full rounded-full bg-teal-500 transition-[width]" style={{ width: `${progress}%` }} />
+                <div className="progress-fill-animate h-full rounded-full bg-teal-500" style={{ width: `${progress}%` }} />
               </div>
             </div>
           )}
@@ -308,7 +302,7 @@ function HomeworkCard({ item, state }: { item: HomeworkItem; state: ItemState })
 
           <Link
             href={`/homework/prepare/${item.assignmentId}`}
-            className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 sm:w-full sm:flex-none"
+            className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:bg-teal-500 dark:hover:bg-teal-400 dark:focus:ring-offset-slate-800 sm:w-full sm:flex-none"
           >
             <Play className="h-4 w-4" aria-hidden="true" />
             {done ? 'Xem lại' : item.answeredCount ? 'Làm tiếp' : 'Làm bài'}

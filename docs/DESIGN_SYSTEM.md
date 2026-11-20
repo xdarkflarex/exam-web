@@ -8,21 +8,27 @@ Token runtime nằm trong `src/app/globals.css`.
 
 | Token | Light | Dark | Dùng cho |
 |---|---|---|---|
-| `--background` | `#f5f7fa` | `#0f172a` | Nền trang |
-| `--background-card` | `#eef2f7` | `#1e293b` | Card/panel |
+| `--background` | `#eef1f6` | `#0f172a` | Nền trang — tối nhất trong ba bậc nền ở light mode |
+| `--background-card` | `#f7f9fc` | `#1e293b` | Card/panel, nổi lên trên nền |
+| `--background-raised` | `#ffffff` | `#334155` | Ô nhập, chip trên giấy ô li — chỗ duy nhất được trắng thuần |
 | `--foreground` | `#1e293b` | `#e2e8f0` | Text chính |
 | `--foreground-secondary` | `#475569` | `#94a3b8` | Text phụ |
 | `--foreground-muted` | `#64748b` | `#64748b` | Metadata |
-| `--border` | `#d1d9e4` | `#334155` | Border |
-| `--accent` | `#0d9488` | `#2dd4bf` | Primary teal |
-| `--accent-hover` | `#0f766e` | `#14b8a6` | Hover/focus |
+| `--border` | `#dbe1ea` | `#334155` | Border |
+| `--accent` | `#0f766e` | `#2dd4bf` | Primary teal |
+| `--accent-hover` | `#115e59` | `#14b8a6` | Hover/focus |
+
+Bảng này lệch `globals.css` ở năm giá trị cho tới 2026-11-15; đã khớp lại. Token
+chất liệu lớp học (`--mm-grid-*`, `--mm-board*`, `--mm-chalk*`) ở mục
+"Chất liệu lớp học Toán" bên dưới.
 
 CSS còn một nhóm semantic token blue/orange/success/warning/error ở cuối file. Khi refactor, hợp nhất dần thay vì tạo hệ màu thứ ba.
 
 ## Typography
 
-- Inter cho UI/body; Baloo 2 có thể dùng cho điểm nhấn thân thiện với học sinh.
+- Inter cho UI/body; Baloo 2 (`font-baloo`) cho tiêu đề trang, tiêu đề section và con số lớn.
 - Root đã cấu hình subset Vietnamese và `display: swap`.
+- Class `font-baloo` chỉ tồn tại vì `@theme inline` trong `globals.css` khai báo `--font-baloo` (trỏ vào `--font-baloo-2` của next/font). Trước đó dòng này thiếu nên Tailwind v4 không sinh class, và mọi chỗ `font-baloo` âm thầm hiện bằng Inter. Font mới phải khai báo trong `@theme` theo cùng cách; đừng đặt tên biến next/font trùng namespace `--font-*`.
 - Không dùng text slate quá nhạt cho nội dung dài; metadata mới dùng muted.
 - Heading mô tả hành động/nội dung, tránh tiêu đề chung chung như “Quản lý”.
 
@@ -88,6 +94,53 @@ Cách đã dùng, ghi ở đầu `globals.css`: ghi đè chính các class dư�
 - **Gradient cần override riêng.** `.bg-teal-600` không chạm nút gradient vì màu nằm ở `background-image`. Ghi đè `--tw-gradient-from` thì được, vì Tailwind v4 dựng `--tw-gradient-stops` từ nó.
 - **Đánh đổi phải biết:** trong light mode, `teal-600` không còn đúng là teal-600 của Tailwind. Ai tra bảng màu gốc sẽ thấy lệch.
 - **Còn nợ, đã đo:** chữ phụ `text-slate-500` đạt ~3.9:1, vẫn dưới 4.5 cho chữ nhỏ. Đẩy lên `slate-600` sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ chính/phụ — đó là quyết định thiết kế, không phải việc sửa máy móc.
+
+## Chất liệu lớp học Toán (2026-11-15)
+
+Đợt phục dựng trang chủ và khu học sinh. Không thêm màu hay font mới — chỉ thêm
+CHẤT LIỆU lấy từ chính lớp học, nối tiếp hướng "giấy kẻ ô và mực" ở
+`STUDENT_SKILL_TREE_REDESIGN.md` mục 7.2. Toàn bộ nằm ở khối "LỚP HỌC TOÁN" trong
+`globals.css`; đọc chú thích ở đó trước khi sửa.
+
+| Class / component | Là gì | Dùng ở |
+|---|---|---|
+| `.paper-grid` | Giấy ô li hai cấp: ô 16px, cứ năm ô một đường đậm pha teal | Đầu trang, ô dẫn dắt, form |
+| `.ruler-edge` | Vạch thước (80px / 16px) dọc cạnh trên | Thanh điều hướng, đầu trang, footer |
+| `.board` (+ `.board-ledge`) | Bảng xanh + phấn, có khay phấn | Hero trang chủ, khối kêu gọi cuối trang, đầu `/learn` |
+| `.chalk-dim`, `.chalk-teal`, `.chalk-yellow`, `.chalk-stroke` | Chữ và nét phấn trên bảng | Chỉ bên trong `.board` |
+| `.kicker` | Nhãn nhỏ trên tiêu đề, mở đầu bằng một khúc trục số | Mọi tiêu đề section / đầu trang |
+| `.glyph-mark` | Ký hiệu toán cỡ lớn, rất nhạt, ở góc ô | Ô truy cập nhanh, đầu trang |
+| `.toc-dots` | Hàng chấm dẫn của trang mục lục | Chuyên mục kiến thức |
+| `landing/SectionHeading` | Nhãn + tiêu đề + trục số + mô tả | Mọi section trang chủ |
+| `student/PageHero` | Đầu trang dùng chung: icon/ảnh, nhãn, tiêu đề, cột phải | Bài tập, Ôn tập, Thi thử, Lịch sử, Phân tích, Công cụ, Cài đặt |
+
+Quy tắc, mỗi cái đến từ một lỗi thật trong đợt này:
+
+- **`.ruler-edge` và `.kicker` nằm trong `@layer components`**, khác phần còn lại
+  của file. Quy tắc viết trần thắng mọi utility Tailwind v4 bất kể độ ưu tiên:
+  `.ruler-edge { position: relative }` viết trần đã đè `fixed` của thanh điều
+  hướng học sinh, và `.kicker` viết trần làm `text-amber-700` trên nhãn không có
+  tác dụng. Class nào mang giá trị MẶC ĐỊNH mà chỗ dùng cần đè được thì phải vào
+  layer.
+- **`.ruler-edge` không đứng chung phần tử với `.bento-rail`** — cả hai vẽ bằng
+  `::before`, cái viết sau đè cái viết trước.
+- **Nút trên bảng dùng teal SÁNG chữ tối** (`bg-teal-300 text-teal-950`), không
+  dùng `bg-teal-600 text-white` — teal đậm chìm vào mặt bảng cùng sắc.
+- **Nút teal đặc ngoài bảng luôn đi cặp `dark:bg-teal-500`**: khối sửa tương phản
+  dark mode đổi `text-white` trên nền đó sang teal-950. Thiếu cặp này thì dark
+  mode giữ teal-600 tối trên nền tối.
+- **Mỗi trang vẫn tối đa một bề mặt gradient** (trang chủ: nút "Đăng ký miễn
+  phí"; Hôm nay: nút việc-nên-làm; Phân tích: thẻ việc-nên-làm). Vệt phấn
+  `radial-gradient` của `.board` là chất liệu bảng, không phải bề mặt gradient.
+  Các nút ở header và nút nổi "Đăng ký học" đã bỏ dải `from-teal-600 to-teal-500`
+  (chữ trắng 2,4:1 ở đầu sáng) sang teal đặc.
+- **Hoạ tiết luôn `aria-hidden`**: ký hiệu `.glyph-mark`, trục số của
+  `SectionHeading`, và cả số thứ tự trong mục lục (`<ol>` đã nói thứ tự; để số
+  lọt vào tên link thì trình đọc màn hình đọc "không một Hàm số…"). Không đặt
+  `.glyph-mark` sau vòng tiến độ — nó lộ qua lòng vòng.
+- **Sửa `globals.css` lúc dev server đang tắt thì khởi động lại có thể nhận CSS
+  cũ** (gặp hai lần trong đợt này: class mới không có trong CSS trả về, dù biên
+  dịch trực tiếp thì có). Xoá `.next` rồi chạy lại `next dev`.
 
 ## Checklist UI
 

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 import ProgressRing, { type RingTone } from '@/components/viz/ProgressRing'
 import Sparkline from '@/components/viz/Sparkline'
+import PageHero from '@/components/student/PageHero'
 
 interface HistoryEntry {
   id: string
@@ -373,59 +374,51 @@ export default function HistoryPage() {
   return (
     <main className="min-h-screen p-4 lg:p-6">
       <div className="mx-auto max-w-5xl">
-        <header className="animate-dash-in bento-tile-lead mb-6 overflow-hidden">
-          <div className="paper-grid p-5 sm:p-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
-                  <Calendar className="h-7 w-7 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
-                  Lịch sử &amp; Thống kê
-                </h1>
-                <p className="mt-2 max-w-prose text-slate-600 dark:text-slate-300">
-                  Theo dõi tiến trình và phân tích điểm mạnh, điểm yếu của bạn.
-                </p>
-
-                {/* Đường điểm vẽ như đồ thị hàm số — mô-típ lấy từ chính môn học.
-                    Dưới 3 lần nộp thì Sparkline hiện chữ thay vì vẽ một "xu hướng"
-                    dựng từ hai điểm. */}
-                <div className="mt-4">
-                  <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Điểm {scoreTrend.length > 1 ? `${scoreTrend.length} lần gần nhất` : 'theo thời gian'}
-                  </p>
-                  <Sparkline
-                    values={scoreTrend}
-                    width={200}
-                    height={44}
-                    tone="teal"
-                    ariaLabel={
-                      scoreTrend.length
-                        ? `Xu hướng điểm ${scoreTrend.length} lần nộp gần nhất, mới nhất là ${scoreTrend[scoreTrend.length - 1].toFixed(1)} điểm`
-                        : 'Chưa có lần nộp nào để vẽ xu hướng điểm'
-                    }
-                    emptyText={hasHistory ? 'Cần ít nhất 3 lần nộp để vẽ xu hướng' : 'Chưa có lần nộp nào'}
-                  />
-                </div>
-              </div>
-
-              <div className="shrink-0 text-center">
-                <ProgressRing
-                  value={passRate}
-                  size={96}
-                  tone={passRate === null ? 'slate' : ratioTone(passRate).ring}
-                  caption="đạt"
-                  ariaLabel={
-                    passRate === null
-                      ? 'Chưa nộp bài nào nên chưa có tỷ lệ đạt'
-                      : `Tỷ lệ đạt ${passRate}%, tính trên ${totalAttempts} lần nộp`
-                  }
-                />
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  {hasHistory ? `${totalAttempts} lần nộp • đạt từ 5,0` : 'Chưa nộp bài nào'}
-                </p>
-              </div>
+        <PageHero
+          icon={Calendar}
+          kicker="Kết quả đã nộp"
+          title={<>Lịch sử &amp; Thống kê</>}
+          description="Theo dõi tiến trình và phân tích điểm mạnh, điểm yếu của bạn."
+          aside={
+            <div className="text-center">
+              <ProgressRing
+                value={passRate}
+                size={96}
+                tone={passRate === null ? 'slate' : ratioTone(passRate).ring}
+                caption="đạt"
+                ariaLabel={
+                  passRate === null
+                    ? 'Chưa nộp bài nào nên chưa có tỷ lệ đạt'
+                    : `Tỷ lệ đạt ${passRate}%, tính trên ${totalAttempts} lần nộp`
+                }
+              />
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {hasHistory ? `${totalAttempts} lần nộp • đạt từ 5,0` : 'Chưa nộp bài nào'}
+              </p>
             </div>
+          }
+        >
+          {/* Đường điểm vẽ như đồ thị hàm số — mô-típ lấy từ chính môn học.
+              Dưới 3 lần nộp thì Sparkline hiện chữ thay vì vẽ một "xu hướng"
+              dựng từ hai điểm. */}
+          <div className="mt-4">
+            <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+              Điểm {scoreTrend.length > 1 ? `${scoreTrend.length} lần gần nhất` : 'theo thời gian'}
+            </p>
+            <Sparkline
+              values={scoreTrend}
+              width={200}
+              height={44}
+              tone="teal"
+              ariaLabel={
+                scoreTrend.length
+                  ? `Xu hướng điểm ${scoreTrend.length} lần nộp gần nhất, mới nhất là ${scoreTrend[scoreTrend.length - 1].toFixed(1)} điểm`
+                  : 'Chưa có lần nộp nào để vẽ xu hướng điểm'
+              }
+              emptyText={hasHistory ? 'Cần ít nhất 3 lần nộp để vẽ xu hướng' : 'Chưa có lần nộp nào'}
+            />
           </div>
-        </header>
+        </PageHero>
 
         <div className="animate-dash-in-1 mb-6 flex w-fit gap-1 rounded-2xl border border-slate-200 bg-[var(--background-card)] p-1 dark:border-slate-700">
           {([
@@ -440,13 +433,15 @@ export default function HistoryPage() {
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
                 aria-pressed={active}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                   active
-                    ? 'bg-teal-600 text-white shadow-sm'
+                    ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-500'
                     : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
                 }`}
               >
-                <tab.icon className="h-4 w-4" aria-hidden="true" />
+                {/* Icon ẩn dưới `sm`: ba tab có icon rộng ~390px, quá khung
+                    điện thoại nên "Tổng quan" từng gãy làm hai dòng. */}
+                <tab.icon className="hidden h-4 w-4 sm:block" aria-hidden="true" />
                 {tab.label}
               </button>
             )
@@ -486,7 +481,7 @@ export default function HistoryPage() {
             </div>
 
             <section className="bento-tile p-5 sm:p-6">
-              <h2 className="mb-4 text-lg font-bold text-slate-800 dark:text-white">Thống kê theo mức độ</h2>
+              <h2 className="mb-4 font-baloo text-xl font-bold text-slate-800 dark:text-white">Thống kê theo mức độ</h2>
               <div className="space-y-4">
                 {difficultyStats.map(stat => (
                   <div key={stat.level}>
@@ -527,7 +522,7 @@ export default function HistoryPage() {
               <section className="bento-tile bento-rail p-5 sm:p-6" style={{ '--rail': '#f43f5e' } as React.CSSProperties}>
                 <div className="mb-4 flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-white">Phần cần cải thiện</h2>
+                  <h2 className="font-baloo text-xl font-bold text-slate-800 dark:text-white">Phần cần cải thiện</h2>
                 </div>
                 <ul className="space-y-3">
                   {weakAreas.map((area, index) => {
@@ -676,7 +671,7 @@ export default function HistoryPage() {
                 <p className="font-medium text-slate-700 dark:text-slate-200">Chưa có lịch sử làm bài</p>
                 <Link
                   href="/student/exams"
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:bg-teal-500 dark:hover:bg-teal-400 dark:focus:ring-offset-slate-800"
                 >
                   Chọn một đề để bắt đầu
                 </Link>

@@ -36,6 +36,7 @@ import {
   Palette,
 } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
+import PageHero from '@/components/student/PageHero'
 
 const FIELD_CLASS =
   'w-full rounded-xl border border-slate-200 bg-[var(--background-raised)] px-4 py-2.5 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white'
@@ -239,7 +240,10 @@ export default function StudentSettingsPage() {
     )
   }
 
-  const initial = (formData.fullName.trim()[0] || '?').toUpperCase()
+  /* Chữ cái đầu của TÊN GỌI — từ cuối trong họ tên tiếng Việt ("Nguyễn Văn An"
+     -> "A"), khớp với ô người dùng trên thanh điều hướng. Lấy ký tự đầu chuỗi
+     thì nửa lớp cùng mang chữ "N" của họ Nguyễn. */
+  const initial = (formData.fullName.trim().split(/\s+/).pop()?.charAt(0) || '?').toUpperCase()
 
   return (
     <main className="min-h-screen p-4 lg:p-6">
@@ -247,36 +251,33 @@ export default function StudentSettingsPage() {
         {/* Đầu trang mang luôn danh tính: tên, email, chữ cái đầu. Trang cài đặt cũ
             mở ra là một tiêu đề trơn rồi mới tới thẻ hồ sơ lặp lại đúng thông tin
             đó — hai lần nói cùng một chuyện. */}
-        <header className="animate-dash-in bento-tile-lead mb-6 overflow-hidden">
-          <div className="paper-grid p-5 sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-              <div
-                className="font-baloo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-2xl font-bold text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"
-                aria-hidden="true"
-              >
-                {initial}
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
-                  {formData.fullName || 'Chưa cập nhật tên'}
-                </h1>
-                <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">{formData.email}</p>
-                <p className="mt-2 flex flex-wrap gap-2 text-xs">
-                  {formData.school && (
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                      {formData.school}
-                    </span>
-                  )}
-                </p>
-              </div>
+        <PageHero
+          kicker="Tài khoản"
+          title={formData.fullName || 'Chưa cập nhật tên'}
+          description={<span className="block truncate text-sm">{formData.email}</span>}
+          glyph="θ"
+          media={
+            <div
+              className="font-baloo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-3xl font-bold text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"
+              aria-hidden="true"
+            >
+              {initial}
             </div>
-          </div>
-        </header>
+          }
+        >
+          {formData.school && (
+            <p className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-slate-300 bg-[var(--background-raised)] px-2.5 py-1 font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {formData.school}
+              </span>
+            </p>
+          )}
+        </PageHero>
 
         <div className="space-y-5">
           {/* Thông tin cá nhân */}
           <section className="bento-tile animate-dash-in-1 p-5 sm:p-6" aria-labelledby="profile-heading">
-            <h2 id="profile-heading" className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-white">
+            <h2 id="profile-heading" className="mb-4 flex items-center gap-2 font-baloo text-xl font-bold text-slate-800 dark:text-white">
               <User className="h-5 w-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
               Thông tin cá nhân
             </h2>
@@ -356,7 +357,7 @@ export default function StudentSettingsPage() {
                 type="button"
                 onClick={handleSaveProfile}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:bg-teal-400 dark:focus:ring-offset-slate-800"
+                className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-60 dark:bg-teal-500 dark:hover:bg-teal-400 dark:focus:ring-offset-slate-800"
               >
                 {saving ? (
                   <>
@@ -389,7 +390,7 @@ export default function StudentSettingsPage() {
 
           {/* Đổi mật khẩu */}
           <section className="bento-tile animate-dash-in-2 p-5 sm:p-6" aria-labelledby="password-heading">
-            <h2 id="password-heading" className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-white">
+            <h2 id="password-heading" className="mb-4 flex items-center gap-2 font-baloo text-xl font-bold text-slate-800 dark:text-white">
               <Lock className="h-5 w-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
               Đổi mật khẩu
             </h2>
@@ -465,7 +466,7 @@ export default function StudentSettingsPage() {
 
           {/* Giao diện */}
           <section className="bento-tile animate-dash-in-2 p-5 sm:p-6" aria-labelledby="theme-heading">
-            <h2 id="theme-heading" className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-white">
+            <h2 id="theme-heading" className="mb-4 flex items-center gap-2 font-baloo text-xl font-bold text-slate-800 dark:text-white">
               <Palette className="h-5 w-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
               Giao diện
             </h2>

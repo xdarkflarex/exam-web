@@ -63,10 +63,11 @@ docs/                  tài liệu chuẩn
 |---|---|
 | Auth/redirect/role | `src/middleware.ts`, `src/lib/auth/roles.ts`, `src/lib/auth/access.ts` |
 | Root providers/theme/math | `src/app/layout.tsx`, `src/app/providers.tsx`, `src/app/globals.css` |
-| Student shell | `src/app/(student)/layout.tsx`, `src/components/student/StudentSidebar.tsx` |
+| Student shell | `src/app/(student)/layout.tsx`, `src/components/student/StudentSidebar.tsx`; đầu trang các thẻ: `src/components/student/PageHero.tsx` |
 | Admin shell | `src/app/admin/layout.tsx`, `src/components/admin/AdminSidebar.tsx` |
 | Exam | `src/app/exam/**`, `src/components/ExamRunner.tsx`, `src/lib/exam/questions.ts`, `src/lib/exam/draft.ts` |
 | Trang chủ (khối đề) | `src/app/page.tsx`, `src/lib/landing/exam-catalog.ts`, `src/components/landing/ExamFilterChips.tsx` |
+| Trang chủ (khung section, chất liệu) | `src/components/landing/SectionHeading.tsx`; lớp `.board`, `.paper-grid`, `.ruler-edge`, `.kicker` ở khối "LỚP HỌC TOÁN" của `src/app/globals.css` — quy tắc dùng ở `docs/DESIGN_SYSTEM.md` |
 | Trang chủ (đếm ngược kỳ thi) | `src/lib/landing/exam-countdown.ts`, `src/components/landing/ExamCountdown.tsx`; sửa ngày ở `/admin/landing` → tab "Đếm ngược" (`site_settings['landing.exam_countdown']`) |
 | Đặt lại mật khẩu học sinh | `/admin/users` (nút chìa khoá), `src/components/admin/ResetPasswordModal.tsx`, `src/app/api/admin/reset-password/route.ts`, luật ở `src/lib/auth/password-reset.ts`, mật khẩu tạm ở `src/lib/auth/temp-password.ts`; quy trình ở `RUNBOOK.md` mục 14 |
 | Kết quả ôn tập theo đề | `/admin/practice-results`; tính ở `src/lib/analytics/practice-results.ts` (có test), đọc ở `practice-results-data.ts` (phân trang qua giới hạn 1000 dòng) |

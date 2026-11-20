@@ -42,6 +42,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { describeAttemptError } from '@/lib/exam/attempt-errors'
 import ProgressRing from '@/components/viz/ProgressRing'
+import PageHero from '@/components/student/PageHero'
 
 export type AssessmentMode = 'practice' | 'simulation'
 
@@ -91,8 +92,12 @@ function stamp(value: string | null | undefined): number {
 interface ModeConfig {
   /** Giá trị lọc `exams.exam_mode`. Đây là ranh giới giữa hai miền. */
   examMode: AssessmentMode
+  /** Nhãn nhỏ phía trên tiêu đề của đầu trang. */
+  kicker: string
   heading: string
   tagline: string
+  /** Ký hiệu toán làm hình nền đầu trang — thuần trang trí. */
+  glyph: string
   searchPlaceholder: string
   loadingText: string
   emptyAll: string
@@ -108,8 +113,10 @@ interface ModeConfig {
 const MODES: Record<AssessmentMode, ModeConfig> = {
   practice: {
     examMode: 'practice',
+    kicker: 'Luyện tập',
     heading: 'Ôn tập',
     tagline: 'Làm bài không giới hạn thời gian, tiến độ được lưu tự động.',
+    glyph: '∫',
     searchPlaceholder: 'Tìm đề ôn tập...',
     loadingText: 'Đang tải đề ôn tập...',
     emptyAll: 'Chưa có đề ôn tập nào dành cho bạn.',
@@ -127,8 +134,10 @@ const MODES: Record<AssessmentMode, ModeConfig> = {
   },
   simulation: {
     examMode: 'simulation',
+    kicker: 'Đề thi',
     heading: 'Thi thử',
     tagline: 'Làm bài có giới hạn thời gian, giống điều kiện thi thật.',
+    glyph: 'f(x)',
     searchPlaceholder: 'Tìm đề thi thử...',
     loadingText: 'Đang tải đề thi...',
     emptyAll: 'Chưa có đề thi thử nào dành cho bạn.',
@@ -386,50 +395,46 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
       <div className="mx-auto max-w-4xl">
         {/* Đầu trang: giấy kẻ ô + ba con số thật. Không gradient — trang này không
             có một hành động nào quan trọng hơn hẳn phần còn lại, nên suất gradient
-            duy nhất của trang (mục 7.2) để dành, không tiêu bừa. */}
-        <header className="animate-dash-in bento-tile-lead mb-6 overflow-hidden">
-          <div className="paper-grid p-5 sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800 dark:text-white sm:text-3xl">
-                  {mode === 'practice'
-                    ? <BookOpen className="h-7 w-7 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
-                    : <Timer className="h-7 w-7 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />}
-                  {config.heading}
-                  {studentGrade && (
-                    <span className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
-                      Lớp {studentGrade}
-                    </span>
-                  )}
-                </h1>
-                <p className="mt-2 max-w-prose text-slate-600 dark:text-slate-300">{config.tagline}</p>
-              </div>
-
-              <dl className="flex flex-wrap gap-2">
-                <SummaryChip label="đề" value={String(items.length)} />
-                {config.resumable && openCount > 0 && (
-                  <SummaryChip
-                    label="đang làm dở"
-                    value={String(openCount)}
-                    className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-                  />
-                )}
+            duy nhất của trang (mục 7.2) để dành, không tiêu bừa. Khung nằm ở
+            `PageHero`, dùng chung với các thẻ khác của khu học sinh. */}
+        <PageHero
+          icon={mode === 'practice' ? BookOpen : Timer}
+          kicker={config.kicker}
+          title={config.heading}
+          badge={
+            studentGrade ? (
+              <span className="rounded-full bg-teal-100 px-2.5 py-0.5 font-sans text-xs font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+                Lớp {studentGrade}
+              </span>
+            ) : undefined
+          }
+          description={config.tagline}
+          glyph={config.glyph}
+          aside={
+            <dl className="flex flex-wrap gap-2">
+              <SummaryChip label="đề" value={String(items.length)} />
+              {config.resumable && openCount > 0 && (
                 <SummaryChip
-                  label="đã hoàn thành"
-                  value={String(doneCount)}
-                  className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
+                  label="đang làm dở"
+                  value={String(openCount)}
+                  className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
                 />
-                {/* Chưa nộp bài nào thì hiện dấu gạch, không hiện "0,0" — 0 điểm là
-                    một kết quả, còn đây là chưa có kết quả. */}
-                <SummaryChip
-                  label="điểm cao nhất"
-                  value={topScore === null ? '—' : topScore.toFixed(1)}
-                  className="border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/30 dark:text-teal-200"
-                />
-              </dl>
-            </div>
-          </div>
-        </header>
+              )}
+              <SummaryChip
+                label="đã hoàn thành"
+                value={String(doneCount)}
+                className="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
+              />
+              {/* Chưa nộp bài nào thì hiện dấu gạch, không hiện "0,0" — 0 điểm là
+                  một kết quả, còn đây là chưa có kết quả. */}
+              <SummaryChip
+                label="điểm cao nhất"
+                value={topScore === null ? '—' : topScore.toFixed(1)}
+                className="border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/30 dark:text-teal-200"
+              />
+            </dl>
+          }
+        />
 
         <div className="animate-dash-in-1 mb-6 flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -454,7 +459,7 @@ export default function AssessmentListPage({ mode }: { mode: AssessmentMode }) {
                   aria-pressed={active}
                   className={`whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                     active
-                      ? 'bg-teal-600 text-white shadow-sm'
+                      ? 'bg-teal-600 text-white shadow-sm dark:bg-teal-500'
                       : 'border border-slate-200 bg-[var(--background-card)] text-slate-600 hover:border-teal-400 dark:border-slate-700 dark:text-slate-300'
                   }`}
                 >
@@ -500,7 +505,7 @@ function SummaryChip({ label, value, className }: { label: string; value: string
   return (
     <div
       className={`inline-flex flex-row-reverse items-baseline gap-2 rounded-xl border px-3 py-2 ${
-        className || 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+        className || 'border-slate-300 bg-[var(--background-raised)] text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
       }`}
     >
       <dt className="text-xs font-medium">{label}</dt>
@@ -679,7 +684,7 @@ function AchievementColumn({
         {state === 'in_progress' && item.inProgressAttemptId ? (
           <Link
             href={`/practice/${item.inProgressAttemptId}`}
-            className={`${buttonClass} bg-amber-600 hover:bg-amber-700 focus:ring-amber-500`}
+            className={`${buttonClass} bg-amber-700 hover:bg-amber-800 focus:ring-amber-500`}
           >
             <Play className="h-4 w-4" aria-hidden="true" />
             Tiếp tục
@@ -689,7 +694,7 @@ function AchievementColumn({
             type="button"
             onClick={() => onStartPractice(item.id)}
             disabled={starting}
-            className={`${buttonClass} bg-teal-600 hover:bg-teal-700 focus:ring-teal-500`}
+            className={`${buttonClass} bg-teal-600 hover:bg-teal-700 focus:ring-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400`}
           >
             {item.attemptCount > 0
               ? <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -699,7 +704,7 @@ function AchievementColumn({
         ) : (
           <Link
             href={`/exam/prepare/${item.id}`}
-            className={`${buttonClass} bg-teal-600 hover:bg-teal-700 focus:ring-teal-500`}
+            className={`${buttonClass} bg-teal-600 hover:bg-teal-700 focus:ring-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400`}
           >
             <Play className="h-4 w-4" aria-hidden="true" />
             {item.attemptCount > 0 ? config.againLabel : config.startLabel}

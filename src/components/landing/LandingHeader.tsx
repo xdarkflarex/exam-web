@@ -148,13 +148,18 @@ export default function LandingHeader({
           <div className="hidden md:block flex-1 min-w-0 lg:max-w-md lg:ml-auto">{searchForm(false)}</div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0 shrink-0">
+            {/* Hotline: dưới lg nằm trong menu thu gọn; từ lg nằm trên thanh — chỉ
+                icon ở 1024–1279px (thanh một tầng không đủ chỗ cho cả số), đủ số
+                từ xl. Số luôn có trong cây trợ năng nhờ `sr-only`, nên ở mọi bề
+                ngang link này đều có tên. */}
             {hotline && (
               <a
                 href={`tel:${hotline.replace(/\s/g, '')}`}
-                className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-all duration-200"
+                title={hotline}
+                className="hidden lg:flex items-center gap-2 p-2 xl:px-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-all duration-200"
               >
-                <Phone className="w-4 h-4" />
-                {hotline}
+                <Phone className="w-4 h-4" aria-hidden="true" />
+                <span className="sr-only xl:not-sr-only">{hotline}</span>
               </a>
             )}
             <ThemeToggle />

@@ -65,7 +65,11 @@ export default function KnowledgeTopicsGrid({
                       href="/learn"
                       className="group flex items-center gap-3 border-b border-dashed border-slate-300 py-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 dark:border-slate-600"
                     >
+                      {/* Số thứ tự là hình, không phải tên: `<ol>` đã cho trình đọc
+                          màn hình biết vị trí, để số lọt vào tên link thì mỗi
+                          mục bị đọc thành "không một Hàm số…". */}
                       <span
+                        aria-hidden="true"
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-baloo text-base font-bold tabular-nums transition-colors duration-200 ${
                           lead
                             ? 'bg-teal-600 text-white dark:bg-teal-500'
