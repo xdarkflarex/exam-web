@@ -94,6 +94,13 @@ Cách đã dùng, ghi ở đầu `globals.css`: ghi đè chính các class dư�
 - **Gradient cần override riêng.** `.bg-teal-600` không chạm nút gradient vì màu nằm ở `background-image`. Ghi đè `--tw-gradient-from` thì được, vì Tailwind v4 dựng `--tw-gradient-stops` từ nó.
 - **Đánh đổi phải biết:** trong light mode, `teal-600` không còn đúng là teal-600 của Tailwind. Ai tra bảng màu gốc sẽ thấy lệch.
 - **Còn nợ, đã đo:** chữ phụ `text-slate-500` đạt ~3.9:1, vẫn dưới 4.5 cho chữ nhỏ. Đẩy lên `slate-600` sẽ đạt chuẩn nhưng làm phẳng phân cấp chữ chính/phụ — đó là quyết định thiết kế, không phải việc sửa máy móc.
+- **Sửa thêm 2026-11-20**, chuyển tay từ nhánh chưa gộp `claude/design-system-extraction-y42xka` (viết 2026-09-27). Số đo dùng màu `oklch()` của Tailwind v4 trong `node_modules/tailwindcss/theme.css`, không dùng hex v3 (v4 `teal-700` là `#00786f`, v3 là `#0f766e`):
+  - Vòng focus và vòng "câu đang xem" `ring-teal-500` ở light mode chỉ 2,0–2,4:1 → ghi đè `--tw-ring-color` sang teal-700 trong khối sửa light mode của `globals.css` (4,4–5,4:1). Chỉ vòng đặc, đúng bốn biến thể đang dùng: `ring-`, `focus:`, `focus-visible:`, `has-[:focus-visible]:` — thêm biến thể mới (vd. `focus-within:`) thì phải thêm vào selector. Quầng mờ có `/opacity` đi kèm `focus:border-*` giữ nguyên; dark mode không đổi.
+  - Ô "đã làm" của `ExamSidebar`/`PracticeSidebar`: số trắng trên green-500/600 chỉ 2,2/3,2:1 → green-700 ở cả hai chế độ (4,95:1), hover green-800. `PracticeSidebar` có thêm `aria-label` "Câu N — đã làm/chưa làm", `aria-current` và vòng `focus-visible` như `ExamSidebar`.
+  - Avatar chữ cái đầu ở `/admin/users`, `/admin/access`, `/admin/students`, `/admin/students/[id]`, `/leaderboard`: chữ trắng trên teal-400/500 chỉ 1,9/2,4:1 → `from-teal-700 to-blue-700` (5,4 / 6,8:1).
+  - Banner "Thứ hạng của bạn" ở `/leaderboard` và đầu thẻ `/exam/prepare/[examId]` có chữ phụ nhỏ trắng/80, chỉ 2,0:1 ở đầu sáng → đầu teal xuống -800 (`from-teal-800 to-blue-700`, `from-teal-800 to-emerald-800`), chữ phụ ≥ 4,9:1.
+  - Bục vinh danh: chữ trắng trên bạc/vàng 1,5–2,6:1 → chữ `slate-800` / `amber-950` (≥ 5,6:1). Bục đồng vốn đã hiện amber-950 nhờ khối `.from-amber-500.text-white` của `globals.css`; đổi class chỉ để source nói đúng cái đang hiện.
+- **Quy tắc rút ra:** chữ trên gradient phải đạt chuẩn ở **cả hai đầu**, kể cả chữ phụ có độ trong suốt (`text-white/80` trên teal-700 chỉ còn 4,0:1 — vì thế banner dùng teal-800). Nền sáng (amber, yellow, kim loại) đi với chữ tối, không đi với chữ trắng.
 
 ## Chất liệu lớp học Toán (2026-11-15)
 

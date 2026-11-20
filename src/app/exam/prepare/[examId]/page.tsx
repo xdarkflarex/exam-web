@@ -293,7 +293,7 @@ export default function ExamPreparePage() {
         {/* Main Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in-up">
           {/* Header */}
-          <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-6 text-white">
+          <div className="bg-gradient-to-r from-teal-800 to-emerald-800 p-6 text-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                 <FileText className="w-6 h-6" />

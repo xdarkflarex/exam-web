@@ -470,7 +470,7 @@ export default function StudentDetailPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-blue-600 text-2xl font-bold text-white">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-700 to-blue-700 text-2xl font-bold text-white">
               {detail.student.fullName.charAt(0).toLocaleUpperCase('vi')}
             </div>
             <div className="min-w-0 flex-1">
